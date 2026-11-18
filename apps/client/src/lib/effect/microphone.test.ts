@@ -213,31 +213,36 @@ test.unit.stable(
     const withResolvers = vi.spyOn(Promise, 'withResolvers').mockImplementation(() => {
       throw new Error('Promise.withResolvers is unavailable');
     });
-    const onChunk = vi.fn();
-    const onError = vi.fn();
-    const capture = await captureMicrophone({
-      signal: new AbortController().signal,
-      chunkSeconds: 20,
-      onChunk,
-      onError
-    }).finally(() => withResolvers.mockRestore());
-    const worklet = WorkletNode.current;
 
-    expect(worklet.options.processorOptions).toEqual({ framesPerChunk: 320_000 });
+    try {
+      const onChunk = vi.fn();
+      const onError = vi.fn();
+      const capture = await captureMicrophone({
+        signal: new AbortController().signal,
+        chunkSeconds: 20,
+        onChunk,
+        onError
+      });
+      const worklet = WorkletNode.current;
 
-    worklet.deliver({ type: 'chunk', samples: Float32Array.of(0.5) });
-    expect(onChunk).toHaveBeenCalledExactlyOnceWith([0.5]);
-    expect(fixture.active()).toBe(true);
-    expect(worklet.commands).toEqual(['acknowledge']);
+      expect(worklet.options.processorOptions).toEqual({ framesPerChunk: 320_000 });
 
-    const tail = capture.stop();
+      worklet.deliver({ type: 'chunk', samples: Float32Array.of(0.5) });
+      expect(onChunk).toHaveBeenCalledExactlyOnceWith([0.5]);
+      expect(fixture.active()).toBe(true);
+      expect(worklet.commands).toEqual(['acknowledge']);
 
-    expect(capture.stop()).toBe(tail);
-    expect(worklet.commands).toEqual(['acknowledge', 'stop']);
-    worklet.deliver({ type: 'stopped', samples: Float32Array.of(0.25) });
-    await expect(tail).resolves.toEqual([0.25]);
-    expect(fixture.active()).toBe(false);
-    expect(onError).not.toHaveBeenCalled();
+      const tail = capture.stop();
+
+      expect(capture.stop()).toBe(tail);
+      expect(worklet.commands).toEqual(['acknowledge', 'stop']);
+      worklet.deliver({ type: 'stopped', samples: Float32Array.of(0.25) });
+      await expect(tail).resolves.toEqual([0.25]);
+      expect(fixture.active()).toBe(false);
+      expect(onError).not.toHaveBeenCalled();
+    } finally {
+      withResolvers.mockRestore();
+    }
   }
 );
 
