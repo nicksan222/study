@@ -13,6 +13,8 @@ export function pageTestValues(locale: Locale = 'english'): RpcFixtureValues {
   const snapshots: RpcFixtureValues = {
     'system.health': { protocolVersion: 1, workersRunning: true, testMode: false },
 
+    'settings.modelUpdates': [],
+    'settings.modelCatalog': { models: {}, recommendations: [] },
     'settings.appSettings': {
       language: locale === 'italian' ? 2 : 1,
       appearance: 3,

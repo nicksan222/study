@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ModelTier, StudyError } from '@study/contracts';
+import type { StudyError } from '@study/contracts';
 import type { Effect, Schema } from 'effect';
 
 import type { AiModel } from '#server/platform/ai/model';
@@ -27,24 +27,12 @@ export interface ApiKeyModelOptions {
 export interface ApiKeyProvider {
   readonly id: string;
   readonly name: string;
-  readonly models: readonly string[];
-  readonly defaults: Readonly<Record<ModelTier, string>>;
+  readonly catalogId: string;
   readonly createModel: (options: ApiKeyModelOptions) => AiModel;
 }
 
-/** Model tuples infer the permitted IDs; defaults cannot introduce undeclared models. */
-export type ProviderDefinition<
-  Id extends string,
-  Models extends readonly [string, ...string[]]
-> = Omit<ApiKeyProvider, 'id' | 'models' | 'defaults'> & {
-  readonly id: Id;
-  readonly models: Models;
-  readonly defaults: Readonly<Record<ModelTier, NoInfer<Models[number]>>>;
-};
-
-export function defineApiKeyProvider<
-  const Id extends string,
-  const Models extends readonly [string, ...string[]]
->(definition: ProviderDefinition<Id, Models>): ProviderDefinition<Id, Models> {
-  return definition;
+export function defineApiKeyProvider(
+  definition: Omit<ApiKeyProvider, 'catalogId'> & { readonly catalogId?: string }
+): ApiKeyProvider {
+  return { ...definition, catalogId: definition.catalogId ?? definition.id };
 }

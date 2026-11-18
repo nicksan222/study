@@ -1,4 +1,4 @@
-import { LlmModel } from '@study/contracts';
+import { chatGptModelIds, LlmModel } from '@study/contracts';
 import type { TierSetup } from '@study/contracts';
 import { RetryButton, Button, Loading, Settings, SignInActions, Spinner } from '@study/ui';
 
@@ -100,8 +100,21 @@ function AccountActions({ model }: { model: AiSettingsModel }) {
   );
 }
 
-export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
+const setupKey = ({ provider, model }: TierSetup) => JSON.stringify([provider, model]);
+
+export function AiModelSettingsView({
+  model,
+  refreshFailed,
+  refreshing,
+  retryRefresh
+}: {
+  model: AiSettingsModel;
+  refreshFailed?: boolean;
+  refreshing?: boolean;
+  retryRefresh?: () => void;
+}) {
   const { t } = useI18n();
+  const hasCatalogModels = Object.values(model.catalog ?? {}).some((models) => models.length > 0);
   const choices: { setup: TierSetup; provider: string; model: string; disabled: boolean }[] = [
     {
       setup: { provider: 1 },
@@ -110,81 +123,81 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
       disabled: !model.data?.status.signedIn
     },
     ...[
-      { model: LlmModel.GPT6_LUNA, label: t('AiSettingsLuna') },
-      { model: LlmModel.GPT61_SOL, label: t('AiSettingsSol') },
-      { model: LlmModel.GPT6_ASTRA, label: t('AiSettingsAstra') }
-    ].map(({ model: modelId, label }) => ({
-      setup: { provider: 1 as const, model: modelId },
+      { model: LlmModel.LUNA, label: t('AiSettingsLuna') },
+      { model: LlmModel.SOL, label: t('AiSettingsSol') }
+    ]
+      .filter(({ model: id }) => model.catalog?.['1']?.includes(chatGptModelIds[id]) ?? true)
+      .map(({ model: modelId, label }) => ({
+        setup: { provider: 1 as const, model: modelId },
+        provider: t('AiSettingsChatGpt'),
+        model: label,
+        disabled: !model.data?.status.signedIn
+      })),
+    ...(model.catalog?.['1'] ?? []).map((id) => ({
+      setup: { provider: 1 as const, model: id },
       provider: t('AiSettingsChatGpt'),
-      model: label,
+      model: id,
       disabled: !model.data?.status.signedIn
     })),
-    ...(model.data?.providers ?? []).flatMap((provider) => [
-      {
-        setup: { provider: provider.id },
-        provider: t('AiSettingsProviderBrand', { provider: provider.name }),
-        model: t('AiSettingsDefaultModel'),
-        disabled: !provider.configured
-      },
-      ...provider.models.map((id) => ({
+    ...(model.data?.providers ?? []).flatMap((provider) =>
+      (model.catalog?.[provider.id] ?? []).map((id) => ({
         setup: { provider: provider.id, model: id },
         provider: t('AiSettingsProviderBrand', { provider: provider.name }),
         model: id,
         disabled: !provider.configured
       }))
-    ])
+    )
   ];
+  const canBrowse = hasCatalogModels || choices.some((option) => !option.disabled);
 
   return (
     <>
       <AiSettingsStatus model={model} />
       {model.data && (
         <Settings.Section title={t('AiSettingsModels')}>
+          <ModelCatalogStatus
+            model={model}
+            refreshFailed={refreshFailed}
+            refreshing={refreshing}
+            retryRefresh={retryRefresh}
+          />
           <Settings.Group>
             {tiers.map(({ tier, title, description }) => {
               const setup = model.data!.settings[tier];
-              const options = choices.filter(
-                (option) =>
-                  !option.disabled ||
-                  (option.setup.provider === setup.provider && option.setup.model === setup.model)
-              );
-              let selected = options.findIndex(
-                (option) =>
-                  option.setup.provider === setup.provider && option.setup.model === setup.model
-              );
+              const options = new Map(choices.map((option) => [setupKey(option.setup), option]));
+              const selected = setupKey(setup);
+              const recommended = model.recommendations?.find((entry) => entry.tier === tier);
 
-              // Keep saved custom models selectable even when absent from the provider catalog.
-              if (selected === -1 && typeof setup.provider === 'string') {
-                const provider = model.data!.providers.find((entry) => entry.id === setup.provider);
-
-                selected = options.length;
-                options.push({
-                  setup,
-                  provider: t('AiSettingsProviderBrand', {
-                    provider: provider?.name ?? setup.provider
-                  }),
-                  model: String(setup.model ?? t('AiSettingsDefaultModel')),
-                  disabled: !provider?.configured
-                });
-              }
+              if (!options.has(selected)) options.set(selected, savedChoice(model, setup, t));
 
               return (
                 <Settings.SelectRow
                   key={tier}
                   title={t(title)}
                   description={t(description)}
-                  value={String(selected)}
-                  options={options.map((option, index) => ({
-                    value: String(index),
-                    disabled: option.disabled,
-                    label: t('AiSettingsModelOption', {
-                      provider: option.provider,
-                      model: option.model
-                    })
-                  }))}
-                  disabled={model.pending || options.every((option) => option.disabled)}
+                  value={selected}
+                  options={Array.from(options, ([value, option]) => {
+                    const { provider, model: id } = option.setup;
+                    const fallback =
+                      provider === 1 && (tier === 'tiny' ? LlmModel.LUNA : LlmModel.SOL);
+                    const suggestion =
+                      provider === recommended?.provider
+                        ? recommended.model
+                        : (model.suggestions?.[String(provider)]?.[tier] ?? fallback);
+                    const label =
+                      id === suggestion
+                        ? t('AiSettingsRecommendedModel', { model: option.model })
+                        : option.model;
+
+                    return {
+                      value,
+                      disabled: option.disabled,
+                      label: t('AiSettingsModelOption', { provider: option.provider, model: label })
+                    };
+                  })}
+                  disabled={model.pending || !canBrowse}
                   onValueChange={(value) => {
-                    const option = options.find((_entry, index) => String(index) === value);
+                    const option = options.get(value);
 
                     if (option && !option.disabled) model.setSetup(tier, option.setup);
                   }}
@@ -195,6 +208,57 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
         </Settings.Section>
       )}
     </>
+  );
+}
+
+function savedChoice(model: AiSettingsModel, setup: TierSetup, t: ReturnType<typeof useI18n>['t']) {
+  const provider = model.data?.providers.find((entry) => entry.id === setup.provider);
+
+  return {
+    setup,
+    provider:
+      typeof setup.provider === 'number'
+        ? t('AiSettingsChatGpt')
+        : t('AiSettingsProviderBrand', { provider: provider?.name ?? setup.provider }),
+    model:
+      typeof setup.model === 'number'
+        ? chatGptModelIds[setup.model]
+        : (setup.model ?? t('AiSettingsChooseModel')),
+    disabled:
+      typeof setup.provider === 'number'
+        ? !model.data?.status.signedIn
+        : !setup.model || !provider?.configured
+  };
+}
+
+function ModelCatalogStatus({
+  model,
+  refreshFailed,
+  refreshing,
+  retryRefresh
+}: {
+  model: AiSettingsModel;
+  refreshFailed?: boolean;
+  refreshing?: boolean;
+  retryRefresh?: () => void;
+}) {
+  const { t } = useI18n();
+
+  if (!refreshFailed && !model.catalogError) return null;
+
+  return (
+    <Settings.Status
+      action={
+        <RetryButton
+          variant="outline"
+          label={t('Retry')}
+          disabled={refreshing}
+          onClick={retryRefresh ?? model.retryCatalog}
+        />
+      }
+    >
+      {t('AiSettingsCatalogFailed')}
+    </Settings.Status>
   );
 }
 

@@ -18,11 +18,5 @@ import { createGoogleModel } from './google-model.ts';
 export const google = defineApiKeyProvider({
   id: 'google',
   name: 'Google Gemini',
-  models: ['gemini-3.5-flash-lite', 'gemini-3.8-flash'],
-  defaults: {
-    tiny: 'gemini-3.5-flash-lite',
-    medium: 'gemini-3.8-flash',
-    smart: 'gemini-3.8-flash'
-  },
   createModel: createGoogleModel
 });

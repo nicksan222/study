@@ -19,7 +19,14 @@ import {
   defaultQuizSettings
 } from '@study/contracts';
 import { sql } from '@study/db';
-import { admissionLayer, makeAdmission, ServerContext, Database } from '@study/server';
+import {
+  admissionLayer,
+  AuthManager,
+  ChatGptSession,
+  makeAdmission,
+  ServerContext,
+  Database
+} from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -28,6 +35,24 @@ import { Settings } from '#server/features/settings/index';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { SettingsRpcLive } from './index.ts';
+
+const sessionLayer = (request?: ChatGptSession['Service']['request']) =>
+  Layer.effect(
+    ChatGptSession,
+    Effect.acquireRelease(
+      Effect.sync(() => ({
+        issuer: 'https://login.example.test',
+        request,
+        manager: new AuthManager({
+          issuer: 'https://login.example.test',
+          saveRefresh: async () => {}
+        })
+      })),
+      ({ manager }) => Effect.promise(() => manager.dispose())
+    )
+  );
+
+const testSession = sessionLayer();
 
 test.server.stable(
   'settings RPC exposes typed settings and maps service failures',
@@ -38,6 +63,7 @@ test.server.stable(
     const context = new ServerContext(await location.open());
     const handlers = SettingsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provide(Settings.layer),
+      Layer.provide(testSession),
       Layer.provide(admissionLayer(makeAdmission())),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -131,6 +157,7 @@ test.server.stable(
     const owner = makeAdmission({ concurrency: 2, maxWaiting: 2 });
     const handlers = SettingsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provide(Settings.layer),
+      Layer.provide(testSession),
       Layer.provide(admissionLayer(owner)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -215,6 +242,107 @@ test.server.stable(
             yield* Fiber.join(fourth);
           }).pipe(Effect.provide(handlers))
         )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.server.stable(
+  'model procedures scope catalogs and offers to the current ChatGPT account',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    let current = 'gpt-6.2-sol';
+    let denied = false;
+    const session = sessionLayer(async (input) =>
+      String(input) === 'https://models.dev/api.json'
+        ? Response.json({})
+        : denied
+          ? new Response(null, { status: 403 })
+          : Response.json({ models: [{ slug: current, visibility: 'list' }] })
+    );
+    const handlers = SettingsRpcLive.pipe(
+      Layer.provide(testLiveQueries),
+      Layer.provide(Settings.layer),
+      Layer.provide(admissionLayer(makeAdmission())),
+      Layer.provideMerge(session),
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* RpcTest.makeClient(SettingsRpc, { flatten: true });
+            const { manager } = yield* ChatGptSession;
+            const signIn = (subject: string) =>
+              Effect.promise(() =>
+                manager.replace(
+                  { subject, clientId: 'test', refreshToken: null, sharing: true },
+                  { accessToken: subject, expiresIn: 3600 }
+                )
+              );
+
+            yield* signIn('account-a');
+            expect(yield* client('settings.refreshModelCatalog', {})).toEqual({
+              apiAvailable: true,
+              chatAvailable: true
+            });
+            expect((yield* client('settings.modelCatalog', {})).models['1']).toEqual([current]);
+            const invalid = { tier: 'medium', setup: { provider: 1, model: 1 } } as const;
+
+            expect((yield* Effect.flip(client('settings.saveModelTier', invalid))).kind).toBe(
+              'invalid_input'
+            );
+            expect(
+              (yield* Effect.flip(
+                client('settings.saveModelTier', {
+                  ...invalid,
+                  setup: { provider: 1, model: 'gpt-6-luna' }
+                })
+              )).kind
+            ).toBe('invalid_input');
+            const [initial] = (yield* client('settings.modelUpdates', {})).filter(
+              ({ tier }) => tier === 'medium'
+            );
+
+            yield* client('settings.dismissModelUpdate', initial!);
+            current = 'gpt-6.3-sol';
+            yield* client('settings.refreshModelCatalog', {});
+            const [offer] = (yield* client('settings.modelUpdates', {})).filter(
+              ({ tier }) => tier === 'medium'
+            );
+
+            expect((yield* Effect.flip(client('settings.applyModelUpdate', initial!))).kind).toBe(
+              'invalid_input'
+            );
+            denied = true;
+            expect((yield* client('settings.refreshModelCatalog', {})).chatAvailable).toBe(false);
+            expect((yield* client('settings.modelCatalog', {})).models['1']).toEqual([current]);
+            yield* signIn('account-b');
+            expect((yield* client('settings.modelCatalog', {})).models['1']).toBeUndefined();
+            expect((yield* Effect.flip(client('settings.applyModelUpdate', offer!))).kind).toBe(
+              'invalid_input'
+            );
+            yield* client('settings.refreshModelCatalog', {});
+            expect((yield* client('settings.modelCatalog', {})).models['1']).toBeUndefined();
+            denied = false;
+            yield* client('settings.refreshModelCatalog', {});
+            const [newOffer] = (yield* client('settings.modelUpdates', {})).filter(
+              ({ tier }) => tier === 'medium'
+            );
+
+            yield* client('settings.applyModelUpdate', newOffer!);
+            yield* client('settings.saveModelTier', {
+              tier: 'smart',
+              setup: { provider: 1, model: current }
+            });
+            expect((yield* client('settings.llmSettings', {})).medium.model).toBe(current);
+          })
+        ).pipe(Effect.provide(handlers))
       );
     } finally {
       context.close();

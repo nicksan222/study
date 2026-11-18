@@ -66,19 +66,31 @@ function accessToken(value: string, lifetimeSeconds: number, clock: Clock.Clock)
   };
 }
 
-class Session {
+export interface ChatGptCredentials {
+  readonly clock: Clock.Clock;
+  token(): Promise<string>;
+  refused(token: string): void;
+}
+
+class Session implements ChatGptCredentials {
+  readonly id = Symbol();
+  readonly catalogAccount: string;
   private account: Account;
   private access?: Access;
   private dirty = false;
   private persistedRefreshToken: string | null;
-  private active = true;
+  private readonly lifetime = new AbortController();
+  readonly signal = this.lifetime.signal;
   private pending?: Promise<string>;
   private readonly knownTokens = new Set<string>();
   private options: AuthOptions;
-  private readonly clock: Clock.Clock;
+  readonly clock: Clock.Clock;
 
   constructor(account: Account, options: AuthOptions, seed?: AccessSeed) {
     this.account = { ...account };
+    this.catalogAccount = new Bun.CryptoHasher('sha256')
+      .update(JSON.stringify([account.subject, account.clientId]))
+      .digest('hex');
     this.persistedRefreshToken = account.refreshToken;
 
     if (account.refreshToken) this.knownTokens.add(account.refreshToken);
@@ -90,7 +102,7 @@ class Session {
   }
 
   stop(): void {
-    this.active = false;
+    this.lifetime.abort(new StudyError('auth', 'ChatGPT session invalidated'));
     this.access = undefined;
   }
 
@@ -113,11 +125,11 @@ class Session {
   }
 
   private assertActive(): void {
-    if (!this.active) throw new StudyError('auth', 'ChatGPT session invalidated');
+    this.signal.throwIfAborted();
   }
 
   token(): Promise<string> {
-    this.assertActive();
+    if (this.signal.aborted) return Promise.reject(this.signal.reason);
 
     if (!this.account.sharing)
       return Promise.reject(new StudyError('auth', 'ChatGPT plan is not shared'));
@@ -268,11 +280,19 @@ export class AuthManager {
     return operation;
   }
 
-  token(): Promise<string> {
-    if (!this.accepting || !this.session)
-      return Promise.reject(new StudyError('auth', 'ChatGPT is not signed in'));
+  catalogAccount(): string | null {
+    return this.accepting ? (this.session?.catalogAccount ?? null) : null;
+  }
 
-    return this.session.token();
+  /** Bind catalog lookup and inference to the same sign-in across account changes. */
+  credentials(): ChatGptCredentials & { readonly id: symbol; readonly signal: AbortSignal } {
+    if (!this.accepting || !this.session) throw new StudyError('auth', 'ChatGPT is not signed in');
+
+    return this.session;
+  }
+
+  async token(): Promise<string> {
+    return this.credentials().token();
   }
 
   refused(token: string): void {

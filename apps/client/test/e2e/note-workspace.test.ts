@@ -262,6 +262,7 @@ test.browser.stable(
           'Study reminder: review chromosome inheritance.'
         );
         await expect(pageEditor.getByRole('heading', { level: 1 })).toHaveText('Cell division');
+        await expect(page.getByText(copy.NoteAutosaved, { exact: true })).toBeVisible();
       }
     });
     await page.goto(url);

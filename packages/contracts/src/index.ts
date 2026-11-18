@@ -575,17 +575,26 @@ export {
 } from './recordings/rpc.ts';
 export { recordingPostSchema, recordingSchema, recordingViewSchema } from './recordings/schemas.ts';
 export { endpoints, StudyRpc } from './rpc.ts';
+export {
+  modelUpdateSchema,
+  modelCatalogSchema,
+  modelSuggestionsSchema
+} from './settings/model-updates.ts';
+export type { ModelUpdate, ModelSuggestions } from './settings/model-updates.ts';
 export { settingsEndpoints, SettingsRpc } from './settings/rpc.ts';
 export type { AgentRuleKey, ModelTier } from './settings/schemas.ts';
 export {
   AgentRule,
   agentRulesSchema,
+  modelIdSchema,
   aiProviderSchema,
   apiKeyInputSchema,
   appearancePreferencesSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   llmSettingsSchema,
+  modelTiers,
+  saveModelTierSchema,
   materialSettingsSchema,
   maxAgentRuleLength,
   quizSettingsSchema,
@@ -617,6 +626,7 @@ export {
   defaultSidebarSettings,
   defaultWorkspacePreferences,
   Language,
+  chatGptModelIds,
   LlmModel,
   LlmProvider,
   practiceGenerationSettings,

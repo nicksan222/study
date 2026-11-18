@@ -18,14 +18,12 @@ const data = {
     {
       id: 'anthropic',
       name: 'Anthropic',
-      models: ['model'],
-      defaults: { tiny: 'model', medium: 'model', smart: 'model' },
       configured: true
     }
   ],
   settings: {
     tiny: { provider: 1 as const },
-    medium: { provider: 'anthropic' },
+    medium: { provider: 'anthropic', model: 'model' },
     smart: { provider: 1 as const }
   }
 };

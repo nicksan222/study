@@ -47,5 +47,5 @@ export function getApiKeyProvider(id: string): ApiKeyProvider {
 }
 
 export function providerCatalog() {
-  return apiKeyProviders.map(({ id, name, models, defaults }) => ({ id, name, models, defaults }));
+  return apiKeyProviders.map(({ id, name }) => ({ id, name }));
 }

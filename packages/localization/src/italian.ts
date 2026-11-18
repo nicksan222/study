@@ -711,6 +711,12 @@ export const italian = Object.freeze({
   DataRestoreFailedHelp:
     'Il ripristino non è stato completato. Verifica lo stato prima di riprovare.',
   NotificationsLabel: 'Notifiche',
+  ModelUpdateAvailable: 'Nuova versione del modello',
+  ModelUpdateOffer: 'Per {tier} è disponibile {model}. Vuoi sostituire {previous}?',
+  ModelSuggestionOffer: 'Vuoi usare {model} per {tier}?',
+  ModelUpdateAction: 'Aggiorna modello',
+  ModelUpdateFailed: 'Impossibile aggiornare il modello',
+  AiSettingsRecommendedModel: '{model} · Consigliato',
   DataRestoreConfirmationWord: 'ripristina',
   DataRestoreConfirmationInstruction:
     'Digita {word} per sostituire tutto il materiale con questo backup.',
@@ -1512,6 +1518,8 @@ export const italian = Object.freeze({
   AiSettingsKeyMissing: 'Nessuna chiave salvata.',
   AiSettingsModel: 'Modello',
   AiSettingsModels: 'Modelli per attività',
+  AiSettingsCatalogFailed: 'Impossibile aggiornare il catalogo dei modelli.',
+  AiSettingsChooseModel: 'Scegli un modello',
   AiSettingsDefaultModel: 'Usa predefinito',
   AiSettingsTiny: 'Attività rapide',
   AiSettingsTinyDescription: 'Per titoli e altre attività brevi.',
@@ -1519,9 +1527,8 @@ export const italian = Object.freeze({
   AiSettingsMediumDescription: 'Per risposte e attività di studio quotidiane.',
   AiSettingsSmart: 'Attività complesse',
   AiSettingsSmartDescription: 'Per ragionamento e materiale di studio complesso.',
-  AiSettingsLuna: 'GPT-6 Luna',
-  AiSettingsSol: 'GPT-6.1 Sol',
-  AiSettingsAstra: 'GPT-6 Astra',
+  AiSettingsLuna: 'Preferisci Luna',
+  AiSettingsSol: 'Preferisci Sol',
   GeneralSettingsTitle: 'Generali',
   GeneralSettingsLanguage: 'Lingua',
   GeneralSettingsLanguageDescription:
@@ -2403,9 +2410,6 @@ export const italian = Object.freeze({
   LlmTierSmartSubtitle: 'Gestisce attività complesse, dove la qualità conta più della velocità.',
   LlmModelHint:
     'Ogni livello usa il proprio modello consigliato, a meno che tu non ne scelga un altro.',
-  ModelGpt6Luna: 'GPT-6 Luna',
-  ModelGpt61Sol: 'GPT-6.1 Sol',
-  ModelGpt6Astra: 'GPT-6 Astra',
   LlmTierTestFailed: 'Questo modello non ha accettato la richiesta di prova.',
   LlmModels: 'Modelli per attività',
   LlmChatGptHint:

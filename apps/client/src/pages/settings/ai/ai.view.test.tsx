@@ -21,6 +21,11 @@ test.unit.beforeEach(async ({ mock }) => {
 
 function settingsModel({ vi }: Pick<test.unit.Context, 'vi'>): AiSettingsModel {
   return {
+    catalog: undefined,
+    catalogError: false,
+    retryCatalog: vi.fn(),
+    suggestions: undefined,
+    recommendations: undefined,
     data: {
       status: { signedIn: true, email: 'learner@example.com', sharing: false },
       providers: [],
@@ -75,16 +80,12 @@ function withAnthropic({ vi }: Pick<test.unit.Context, 'vi'>) {
       {
         id: 'anthropic',
         name: 'Anthropic',
-        configured: true,
-        models: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'],
-        defaults: {
-          tiny: 'claude-haiku-5-5',
-          medium: 'claude-sonnet-5-5',
-          smart: 'claude-opus-5-5'
-        }
+        configured: true
       }
     ]
   };
+
+  model.catalog = { anthropic: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'] };
 
   return model;
 }
@@ -102,10 +103,19 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'model dropdowns offer registered provider models and commit the selected ID',
+  'model dropdowns offer discovered provider models and commit the selected ID',
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
 
+    model.catalog = { anthropic: ['claude-haiku-next', ...model.catalog!.anthropic!] };
+    model.recommendations = [
+      {
+        tier: 'tiny',
+        provider: 'anthropic',
+        previousModel: 'claude-haiku-5-5',
+        model: 'claude-haiku-next'
+      }
+    ];
     render(<AiModelSettingsView model={model} />);
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
@@ -113,13 +123,13 @@ test.unit.stable(
       (await screen.findAllByRole('option')).map((option) => option.textContent)
     ).toStrictEqual([
       'ChatGPT — Usa predefinito',
-      'ChatGPT — GPT-6 Luna',
-      'ChatGPT — GPT-6.1 Sol',
-      'ChatGPT — GPT-6 Astra',
-      'Anthropic — Usa predefinito',
+      'ChatGPT — Preferisci Luna · Consigliato',
+      'ChatGPT — Preferisci Sol',
+      'Anthropic — claude-haiku-next · Consigliato',
       'Anthropic — claude-haiku-5-5',
       'Anthropic — claude-sonnet-5-5',
-      'Anthropic — claude-opus-5-5'
+      'Anthropic — claude-opus-5-5',
+      'Anthropic — Scegli un modello'
     ]);
     await userEvent.click(
       await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' })
@@ -171,7 +181,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'signed-out ChatGPT is absent unless it is the saved choice, which stays disabled',
+  'signed-out ChatGPT models remain visible with disabled choices',
   async ({ render, userEvent, screen, expect, vi }) => {
     const model = withAnthropic({ vi });
 
@@ -179,21 +189,27 @@ test.unit.stable(
     render(<AiModelSettingsView model={model} />);
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
     expect(
-      await screen.findByRole('option', { name: 'Anthropic — Usa predefinito' })
-    ).toBeEnabled();
-    expect(screen.queryByRole('option', { name: /ChatGPT/ })).not.toBeInTheDocument();
+      await screen.findByRole('option', { name: 'Anthropic — claude-haiku-5-5' })
+    ).not.toHaveAttribute('aria-disabled', 'true');
+
+    for (const option of screen.getAllByRole('option', { name: /ChatGPT/ }))
+      expect(option).toHaveAttribute('aria-disabled', 'true');
+
     await userEvent.keyboard('{Escape}');
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività quotidiane' }));
     expect(
       await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' })
     ).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.queryByRole('option', { name: 'ChatGPT — GPT-6 Luna' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'ChatGPT — Preferisci Luna' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     expect(model.setSetup).not.toHaveBeenCalled();
   }
 );
 
 test.unit.stable(
-  'an API provider without a key retains only its disabled saved model',
+  'an API provider without a key lists its models as disabled',
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
     const provider = model.data!.providers[0]!;
@@ -214,12 +230,14 @@ test.unit.stable(
     const saved = await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' });
 
     expect(saved).toHaveAttribute('aria-disabled', 'true');
-    expect(
-      screen.queryByRole('option', { name: 'Anthropic — Usa predefinito' })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Anthropic — claude-haiku-5-5' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     await userEvent.click(saved);
     expect(model.setSetup).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' }));
@@ -228,8 +246,8 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'without credentials all saved choices remain visible and controls are disabled',
-  ({ render, screen, expect, vi }) => {
+  'without credentials the catalog can be browsed and model choices stay disabled',
+  async ({ render, screen, expect, userEvent, vi }) => {
     const model = withAnthropic({ vi });
 
     model.data = {
@@ -239,14 +257,59 @@ test.unit.stable(
     };
     render(<AiModelSettingsView model={model} />);
 
-    for (const picker of screen.getAllByRole('combobox')) expect(picker).toBeDisabled();
-
     expect(screen.getByRole('combobox', { name: 'Attività rapide' })).toHaveTextContent(
-      'Anthropic — Usa predefinito'
+      'Anthropic — Scegli un modello'
     );
     expect(screen.getByRole('combobox', { name: 'Attività quotidiane' })).toHaveTextContent(
       'ChatGPT — Usa predefinito'
     );
+    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
+
+    for (const name of model.catalog!.anthropic!)
+      expect(
+        await screen.findByRole('option', { name: `Anthropic — ${name}` })
+      ).toBeInTheDocument();
+
+    for (const option of await screen.findAllByRole('option'))
+      expect(option).toHaveAttribute('aria-disabled', 'true');
+
     expect(model.setSetup).not.toHaveBeenCalled();
+  }
+);
+
+test.unit.stable(
+  'keeps an open picker option tied to the same model when discovery inserts a row',
+  async ({ render, screen, expect, userEvent, vi }) => {
+    const model = withAnthropic({ vi });
+    const view = render(<AiModelSettingsView model={model} />);
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
+    const existing = await screen.findByRole('option', { name: 'Anthropic — claude-sonnet-5-5' });
+
+    model.catalog = { anthropic: ['new-first', ...model.catalog!.anthropic!] };
+    view.rerender(<AiModelSettingsView model={model} />);
+    expect(screen.getByRole('option', { name: 'Anthropic — new-first' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })).toBe(existing);
+    await userEvent.click(existing);
+    expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('tiny', {
+      provider: 'anthropic',
+      model: 'claude-sonnet-5-5'
+    });
+  }
+);
+
+test.unit.stable(
+  'a failed catalog query keeps cached options available for retry',
+  async ({ render, screen, expect, userEvent, vi }) => {
+    const model = withAnthropic({ vi });
+
+    model.catalogError = true;
+    render(<AiModelSettingsView model={model} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Riprova' }));
+    expect(model.retryCatalog).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
+    expect(
+      await screen.findByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })
+    ).toBeInTheDocument();
   }
 );

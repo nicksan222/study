@@ -24,6 +24,8 @@ export type Journey = {
 type Fixtures = {
   study: Awaited<ReturnType<typeof createStudyMaterials>>;
   aiEnabled: boolean;
+  chatGpt: Pick<NonNullable<Parameters<typeof openWebStack>[0]>, 'chatGptReleases'>;
+  selectChatGptRelease: Awaited<ReturnType<typeof openWebStack>>['selectChatGptRelease'];
   ai: ReturnType<typeof createAiMock>;
   app: Awaited<ReturnType<typeof openWebStack>>['app'];
   rpc: Awaited<ReturnType<typeof openWebStack>>['rpc'];
@@ -38,6 +40,8 @@ type Fixtures = {
 const testHarness = testBrowser.extend<Fixtures>({
   study: async ({ app, ai }, provide) => provide(await createStudyMaterials(app, ai)),
   aiEnabled: [false, { option: true }],
+  chatGpt: [{}, { option: true }],
+  selectChatGptRelease: async ({ webStack }, provide) => provide(webStack.selectChatGptRelease),
   ai: async ({ browserName: _browserName }, provide) => {
     using mock = createAiMock();
 
@@ -51,9 +55,12 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
-  webStack: async ({ ai, aiEnabled }, provide) => {
+  webStack: async ({ ai, aiEnabled, chatGpt }, provide) => {
     assertCapturePlatform();
-    await using stack = await openWebStack({ ai: aiEnabled ? ai.runtime : undefined });
+    await using stack = await openWebStack({
+      ai: aiEnabled ? ai.runtime : undefined,
+      ...chatGpt
+    });
 
     await provide(stack);
   },

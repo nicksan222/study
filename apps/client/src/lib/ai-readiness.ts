@@ -20,7 +20,10 @@ export function aiReadiness(
 
   if (provider === 'configured-or-chatgpt' && signedIn) return true;
 
-  return data.providers.some((provider) => provider.id === setup.provider && provider.configured);
+  return (
+    !!setup.model &&
+    data.providers.some((provider) => provider.id === setup.provider && provider.configured)
+  );
 }
 
 export type AiReadiness = 'checking' | 'unavailable' | 'setup' | 'ready';

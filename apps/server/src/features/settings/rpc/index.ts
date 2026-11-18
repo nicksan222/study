@@ -13,15 +13,21 @@
  */
 
 import { SettingsRpc } from '@study/contracts';
-import { AiAdmission, defineRpc } from '@study/server';
+import { AiAdmission, ChatGptSession, defineRpc } from '@study/server';
 import { Effect } from 'effect';
 
 import { Settings } from '#server/features/settings/service/index';
 
 export const SettingsRpcLive = defineRpc(
   SettingsRpc,
-  { settings: Settings, admission: AiAdmission },
-  ({ settings, admission }) => ({
+  { settings: Settings, admission: AiAdmission, session: ChatGptSession },
+  ({ settings, admission, session }) => ({
+    'settings.modelUpdates': () => settings.modelUpdates(),
+    'settings.modelCatalog': () => settings.modelCatalog(),
+    'settings.refreshModelCatalog': () => settings.refreshModelRecommendations(session),
+    'settings.saveModelTier': settings.saveModelTier,
+    'settings.dismissModelUpdate': (notice) => settings.updateModel(notice, false),
+    'settings.applyModelUpdate': (notice) => settings.updateModel(notice, true),
     'settings.usage': settings.usage,
     'settings.agentRules': () => settings.agentRules(),
     'settings.saveAgentRules': settings.saveAgentRules,

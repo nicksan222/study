@@ -25,7 +25,11 @@ export { defineContextPreparation } from './ai/context-preparation/index.ts';
 export type { ContextPreparation } from './ai/context-preparation/index.ts';
 export { planSourcePassages } from './ai/context-preparation/planner.ts';
 export { createEvidenceCatalog } from './ai/evidence.ts';
+export type { CatalogIdentities } from './ai/providers/catalog.ts';
+export { catalogIdentitiesSchema, fetchApiKeyCatalog } from './ai/providers/catalog.ts';
+export { allowsAiModel } from './ai/providers/model-policy.ts';
 export { createApiKeyModel } from './ai/providers/api-key-model.ts';
+export { makeChatGptCatalog } from './ai/providers/chatgpt/catalog.ts';
 export { createChatGptModel } from './ai/providers/chatgpt/model.ts';
 export { getApiKeyProvider, providerCatalog } from './ai/providers/registry.ts';
 export { makeAgentToolkit } from './ai/tool-adapter.ts';
@@ -79,6 +83,7 @@ export {
   recordAiTokens,
   recordAuthCallbackRejection,
   recordUsageFailure,
+  recordModelUpdateFailure,
   safeMetadata
 } from './observability/index.ts';
 export { UsageStore } from './observability/usage-store.ts';

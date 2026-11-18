@@ -11,9 +11,11 @@ export const appSettingsSchema = Schema.Struct({
 });
 
 /** Provider modules register IDs; the service checks membership before saving or requesting. */
-const apiKeyProviderIdSchema = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/));
+export const apiKeyProviderIdSchema = Schema.String.check(
+  Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/)
+);
 
-const modelIdSchema = Schema.String.check(
+export const modelIdSchema = Schema.String.check(
   Schema.isMinLength(1),
   Schema.isMaxLength(200),
   Schema.isPattern(/^\S+$/)
@@ -22,7 +24,7 @@ const modelIdSchema = Schema.String.check(
 export const tierSetupSchema = Schema.Union([
   Schema.Struct({
     provider: Schema.Literal(1),
-    model: Schema.optional(Schema.Literals([1, 2, 3]))
+    model: Schema.optional(Schema.Union([Schema.Literals([1, 2, 3]), modelIdSchema]))
   }),
   Schema.Struct({ provider: apiKeyProviderIdSchema, model: Schema.optional(modelIdSchema) })
 ]);
@@ -37,8 +39,6 @@ export const apiKeyInputSchema = Schema.Struct({
 export const aiProviderSchema = Schema.Struct({
   id: apiKeyProviderIdSchema,
   name: Schema.String,
-  models: Schema.Array(modelIdSchema),
-  defaults: Schema.Struct({ tiny: modelIdSchema, medium: modelIdSchema, smart: modelIdSchema }),
   configured: Schema.Boolean
 });
 
@@ -46,6 +46,13 @@ export const llmSettingsSchema = Schema.Struct({
   tiny: tierSetupSchema,
   medium: tierSetupSchema,
   smart: tierSetupSchema
+});
+
+export const modelTiers = ['tiny', 'medium', 'smart'] as const;
+
+export const saveModelTierSchema = Schema.Struct({
+  tier: Schema.Literals(modelTiers),
+  setup: tierSetupSchema
 });
 
 export type ModelTier = keyof typeof llmSettingsSchema.fields;
