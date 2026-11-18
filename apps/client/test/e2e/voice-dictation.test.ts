@@ -498,7 +498,7 @@ test.browser.stable(
 
 test.browser.stable(
   'A recognition result completed after cancellation cannot change the note',
-  async ({ page, rpc, microphone, expect }) => {
+  async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -519,7 +519,10 @@ test.browser.stable(
 
     await replacement.stop();
     await replacement.segments.final.deliver();
-    await expect(composer).toHaveValue('Keep this draft. Fresh speech.');
+    await expectScreenshot('fresh-transcript-only', {
+      target: 'viewport',
+      ready: () => expect(composer).toHaveValue('Keep this draft. Fresh speech.')
+    });
   }
 );
 
