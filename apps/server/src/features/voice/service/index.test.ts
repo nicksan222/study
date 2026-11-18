@@ -26,6 +26,7 @@ test.server.stable(
         fetch: async () => new Response(bytes),
         transcribe: async (input) => {
           expect(input.filterSilence).toBe(false);
+          expect(input.denoise).toBe(true);
           entered.resolve();
           await finish.promise;
 
@@ -48,7 +49,7 @@ test.server.stable(
         const voice = yield* Voice;
         const settings = yield* Settings;
 
-        yield* settings.saveVoiceSettings({ filterSilence: false });
+        yield* settings.saveVoiceSettings({ filterSilence: false, denoise: true });
         yield* voice.install();
       })
     );

@@ -21,6 +21,7 @@
     "integrations": "bun ../../tooling/testing/integrations/run.ts"
   },
   "dependencies": {
+    "@echogarden/rnnoise-wasm": "0.2.0",
     "@effect/ai-anthropic": "4.0.7",
     "@effect/ai-openai": "4.0.7",
     "@effect/ai-openai-compat": "4.0.7",

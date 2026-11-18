@@ -47,6 +47,7 @@ function useDictation({
   const [owner] = useState(() => Symbol('dictation'));
   const state = useSyncExternalStore(session.subscribe, session.snapshot);
   const model = rpc.voice.status.useQuery({});
+  const preferences = rpc.settings.voiceSettings.useQuery({});
   const [setup, setSetup] = useState(false);
   const capturedTarget = useRef(targetKey);
   const callbacks = useRef({ onTranscript, onCaptureStart });
@@ -74,7 +75,7 @@ function useDictation({
 
     capturedTarget.current = targetKey;
     callbacks.current.onCaptureStart?.();
-    void session.start(owner);
+    void session.start(owner, preferences.data?.chunkSeconds);
   };
   const start = () => {
     if (disabled) return;
@@ -144,6 +145,10 @@ const phaseLabels = {
   error: 'VoiceStart'
 } as const;
 
+function dictationLabel(phase: keyof typeof phaseLabels, backlog?: boolean) {
+  return phase === 'transcribing' && backlog ? 'VoiceFinishingBacklog' : phaseLabels[phase];
+}
+
 function DictationTrigger({ model }: { model: Model }) {
   const { t } = useI18n();
   const { state, owned, owner } = model;
@@ -151,7 +156,7 @@ function DictationTrigger({ model }: { model: Model }) {
   const recording = owned && state.phase === 'recording';
   const active = owned && ['starting', 'recording', 'transcribing'].includes(state.phase);
   const phase = owned ? state.phase : 'idle';
-  const label = available ? phaseLabels[phase] : 'VoiceUnavailable';
+  const label = available ? dictationLabel(phase, state.backlog) : 'VoiceUnavailable';
   const canStart = state.phase === 'idle' || terminalCaptureError(model);
 
   return (
@@ -183,7 +188,8 @@ const errorLabels = {
   capture: 'VoiceCaptureFailed',
   empty: 'VoiceNoSpeech',
   transcribe: 'VoiceTranscriptionFailed',
-  insert: 'VoiceRecoveredHelp'
+  insert: 'VoiceRecoveredHelp',
+  interrupted: 'VoiceInterruptedHelp'
 } as const;
 
 function DictationFeedback({ model }: { model: Model }) {
@@ -194,6 +200,9 @@ function DictationFeedback({ model }: { model: Model }) {
   const { state } = model;
 
   if (state.phase === 'result') return <RecoveredTranscript model={model} />;
+
+  if (['recording', 'transcribing'].includes(state.phase) && state.transcript)
+    return <Notebook.Muted aria-live="polite">{state.transcript}</Notebook.Muted>;
 
   if (state.phase !== 'error') return null;
 
@@ -218,7 +227,7 @@ function RecoveredTranscript({ model }: { model: Model }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
-  if (model.state.error !== 'insert') return null;
+  if (model.state.error !== 'insert' && model.state.error !== 'interrupted') return null;
 
   return (
     <Dialog
@@ -228,7 +237,10 @@ function RecoveredTranscript({ model }: { model: Model }) {
       }}
     >
       <DialogPopup closeLabel={t('Close')}>
-        <DialogHeading title={t('VoiceRecoveredTitle')} description={t('VoiceRecoveredHelp')} />
+        <DialogHeading
+          title={t('VoiceRecoveredTitle')}
+          description={t(errorLabels[model.state.error])}
+        />
         <Textarea
           aria-label={t('VoiceTranscript')}
           value={model.state.transcript}
@@ -250,7 +262,7 @@ function RecoveredTranscript({ model }: { model: Model }) {
             {t(copied ? 'VoiceCopied' : 'Copy')}
           </Button>
           <Button type="button" disabled={model.disabled} onClick={model.insert}>
-            {t('VoiceInsert')}
+            {t(model.state.error === 'interrupted' ? 'VoiceInsertRecovered' : 'VoiceInsert')}
           </Button>
         </DialogFooter>
       </DialogPopup>

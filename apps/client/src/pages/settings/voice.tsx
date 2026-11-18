@@ -1,7 +1,8 @@
+import type { VoiceSettings as Preferences } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { RetryButton, Loading, Settings } from '@study/ui';
 
-import { VoiceModelControls } from '#client/features/voice/index.ts';
+import { VoiceLanguageRow, VoiceModelControls } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useSettingsAutosave } from '#client/lib/settings-autosave.ts';
 
@@ -10,14 +11,25 @@ export function VoiceSettings() {
   const preferences = rpc.settings.voiceSettings.useQuery({});
   const write = rpc.settings.saveVoiceSettings.useMutation();
   const save = useSettingsAutosave(() => rpc.settings.voiceSettings.read({}), write.mutateAsync);
+  const disabled = save.pending || !preferences.data;
 
   return (
     <Settings.Section title={t('VoiceTitle')} busy={save.pending}>
       <VoiceModelControls />
       <Settings.Group>
-        <Settings.Row title={t('VoiceLanguage')} description={t('VoiceLanguages')}>
-          {t('VoiceAutomatic')}
-        </Settings.Row>
+        <VoiceLanguageRow />
+        <ChunkDuration
+          current={preferences.data?.chunkSeconds ?? 30}
+          disabled={disabled}
+          onChange={(chunkSeconds) => save.update({ chunkSeconds })}
+        />
+        <Settings.ToggleRow
+          title={t('VoiceDenoise')}
+          description={t('VoiceDenoiseHelp')}
+          checked={preferences.data?.denoise ?? false}
+          disabled={disabled}
+          onCheckedChange={(denoise) => save.update({ denoise })}
+        />
         {preferences.isPending && <Loading label={t('LoadingSettings')} />}
         {preferences.data && (
           <Settings.ToggleRow
@@ -49,5 +61,37 @@ export function VoiceSettings() {
       <Settings.Feedback>{t('VoicePrivacy')}</Settings.Feedback>
       <Settings.Feedback>{t('VoiceRecordingHelp')}</Settings.Feedback>
     </Settings.Section>
+  );
+}
+
+type ChunkSeconds = NonNullable<Preferences['chunkSeconds']>;
+
+function ChunkDuration({
+  current,
+  disabled,
+  onChange
+}: {
+  current: ChunkSeconds;
+  disabled: boolean;
+  onChange: (seconds: ChunkSeconds) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Settings.SelectRow
+      title={t('VoiceChunkDuration')}
+      description={t('VoiceChunkDurationHelp')}
+      value={String(current)}
+      disabled={disabled}
+      options={[10, 20, 30].map((seconds) => ({
+        value: String(seconds),
+        label: t('VoiceChunkSeconds', { seconds })
+      }))}
+      onValueChange={(value) => {
+        const seconds = Number(value);
+
+        if (seconds === 10 || seconds === 20 || seconds === 30) onChange(seconds);
+      }}
+    />
   );
 }

@@ -39,6 +39,32 @@ function wordErrors(expected: string[], actual: string[]) {
   return row[actual.length]!;
 }
 
+/** Repeatable low-frequency room hum with a small broadband component. */
+function withRoomNoise(pcm: Float32Array) {
+  const rms = Math.sqrt(pcm.reduce((sum, sample) => sum + sample * sample, 0) / pcm.length);
+  let seed = 12345;
+  let previous = 0;
+
+  return Float32Array.from(pcm, (sample, index) => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    previous = 0.6 * previous + 0.4 * ((seed / 4294967296) * 2 - 1);
+
+    const background =
+      0.6 * Math.sin((index * Math.PI) / 100) +
+      0.3 * Math.sin((index * Math.PI) / 60) +
+      0.5 * previous;
+
+    return sample + background * rms * 0.2;
+  });
+}
+
+const recognitionScenarios = [
+  { filterSilence: true, denoise: false, noisy: false },
+  { filterSilence: false, denoise: false, noisy: false },
+  { filterSilence: false, denoise: false, noisy: true },
+  { filterSilence: false, denoise: true, noisy: true }
+] as const;
+
 const model = process.env.STUDY_VOICE_MODEL;
 
 const vad = process.env.STUDY_VOICE_VAD;
@@ -98,12 +124,12 @@ test.server.stable(
           yield* client['voice.install']({});
           expect((yield* client['voice.status']({})).state).toBe('ready');
 
-          for (const filterSilence of [true, false]) {
-            yield* client['settings.saveVoiceSettings']({ filterSilence });
+          for (const { filterSilence, denoise, noisy } of recognitionScenarios) {
+            yield* client['settings.saveVoiceSettings']({ filterSilence, denoise });
 
             for (const sample of voiceSamples) {
               const pcm = yield* Effect.promise(() => voiceSamplePcm(sample.id));
-              const samples = Array.from(pcm, (value) =>
+              const samples = Array.from(noisy ? withRoomNoise(pcm) : pcm, (value) =>
                 Math.max(-32768, Math.min(32767, Math.round(value * 32768)))
               );
               const result = yield* client['voice.transcribe']({ samples });
@@ -112,6 +138,8 @@ test.server.stable(
                 JSON.stringify({
                   language: sample.language,
                   filterSilence,
+                  denoise,
+                  noisy,
                   reference: sample.reference,
                   transcript: result.text
                 })

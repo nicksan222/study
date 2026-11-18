@@ -6,6 +6,7 @@ export const italian = Object.freeze({
   VoiceStop: 'Ferma e trascrivi',
   VoiceStarting: 'Apertura microfono…',
   VoiceTranscribing: 'Trascrizione…',
+  VoiceFinishingBacklog: 'Registrazione interrotta. Trascrizione dell’audio rimanente…',
   VoiceCancel: 'Annulla dettatura',
   VoiceUnavailable: 'La dettatura richiede accesso al microfono su localhost o HTTPS',
   VoiceCaptureFailed: 'Impossibile registrare. Consenti l’accesso al microfono e riprova.',
@@ -15,32 +16,41 @@ export const italian = Object.freeze({
   VoiceRecoveredTitle: 'Il dettato è al sicuro',
   VoiceRecoveredHelp:
     'Non è stato possibile inserire il testo. Copialo o libera spazio nel campo originale e riprova. Chiudendo scarti questa trascrizione.',
+  VoiceInterruptedHelp:
+    'Il microfono si è fermato. Puoi copiare o inserire la parte già trascritta.',
+  VoiceInsertRecovered: 'Inserisci trascrizione',
   VoiceTranscript: 'Trascrizione',
   VoiceCopied: 'Copiato',
   VoiceInsert: 'Riprova inserimento',
   VoiceSetupTitle: 'Scaricare la dettatura?',
   VoiceSetupHelp:
     'La dettatura funziona in locale. Scarica il modello vocale una volta, poi avvia la registrazione.',
-  VoiceModelDescription:
-    'Parakeet TDT 0.6B v3 · 741 MB incluso il filtro dei silenzi Silero. Non occorre scegliere un modello.',
+  VoiceModelDescription: 'Il riconoscimento vocale avviene in locale sul server Study collegato.',
   VoiceModelFailed: 'Impossibile aggiornare il modello vocale. Controlla la connessione e riprova.',
   VoiceModelReady: 'Modello installato. La dettatura è pronta.',
   VoiceModelDownloading: 'Download e verifica…',
   VoiceModelMissing: 'Il modello vocale non è installato.',
-  VoiceDownload: 'Scarica modello · 741 MB',
+  VoiceDownload: 'Scarica modello',
+  VoiceDownloadSize: 'Dimensione del download: {size}',
+  VoiceSupportedLanguages: '{count} lingue supportate.',
   VoiceCancelDownload: 'Annulla download',
   VoiceRemove: 'Rimuovi modello scaricato',
   VoiceLanguage: 'Lingua di trascrizione',
   VoiceAutomatic: 'Rilevamento automatico',
-  VoiceLanguages:
-    'Parakeet rileva automaticamente 25 lingue: bulgaro, croato, ceco, danese, olandese, inglese, estone, finlandese, francese, tedesco, greco, ungherese, italiano, lettone, lituano, maltese, polacco, portoghese, rumeno, russo, slovacco, sloveno, spagnolo, svedese e ucraino. Questo modello non permette di impostare manualmente la lingua.',
+  VoiceLanguages: 'Il motore di riconoscimento rileva automaticamente la lingua.',
+  VoiceChunkDuration: 'Durata dei blocchi audio',
+  VoiceChunkDurationHelp:
+    'Scegli la durata massima di audio inviata in ogni richiesta di trascrizione.',
+  VoiceChunkSeconds: '{seconds} secondi',
+  VoiceDenoise: 'Riduci il rumore di fondo',
+  VoiceDenoiseHelp: 'Un modello audio locale riduce il rumore di fondo prima della trascrizione.',
   VoiceFilterSilence: 'Filtra i silenzi prima della trascrizione',
   VoiceFilterSilenceHelp:
-    'Silero esclude l’audio senza parlato. Quando disponibili, vengono richieste cancellazione dell’eco e riduzione del rumore del microfono.',
+    'Il filtro esclude l’audio senza parlato. Quando disponibili, vengono richieste cancellazione dell’eco e riduzione del rumore del microfono.',
   VoicePrivacy:
     'Le registrazioni vengono elaborate sul server Study collegato a questo browser o all’app desktop. L’audio non viene inviato a un fornitore IA né salvato come fonte.',
   VoiceRecordingHelp:
-    'Fai clic sul microfono per iniziare; premi stop per inserire il testo. Esc annulla. Ogni registrazione dura fino a 60 secondi e non invia mai la bozza.',
+    'Fai clic sul microfono per iniziare e premi Stop per inserire il testo completo. Esc annulla.',
 
   AnalyticsTitle: 'Analisi',
   AnalyticsLogsTitle: 'Log diagnostici',
@@ -2449,7 +2459,7 @@ export const italian = Object.freeze({
   SysBandwidth: 'Banda di memoria',
   SysMeasuredIn: 'La misurazione è durata',
   SysSpare: 'Libera per i modelli',
-  SysTranscription: 'Trascrizione (Parakeet)',
+  SysTranscription: 'Trascrizione',
   SysNone: 'nessuno',
   PlacementNotEnoughMemory: 'Memoria insufficiente qui',
   PlacementTooSlow: 'Troppo lento su questo computer',

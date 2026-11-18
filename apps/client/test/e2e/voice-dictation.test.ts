@@ -220,7 +220,16 @@ test.browser.stable(
 
     await settings.getByRole('button', { name: copy.VoiceTitle, exact: true }).click();
     await expect(settings.getByText(copy.VoiceAutomatic, { exact: true })).toBeVisible();
-    await expect(settings.getByText(copy.VoiceLanguages, { exact: true })).toBeVisible();
+    await expect(settings.getByText(copy.VoiceLanguages)).toBeVisible();
+    const length = settings.getByRole('combobox', { name: copy.VoiceChunkDuration });
+    const denoise = settings.getByRole('switch', { name: copy.VoiceDenoise, exact: true });
+
+    await length.click();
+    await page.getByRole('option', { name: '10 seconds', exact: true }).click();
+    await expect(length).toHaveText('10 seconds');
+    await expect(denoise).not.toBeChecked();
+    await denoise.click();
+    await expect(denoise).toBeChecked();
     const filter = settings.getByRole('switch', { name: copy.VoiceFilterSilence, exact: true });
 
     await expect(filter).toBeChecked();
@@ -235,6 +244,8 @@ test.browser.stable(
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await settings.getByRole('button', { name: copy.VoiceTitle, exact: true }).click();
     await expect(filter).not.toBeChecked();
+    await expect(length).toHaveText('10 seconds');
+    await expect(denoise).toBeChecked();
     await settings.getByRole('button', { name: copy.GeneralSettingsTitle, exact: true }).click();
     await settings.getByRole('combobox', { name: copy.GeneralSettingsLanguage }).click();
     await page.getByRole('option', { name: copy.ItalianOwnName }).click();
@@ -266,6 +277,9 @@ test.browser.stable(
   'Closing saved notebook capture cancels transcription and preserves its draft',
   async ({ page, rpc, voice, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
+    await rpc.runPromise(
+      rpc.client['settings.saveVoiceSettings']({ filterSilence: true, chunkSeconds: 10 })
+    );
     const note = await rpc.runPromise(rpc.client['notes.createUntitledNote']({}));
 
     await page.goto('/notes/' + String(note.id));
@@ -276,6 +290,8 @@ test.browser.stable(
     const original = 'Keep this unsent observation when capture is closed.';
 
     await composer.fill(original);
+    const partialText = 'A live transcript arrives before stopping.';
+    const first = voice.next({ text: partialText }, { hold: true });
     const pending = voice.next(
       { text: 'A cancelled result must never enter this draft.' },
       {
@@ -289,7 +305,17 @@ test.browser.stable(
     microphone.release();
     await expect(page.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeVisible();
     await audioReady;
-    await page.getByRole('button', { name: copy.VoiceStop, exact: true }).click();
+    const firstChunk = await first.called;
+
+    expect(firstChunk.samples.length).toBeGreaterThan(0);
+    expect(firstChunk.samples.length).toBeLessThanOrEqual(160_000);
+    first.release();
+    await expect(page.getByText(partialText, { exact: true })).toBeVisible();
+    await expect(composer).toHaveValue(original);
+    const stop = page.getByRole('button', { name: copy.VoiceStop, exact: true });
+
+    await expect(stop).toHaveAttribute('aria-pressed', 'true');
+    await stop.click();
     await pending.called;
     await expect(
       page.getByRole('button', { name: copy.VoiceTranscribing, exact: true })

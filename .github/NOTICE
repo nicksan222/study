@@ -15,6 +15,10 @@ Bundled with the app
   (https://github.com/handy-computer/transcribe.cpp). The bundled platform packages
   retain their licenses/ directory, including ggml and bundled backend notices.
 
+- @echogarden/rnnoise-wasm 0.2.0: RNNoise WebAssembly implementation and model,
+  BSD 3-Clause (https://github.com/echogarden-project/rnnoise-wasm). The bundled
+  package retains the upstream copyright and license in its COPYING file.
+
 Downloaded only when speech recognition is installed
 - Parakeet TDT 0.6B v3: NVIDIA, Creative Commons Attribution 4.0
   (https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3).

@@ -6,13 +6,13 @@ import { Effect, FileSystem, Schema } from 'effect';
 
 import { Settings } from '#server/features/settings/index';
 
-import { createParakeetStrategy } from './strategy.ts';
+import { createSpeechRecognitionStrategy } from './strategy.ts';
 
 export const Voice = defineService('study/Voice', function* () {
   const settings = yield* Settings;
   const runtime = yield* VoiceRuntime;
   const fs = yield* FileSystem.FileSystem.pipe(Effect.provide(BunFileSystem.layer));
-  const strategy = createParakeetStrategy(runtime);
+  const strategy = createSpeechRecognitionStrategy(runtime);
   const models = new VoiceModels(runtime.directory ?? '', fs, strategy.assets, runtime.fetch);
   const shutdown = new AbortController();
   let active: 'installing' | 'removing' | 'transcribing' | undefined;
@@ -167,7 +167,8 @@ export const Voice = defineService('study/Voice', function* () {
                 {
                   ...decoded,
                   directory: models.root,
-                  filterSilence: preferences.filterSilence
+                  filterSilence: preferences.filterSilence,
+                  denoise: preferences.denoise ?? false
                 },
                 AbortSignal.any([signal, shutdown.signal])
               );

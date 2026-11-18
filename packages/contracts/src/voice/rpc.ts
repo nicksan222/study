@@ -4,7 +4,7 @@ import { Schema } from 'effect';
 import { failureSchema } from '../errors.ts';
 import { allDependencies, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 
-export const MAX_DICTATION_SAMPLES = 960_000;
+export const MAX_DICTATION_SAMPLES = 480_000;
 
 export const dictationInputSchema = Schema.Struct({
   samples: Schema.Array(

@@ -29,15 +29,15 @@ export async function controlMicrophone(page: Page) {
       __studyVoiceAudioReady: () => Promise<void>;
     };
 
-    window.MediaRecorder = new Proxy(window.MediaRecorder, {
+    window.AudioWorkletNode = new Proxy(window.AudioWorkletNode, {
       construct(target, args) {
-        const recorder = Reflect.construct(target, args) as MediaRecorder;
+        const node = Reflect.construct(target, args) as AudioWorkletNode;
 
-        recorder.addEventListener('dataavailable', (event) => {
-          if (event.data.size) void bindings.__studyVoiceAudioReady();
+        node.port.addEventListener('message', (event) => {
+          if (event.data?.type === 'started') void bindings.__studyVoiceAudioReady();
         });
 
-        return recorder;
+        return node;
       }
     });
     const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);

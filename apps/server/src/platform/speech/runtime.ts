@@ -9,6 +9,7 @@ export interface SpeechInput {
   readonly modelPath: string;
   readonly vadPath: string;
   readonly filterSilence: boolean;
+  readonly denoise?: boolean;
 }
 
 export interface VoiceRuntimeAdapters {

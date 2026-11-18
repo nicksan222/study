@@ -2,13 +2,15 @@
 import { StudyError, dictationInputSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
+import { denoisePcm } from './denoise.ts';
 import { probeNative, transcribeNative } from './native.ts';
 
 const inputSchema = Schema.Struct({
   ...dictationInputSchema.fields,
   modelPath: Schema.String,
   vadPath: Schema.String,
-  filterSilence: Schema.Boolean
+  filterSilence: Schema.Boolean,
+  denoise: Schema.optional(Schema.Boolean)
 });
 
 try {
@@ -19,13 +21,15 @@ try {
 
   if (probe) {
     probeNative();
+    await denoisePcm(new Float32Array(1));
     await Bun.write(Bun.stdout, JSON.stringify({ initialized: true }));
   } else {
     const input = Schema.decodeUnknownSync(inputSchema)(await Bun.stdin.json());
+    const pcm = Float32Array.from(input.samples, (sample) => sample / 32768);
     const text = transcribeNative(
       input.modelPath,
       input.vadPath,
-      Float32Array.from(input.samples, (sample) => sample / 32768),
+      input.denoise ? await denoisePcm(pcm) : pcm,
       input.filterSilence
     );
 

@@ -8,6 +8,7 @@ interface RecognitionInput {
   readonly samples: readonly number[];
   readonly directory: string;
   readonly filterSilence: boolean;
+  readonly denoise: boolean;
 }
 
 interface SpeechRecognitionStrategy {
@@ -18,7 +19,9 @@ interface SpeechRecognitionStrategy {
 }
 
 /** Adding an engine changes this composition seam, never a dictation consumer. */
-export function createParakeetStrategy(runtime: VoiceRuntimeAdapters): SpeechRecognitionStrategy {
+export function createSpeechRecognitionStrategy(
+  runtime: VoiceRuntimeAdapters
+): SpeechRecognitionStrategy {
   const assets = runtime.assets ?? speechAssets;
 
   return {
@@ -60,7 +63,8 @@ export function createParakeetStrategy(runtime: VoiceRuntimeAdapters): SpeechRec
           samples: input.samples,
           modelPath: `${input.directory}/ready/${assets[0]!.filename}`,
           vadPath: `${input.directory}/ready/${assets[1]!.filename}`,
-          filterSilence: input.filterSilence
+          filterSilence: input.filterSilence,
+          denoise: input.denoise
         },
         signal
       )

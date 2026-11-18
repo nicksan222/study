@@ -63,6 +63,7 @@
     "apps/server": {
       "name": "@study/server",
       "dependencies": {
+        "@echogarden/rnnoise-wasm": "0.2.0",
         "@effect/ai-anthropic": "4.0.7",
         "@effect/ai-openai": "4.0.7",
         "@effect/ai-openai-compat": "4.0.7",
@@ -300,6 +301,8 @@
     "@csstools/css-syntax-patches-for-csstree": ["@csstools/css-syntax-patches-for-csstree@1.1.15", "", { "peerDependencies": { "css-tree": "^3.2.1" }, "optionalPeers": ["css-tree"] }, "sha512-J0u7HkVl2nzSlhsiTOp4AmwcUQ3D+mGEEKfBy/7To5/y7F2OHwyLrXfrhR0SMgr4p5Lo+eaMVSeai24zUcBIxA=="],
 
     "@csstools/css-tokenizer": ["@csstools/css-tokenizer@4.0.2", "", {}, "sha512-OoKoR0f76dCY666JlcbhmVTs2drYj1GUXZTYTcbUgJjh9Nv41aFfZ21bPQTERm5+L5cBDo466NltB2lplS5GBw=="],
+
+    "@echogarden/rnnoise-wasm": ["@echogarden/rnnoise-wasm@0.2.0", "", {}, "sha512-dND0FKFaLxyqa+rdgcMWc7A3Zh9pu7zzetYd60+2nbwnKL/8HtUXFGf7GAJ4krwTOgtSLETH9REF39gOa4T5UQ=="],
 
     "@effect/ai-anthropic": ["@effect/ai-anthropic@4.0.7", "", { "peerDependencies": { "effect": "^4.0.7" } }, "sha512-LgLeLM1UJKMgCE6dUbIfLYZNUTPyjacmTHlSzcdSRk2yBwdzEguhF9Lh4IorLAUC2ViFY9b+QaAAHVlYueG/wQ=="],
 

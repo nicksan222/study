@@ -27,7 +27,7 @@ const stateLabels = {
 
 /** Shared explicit model lifecycle for first-use setup and Voice settings. */
 export function VoiceModelControls() {
-  const { t } = useI18n();
+  const { t, number } = useI18n();
   const { status, install, cancel, remove, state, busy, error } = useModelControls();
 
   return (
@@ -54,9 +54,35 @@ export function VoiceModelControls() {
         </Settings.Status>
       )}
       {state && <Settings.Feedback>{t(stateLabels[state])}</Settings.Feedback>}
+      {state === 'missing' && status.data?.totalBytes !== undefined && (
+        <Settings.Feedback>
+          {t('VoiceDownloadSize', {
+            size: number(status.data.totalBytes / 1_000_000, {
+              style: 'unit',
+              unit: 'megabyte',
+              maximumFractionDigits: 0
+            })
+          })}
+        </Settings.Feedback>
+      )}
       <DownloadProgress status={status.data} />
       <ModelActions state={state} busy={busy} install={install} cancel={cancel} remove={remove} />
     </>
+  );
+}
+
+export function VoiceLanguageRow() {
+  const { t } = useI18n();
+  const status = rpc.voice.status.useQuery({});
+  const languages = status.data?.languages.length;
+  const description = languages
+    ? t('VoiceLanguages') + ' ' + t('VoiceSupportedLanguages', { count: languages })
+    : t('VoiceLanguages');
+
+  return (
+    <Settings.Row title={t('VoiceLanguage')} description={description}>
+      {t('VoiceAutomatic')}
+    </Settings.Row>
   );
 }
 

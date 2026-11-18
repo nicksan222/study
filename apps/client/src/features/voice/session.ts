@@ -1,25 +1,40 @@
 /** One microphone owner across all mounted dictation controls; cancellation fences late results. */
+import type { VoiceSettings } from '@study/contracts';
+import { Stream } from 'effect';
+
 import type { MicrophoneCapture } from '#client/lib/host.ts';
+
+import { DictationAudio } from './recognition-stream';
+
+const defaultChunkSeconds = 30;
 
 type Snapshot = {
   phase: 'idle' | 'starting' | 'recording' | 'transcribing' | 'result' | 'error';
   owner?: symbol;
   transcript: string;
-  error?: 'capture' | 'transcribe' | 'empty' | 'insert';
+  backlog?: boolean;
+  error?: 'capture' | 'transcribe' | 'empty' | 'insert' | 'interrupted';
+};
+
+type Recording = {
+  controller: AbortController;
+  audio: DictationAudio;
+  capture?: MicrophoneCapture;
+  backlog?: boolean;
+  finishing?: Promise<void>;
+  recognition?: Promise<void>;
 };
 
 export class DictationSession {
   private state: Snapshot = { phase: 'idle', transcript: '' };
   private listeners = new Set<() => void>();
-  private controller?: AbortController;
-  private capture?: MicrophoneCapture;
-  private samples?: number[];
-  private generation = 0;
+  private recording?: Recording;
 
   constructor(
     private readonly acquire: (options: {
       signal: AbortSignal;
-      onLimit: () => void;
+      chunkSeconds: NonNullable<VoiceSettings['chunkSeconds']>;
+      onChunk: (samples: number[]) => void;
       onError: () => void;
     }) => Promise<MicrophoneCapture>,
     private readonly transcribe: (
@@ -47,96 +62,132 @@ export class DictationSession {
     return this.state.phase === 'error' && this.state.error !== 'transcribe';
   }
 
-  async start(owner: symbol) {
+  async start(owner: symbol, chunkSeconds: VoiceSettings['chunkSeconds'] = defaultChunkSeconds) {
     if (this.state.owner === owner && this.canRestart()) this.cancel(owner);
 
     if (this.state.phase !== 'idle') return;
 
-    const generation = ++this.generation;
-    const controller = new AbortController();
+    const recording: Recording = {
+      controller: new AbortController(),
+      audio: new DictationAudio()
+    };
 
-    this.controller = controller;
+    this.recording = recording;
     this.publish({ phase: 'starting', owner, transcript: '' });
 
     try {
       const capture = await this.acquire({
-        signal: controller.signal,
-        onLimit: () => {
-          if (generation === this.generation) void this.stop(owner);
-        },
-        onError: () => {
-          if (generation !== this.generation || this.state.owner !== owner) return;
-
-          this.generation++;
-          controller.abort();
-          this.capture?.cancel();
-          this.capture = undefined;
-          this.samples = undefined;
-          this.publish({ phase: 'error', owner, transcript: '', error: 'capture' });
-        }
+        signal: recording.controller.signal,
+        chunkSeconds,
+        onChunk: (samples) => this.acceptChunk(recording, owner, samples),
+        onError: () => this.failCapture(recording, owner)
       });
 
-      if (generation !== this.generation) {
+      if (this.recording !== recording) {
         capture.cancel();
 
         return;
       }
 
-      this.capture = capture;
+      recording.capture = capture;
       this.publish({ phase: 'recording', owner, transcript: '' });
+      recording.recognition = this.consume(recording, owner);
     } catch {
-      if (generation === this.generation)
-        this.publish({ phase: 'error', owner, transcript: '', error: 'capture' });
+      this.failCapture(recording, owner);
     }
+  }
+
+  private acceptChunk(recording: Recording, owner: symbol, samples: number[]) {
+    if (this.recording !== recording) return;
+
+    // Two outstanding segments leave room for the final segment flushed by stop.
+    if (recording.audio.push(samples) >= 2 && this.state.phase === 'recording') {
+      recording.backlog = true;
+      void this.stop(owner);
+    }
+  }
+
+  private failCapture(recording: Recording, owner: symbol) {
+    if (this.recording !== recording) return;
+
+    const { transcript } = this.state;
+
+    this.cancel(owner);
+    this.publish(
+      transcript
+        ? { phase: 'result', owner, transcript, error: 'interrupted' }
+        : { phase: 'error', owner, transcript: '', error: 'capture' }
+    );
   }
 
   async stop(owner: symbol) {
-    if (this.state.owner !== owner || this.state.phase !== 'recording') return;
+    const recording = this.recording;
 
-    const generation = this.generation;
-    const capture = this.capture!;
+    if (!recording || this.state.owner !== owner || this.state.phase !== 'recording') return;
 
-    this.capture = undefined;
-    this.publish({ phase: 'transcribing', owner, transcript: '' });
-
-    try {
-      const samples = await capture.stop();
-
-      if (generation !== this.generation) return;
-
-      this.samples = samples;
-      await this.decode(owner, generation);
-    } catch {
-      if (generation === this.generation)
-        this.publish({ phase: 'error', owner, transcript: '', error: 'capture' });
-    }
+    await this.finishCapture(recording, owner);
+    await recording.recognition;
   }
 
-  private async decode(owner: symbol, generation: number) {
-    this.publish({ phase: 'transcribing', owner, transcript: '' });
+  private finishCapture(recording: Recording, owner: symbol) {
+    if (recording.finishing) return recording.finishing;
 
+    this.publish({ ...this.state, phase: 'transcribing', backlog: recording.backlog });
+
+    recording.finishing = Promise.resolve()
+      .then(() => recording.capture!.stop())
+      .then((samples) => {
+        if (this.recording === recording) recording.audio.push(samples);
+      })
+      .catch(() => this.failCapture(recording, owner))
+      .finally(() => recording.audio.close());
+
+    return recording.finishing;
+  }
+
+  private async consume(recording: Recording, owner: symbol) {
     try {
-      const result = await this.transcribe(this.samples!, this.controller!.signal);
+      const results = recording.audio.recognize(this.transcribe, recording.controller.signal);
 
-      if (generation !== this.generation) return;
+      for await (const text of Stream.toAsyncIterable(results)) {
+        if (this.recording !== recording) return;
 
-      const transcript = result.text.trim();
+        if (text) this.append(text);
+      }
+
+      if (this.recording !== recording) return;
+
+      const { transcript } = this.state;
 
       this.publish(
         transcript
           ? { phase: 'result', owner, transcript }
           : { phase: 'error', owner, transcript: '', error: 'empty' }
       );
-      this.samples = undefined;
     } catch {
-      if (generation === this.generation)
-        this.publish({ phase: 'error', owner, transcript: '', error: 'transcribe' });
+      if (this.recording !== recording) return;
+
+      await this.finishCapture(recording, owner);
+
+      if (this.recording === recording)
+        this.publish({ ...this.state, phase: 'error', error: 'transcribe' });
     }
   }
 
+  private append(text: string) {
+    const { transcript } = this.state;
+
+    this.publish({ ...this.state, transcript: transcript ? transcript + ' ' + text : text });
+  }
+
   async retry(owner: symbol) {
-    if (this.state.owner === owner && this.state.error === 'transcribe' && this.samples)
-      await this.decode(owner, this.generation);
+    const recording = this.recording;
+
+    if (!recording || this.state.owner !== owner || this.state.error !== 'transcribe') return;
+
+    this.publish({ ...this.state, phase: 'transcribing', error: undefined });
+    recording.recognition = this.consume(recording, owner);
+    await recording.recognition;
   }
 
   insert(owner: symbol, insert: (text: string) => void) {
@@ -153,11 +204,12 @@ export class DictationSession {
   cancel(owner: symbol) {
     if (this.state.owner !== owner) return;
 
-    this.generation++;
-    this.controller?.abort();
-    this.capture?.cancel();
-    this.capture = undefined;
-    this.samples = undefined;
+    const recording = this.recording;
+
+    this.recording = undefined;
+    recording?.controller.abort();
+    recording?.capture?.cancel();
+    recording?.audio.close();
     this.publish({ phase: 'idle', transcript: '' });
   }
 }

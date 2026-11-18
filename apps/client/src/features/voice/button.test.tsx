@@ -35,6 +35,7 @@ test.unit.beforeEach(async ({ mock }) => {
   }));
   mock('@study/contracts/react', () => ({
     rpc: {
+      settings: { voiceSettings: { useQuery: () => ({ data: { chunkSeconds: 30 } }) } },
       voice: {
         status: { useQuery: () => ({ data: { state: 'ready' } }) },
         transcribe: { call: () => transcription }

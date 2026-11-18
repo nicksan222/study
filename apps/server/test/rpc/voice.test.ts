@@ -5,7 +5,7 @@ import { Effect, Schema } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 
 test.server.stable(
-  'a complete 60-second dictation fits native HTTP RPC without losing PCM16 samples',
+  'a complete 30-second dictation segment fits native HTTP RPC without losing PCM16 samples',
   async ({ resources, expect, voice }) => {
     const expected = voice.next({ text: 'Complete dictation' });
     const { server } = await resources.openRpc({ voice: voice.runtime });

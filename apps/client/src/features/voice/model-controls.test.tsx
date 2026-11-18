@@ -33,7 +33,7 @@ test.unit.stable(
     expect(
       screen.queryByText('Could not update the voice model. Check your connection and retry.')
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Download model · 741 MB' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Download model' })).toBeEnabled();
   }
 );
 
