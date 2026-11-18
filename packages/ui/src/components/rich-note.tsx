@@ -35,6 +35,8 @@ import {
 import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { Button } from './button';
+import { captureEditorSelection, restoreEditorNodeSelection } from './editor-selection';
+import type { RichNoteSelection } from './editor-selection';
 import { insertEditorText } from './editor-text';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './menu';
 import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
@@ -106,7 +108,7 @@ export type RichNoteLabels = Record<
   string
 >;
 
-export type RichNoteSelection = { anchor: number; head: number };
+export type { RichNoteSelection } from './editor-selection';
 
 export type RichNoteEditorHandle = {
   insertPlainText: (text: string) => void;
@@ -166,6 +168,10 @@ export function RichNoteEditor({
     () => ({
       insertPlainText: (text) => insertEditorText(editor, text),
       selection: () => {
+        const captured = captureEditorSelection(editor);
+
+        if (captured.kind === 'node') return captured;
+
         const selection = window.getSelection();
         const root = editor.view.dom;
 
@@ -176,13 +182,17 @@ export function RichNoteEditor({
           root.contains(selection.focusNode)
         )
           return {
+            kind: 'text',
             anchor: editor.view.posAtDOM(selection.anchorNode, selection.anchorOffset),
             head: editor.view.posAtDOM(selection.focusNode, selection.focusOffset)
           };
 
-        return { anchor: editor.state.selection.anchor, head: editor.state.selection.head };
+        return captured;
       },
-      restoreSelection: ({ anchor, head }) => {
+      restoreSelection: (selection) => {
+        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection);
+
+        const { anchor, head } = selection;
         const { doc, tr } = editor.state;
         const limit = (position: number) => Math.max(0, Math.min(position, doc.content.size));
 

@@ -96,6 +96,7 @@ test.unit.stable(
     expect(first.container.querySelectorAll('.tiptap hr')).toHaveLength(2);
     act(() => {
       ref.current!.restoreSelection({
+        kind: 'text',
         anchor: Number.MAX_SAFE_INTEGER,
         head: Number.MAX_SAFE_INTEGER
       });
@@ -177,6 +178,7 @@ test.unit.stable(
 
     act(() => {
       ref.current!.restoreSelection({
+        kind: 'text',
         anchor: Number.MAX_SAFE_INTEGER,
         head: Number.MAX_SAFE_INTEGER
       });

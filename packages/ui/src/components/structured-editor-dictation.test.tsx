@@ -37,7 +37,7 @@ for (const inline of [false, true]) {
       act(() => {
         const offset = inline ? 1 : 0;
 
-        handle.current!.restoreSelection({ anchor: 8 + offset, head: 16 + offset });
+        handle.current!.restoreSelection({ kind: 'text', anchor: 8 + offset, head: 16 + offset });
         handle.current!.insertPlainText('first\r\nsecond\rthird\n\nlast');
       });
       const result = inline ? changed?.content?.[0]?.content?.[0] : changed?.content?.[0];
@@ -85,6 +85,7 @@ test.unit.stable(
     expect(screen.getByAltText('Last image')).toBeInTheDocument();
     act(() => {
       handle.current!.restoreSelection({
+        kind: 'text',
         anchor: Number.MAX_SAFE_INTEGER,
         head: Number.MAX_SAFE_INTEGER
       });

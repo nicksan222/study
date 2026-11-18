@@ -88,13 +88,32 @@ export function enterNode(node: any, seen: Set<any>): boolean {
   return true;
 }
 
+/** Type assertions and grouping retain the underlying runtime capability. */
+export function transparentExpression(node: any): any {
+  return [
+    'TSAsExpression',
+    'TSSatisfiesExpression',
+    'TSNonNullExpression',
+    'TSTypeAssertion',
+    'TSInstantiationExpression',
+    'ParenthesizedExpression',
+    'ChainExpression'
+  ].includes(node.type)
+    ? node.expression
+    : undefined;
+}
+
 /** Resolve lexical identifiers and member paths with one shared alias cycle guard. */
 export function lexicalResolver(
   identifier: (node: any, seen: Set<any>) => string | null,
   member: (node: any, seen: Set<any>) => string | null
 ) {
-  return (node: any, seen = new Set<any>()): string | null => {
+  return function resolve(node: any, seen = new Set<any>()): string | null {
     if (!enterNode(node, seen)) return null;
+
+    const expression = transparentExpression(node);
+
+    if (expression) return resolve(expression, seen);
 
     if (node.type === 'Identifier') return identifier(node, seen);
 

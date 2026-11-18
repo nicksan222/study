@@ -58,8 +58,8 @@ function CompletedDictation({
 
     target.current!.restoreSelection(
       changed
-        ? { anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
-        : { anchor: 8, head: 16 }
+        ? { kind: 'text', anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
+        : { kind: 'text', anchor: 8, head: 16 }
     );
     target.current!.insertPlainText(transcript);
   }, [target, transcript, changed]);

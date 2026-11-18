@@ -53,10 +53,14 @@ export function NoteEditor({
                 captured.current = { value, selection: editor.current.selection() };
             }}
             onTranscript={(text) => {
-              const selection =
+              const selection: RichNoteSelection =
                 captured.current?.value === value
                   ? captured.current.selection
-                  : { anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER };
+                  : {
+                      kind: 'text',
+                      anchor: Number.MAX_SAFE_INTEGER,
+                      head: Number.MAX_SAFE_INTEGER
+                    };
 
               editor.current?.restoreSelection(selection);
               editor.current?.insertPlainText(text);

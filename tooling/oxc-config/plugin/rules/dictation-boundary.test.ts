@@ -101,6 +101,38 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'type assertions cannot hide voice capability aliases',
+  async ({ expect, assert }) => {
+    const diagnostics = await lintRule(
+      { assert },
+      'dictation-boundary',
+      {
+        'apps/client/src/features/notes/asserted.ts': `import {rpc} from '@study/contracts/react'; const api = rpc as typeof rpc; api.voice.transcribe.call({});`,
+        'apps/client/src/features/notes/satisfies.ts': `import {rpc} from '@study/contracts/react'; const api = rpc satisfies typeof rpc; api.voice.transcribe.call({});`,
+        'apps/client/src/features/notes/non-null.ts': `import {rpc} from '@study/contracts/react'; const api = rpc!; api.voice.transcribe.call({});`,
+        'apps/client/src/features/notes/type-assertion.ts': `import {rpc} from '@study/contracts/react'; const api = <typeof rpc>rpc; api.voice.transcribe.call({});`,
+        'apps/client/src/features/notes/asserted-media.ts': `const media = navigator.mediaDevices as typeof navigator.mediaDevices; media.getUserMedia({audio:true});`,
+        'apps/client/src/features/notes/asserted-recorder.ts': `const Record = (globalThis.MediaRecorder satisfies typeof MediaRecorder)!; new Record(stream);`,
+        'apps/client/src/features/notes/nested-assertion.ts': `import {rpc} from '@study/contracts/react'; const {voice: {transcribe: {call: recognize}}} = (rpc as typeof rpc)!; recognize({});`
+      },
+      true
+    );
+
+    expect(diagnostics).toHaveLength(7);
+    expect(
+      await lintRule(
+        { assert },
+        'dictation-boundary',
+        {
+          'apps/client/src/features/notes/asserted-local.ts': `const local = {voice: {transcribe: {call(){}}}}; const api = local as typeof local; api.voice.transcribe.call({});`
+        },
+        true
+      )
+    ).toEqual([]);
+  }
+);
+
+test.unit.stable(
   'non-owner barrels cannot re-export raw microphone capabilities',
   async ({ expect, assert }) => {
     const diagnostics = await lintRule(

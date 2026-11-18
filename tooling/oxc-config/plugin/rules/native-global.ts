@@ -1,6 +1,11 @@
 import type { effectBindings } from '../effect-bindings.ts';
 import { propertyName } from '../effect-bindings.ts';
-import { destructuredPath, staticMember, enterNode } from '../lexical-bindings.ts';
+import {
+  destructuredPath,
+  staticMember,
+  enterNode,
+  transparentExpression
+} from '../lexical-bindings.ts';
 
 export function nativeGlobal(
   bindings: ReturnType<typeof effectBindings>,
@@ -8,6 +13,10 @@ export function nativeGlobal(
   seen = new Set<any>()
 ): string | null {
   if (!enterNode(node, seen)) return null;
+
+  const expression = transparentExpression(node);
+
+  if (expression) return nativeGlobal(bindings, expression, seen);
 
   if (node.type === 'Identifier') {
     const def = bindings.definition(node);

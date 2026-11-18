@@ -1,6 +1,6 @@
 import { createBlock, contentSnapshotIdSchema, sourceIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
-import type { RichNoteEditorHandle, StructuredEditorLabels } from '@study/ui';
+import type { RichNoteEditorHandle, RichNoteSelection, StructuredEditorLabels } from '@study/ui';
 import { Schema } from 'effect';
 import { useImperativeHandle } from 'react';
 import type { ReactNode, Ref } from 'react';
@@ -16,7 +16,7 @@ let CanonicalDocumentEditor: typeof Module.CanonicalDocumentEditor;
 
 let urls: Record<string, string>;
 
-let destination: { anchor: number; head: number } | undefined;
+let destination: RichNoteSelection | undefined;
 
 const labels = new Proxy({} as StructuredEditorLabels, { get: (_, key) => String(key) });
 
@@ -55,7 +55,7 @@ test.unit.beforeEach(async ({ mock }) => {
       toolbarEnd: ReactNode;
     }) => {
       useImperativeHandle(ref, () => ({
-        selection: () => ({ anchor: 3, head: 7 }),
+        selection: () => ({ kind: 'text', anchor: 3, head: 7 }),
         restoreSelection: (selection) => {
           destination = selection;
         },
@@ -106,8 +106,8 @@ for (const contentChanged of [false, true]) {
       fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
       expect(destination).toEqual(
         contentChanged
-          ? { anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
-          : { anchor: 3, head: 7 }
+          ? { kind: 'text', anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
+          : { kind: 'text', anchor: 3, head: 7 }
       );
     }
   );

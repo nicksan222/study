@@ -11,6 +11,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { useLayoutEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { ReactNode, Ref, RefObject } from 'react';
 
+import { captureEditorSelection, restoreEditorNodeSelection } from './editor-selection';
 import { insertEditorText } from './editor-text';
 import type { RichNoteEditorHandle } from './rich-note';
 import { RichNoteEditorSurface } from './rich-note';
@@ -307,11 +308,11 @@ function useStructuredEditorHandle(ref: Ref<RichNoteEditorHandle> | undefined, e
   useImperativeHandle(
     ref,
     () => ({
-      selection: () => ({
-        anchor: editor.state.selection.anchor,
-        head: editor.state.selection.head
-      }),
-      restoreSelection: ({ anchor, head }) => {
+      selection: () => captureEditorSelection(editor),
+      restoreSelection: (selection) => {
+        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection);
+
+        const { anchor, head } = selection;
         const end = TextSelection.atEnd(editor.state.doc).to;
         const limit = (position: number) => Math.max(1, Math.min(position, end));
 

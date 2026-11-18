@@ -76,7 +76,11 @@ export function CanonicalDocumentEditor({
                 editor.current?.restoreSelection(
                   captured.current && equalDocument(captured.current.document, document)
                     ? captured.current.selection
-                    : { anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
+                    : {
+                        kind: 'text',
+                        anchor: Number.MAX_SAFE_INTEGER,
+                        head: Number.MAX_SAFE_INTEGER
+                      }
                 );
                 editor.current?.insertPlainText(text);
               }}
