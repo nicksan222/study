@@ -122,6 +122,7 @@ export {
   CircleMinus as PartiallyCorrectIcon,
   ClipboardPaste as PasteIcon,
   CirclePause as PauseIcon,
+  Smartphone as PhoneIcon,
   Circle as PendingIcon,
   Gauge as PerformanceIcon,
   ChevronLeft as PreviousVersionIcon,

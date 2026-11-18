@@ -2,6 +2,7 @@
 mod diagnostics;
 mod logging;
 mod microphone;
+mod mobile;
 mod server;
 mod transport;
 mod updater;
@@ -30,6 +31,8 @@ async fn diagnostic_log(app: tauri::AppHandle) -> Result<String, NativeError> {
 pub fn run() {
     let result = tauri::Builder::default()
         .on_permission_request(microphone::permission)
+        .on_window_event(mobile::handle_close)
+        .on_menu_event(mobile::handle_menu)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
         .plugin(
@@ -81,6 +84,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_connection,
             diagnostic_log,
+            mobile::set_mobile_background,
             updater::desktop_update_status,
             updater::check_for_update,
             updater::install_update

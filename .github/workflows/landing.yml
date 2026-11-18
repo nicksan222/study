@@ -37,6 +37,11 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Build
         run: bun run landing-build
+      - name: Build Study mobile
+        run: |
+          bun run --filter @study/mobile build
+          mkdir -p apps/landing/dist/mobile
+          cp -a apps/mobile/dist/. apps/landing/dist/mobile/
       - name: Upload
         uses: actions/upload-pages-artifact@v5
         with:

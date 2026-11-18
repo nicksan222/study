@@ -90,7 +90,9 @@ function useNoteStart() {
     }
   }
 
-  const create = useIndependentMutation((input: Parameters<typeof startNote>[0]) =>
+  type Submission = Parameters<typeof startNote>[0] & Parameters<typeof finishStartDraft>[1];
+
+  const create = useIndependentMutation((input: Submission) =>
     Effect.tryPromise({
       try: async () => {
         setReviewed(false);

@@ -9,3 +9,7 @@ commands.allow = ["desktop_update_status", "check_for_update", "install_update"]
 [[permission]]
 identifier = "allow-diagnostic-log"
 commands.allow = ["diagnostic_log"]
+
+[[permission]]
+identifier = "allow-mobile-background"
+commands.allow = ["set_mobile_background"]

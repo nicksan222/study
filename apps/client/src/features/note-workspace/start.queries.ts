@@ -8,14 +8,8 @@ type CreationFlow = { id?: NoteId; uncertain?: boolean; pending?: boolean };
 
 export const creationFlow = Atom.make<CreationFlow>({}).pipe(Atom.keepAlive);
 
-/** Capture the originating draft and files before starting independent uploads. */
-export async function startNote(input: {
-  project?: ProjectId;
-  draftKey: string;
-  filesKey: string;
-  text: string;
-  files: File[];
-}) {
+/** A note starts from the same initial message on each client. */
+export async function startNote(input: { project?: ProjectId; text: string; files: File[] }) {
   const sources = await Promise.all(input.files.map(uploadSource));
 
   return rpc.notes.createUntitledNote.call({

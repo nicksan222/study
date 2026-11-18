@@ -1,7 +1,7 @@
 {
   "extends": "./frontend.json",
   "compilerOptions": {
-    "types": ["bun"]
+    "types": ["bun", "vite-plus/client"]
   },
   "include": [
     "../../apps/server/src/platform/speech/rnnoise-wasm.d.ts",

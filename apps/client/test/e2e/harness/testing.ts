@@ -26,6 +26,7 @@ export type Journey = {
 type Fixtures = {
   study: Awaited<ReturnType<typeof createStudyMaterials>>;
   aiEnabled: boolean;
+  desktop: boolean;
   microphoneEnabled: boolean;
   microphone: Awaited<ReturnType<typeof createMicrophone>>;
   chatGpt: Pick<NonNullable<Parameters<typeof openWebStack>[0]>, 'chatGptReleases'>;
@@ -46,6 +47,7 @@ type Fixtures = {
 const testHarness = testBrowser.extend<Fixtures>({
   study: async ({ app, ai }, provide) => provide(await createStudyMaterials(app, ai)),
   aiEnabled: [false, { option: true }],
+  desktop: [false, { option: true }],
   microphoneEnabled: [false, { option: true }],
   microphone: async ({ page, webStack }, provide) => {
     await provide(await webStack.bindMicrophone(page));
@@ -65,13 +67,14 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
-  webStack: async ({ ai, aiEnabled, chatGpt, microphoneEnabled }, provide) => {
+  webStack: async ({ ai, aiEnabled, chatGpt, desktop, microphoneEnabled }, provide) => {
     assertCapturePlatform();
     using voice = microphoneEnabled ? createVoiceMock() : undefined;
 
     await using stack = await openWebStack({
       ai: aiEnabled ? ai.runtime : undefined,
       voice: voice?.runtime,
+      desktop,
       ...chatGpt
     });
 

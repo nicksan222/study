@@ -15,7 +15,8 @@ export async function integrationFixture(mode = 'success') {
     'apps/server/package.json',
     'tooling/testing/integrations/Dockerfile',
     'apps/client/package.json',
-    'apps/desktop/package.json'
+    'apps/desktop/package.json',
+    'apps/mobile/package.json'
   ])
     await Bun.write(`${root}/${file}`, '{}');
 

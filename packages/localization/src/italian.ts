@@ -60,6 +60,56 @@ export const italian = Object.freeze({
     'Le registrazioni vengono elaborate sul server Study collegato a questo browser o all’app desktop. L’audio non viene inviato a un fornitore IA né salvato come fonte.',
   VoiceRecordingHelp:
     'Fai clic sul microfono per iniziare e premi Stop per inserire il testo completo. Esc annulla.',
+  MobileUseBrowser: 'Continua nel browser',
+  MobileCaptureTitle: 'Cattura rapida',
+  MobileCaptureIntro: 'Invia un appunto o una foto a Study sul computer.',
+  MobileCaptureText: 'Appunto',
+  MobileCaptureCamera: 'Scatta una foto',
+  MobileCaptureChoosePhoto: 'Scegli una foto',
+  MobileCaptureRemovePhoto: 'Rimuovi foto',
+  MobileCaptureSave: 'Salva in Study',
+  MobileCaptureSending: 'Salvataggio sul computer…',
+  MobileCaptureSaved: 'Salvato in Study sul computer.',
+  MobileCaptureRejected:
+    'Study non ha salvato la cattura. Controlla l’appunto o la foto e riprova.',
+  MobileCaptureUncertain:
+    'Study non ha potuto confermare il salvataggio. Controlla sul computer prima di inviare di nuovo la cattura.',
+  MobileCaptureAnother: 'Inizia un’altra cattura',
+  MobileStudy: 'Study sul telefono',
+  MobileDesktopIntro: 'Invia appunti e foto dal telefono. I tuoi dati restano su questo computer.',
+  MobileScanTitle: 'Inquadra il codice QR',
+  MobileScanDescription: 'Apri l’invito e inquadra il codice QR con la fotocamera del telefono.',
+  MobileMatchTitle: 'Confronta i codici',
+  MobileMatchDescription:
+    'Controlla che il codice sia uguale sui due schermi e autorizza il telefono qui.',
+  MobileAvailabilityTitle: 'Tieni Study disponibile',
+  MobileAvailabilityDescription:
+    'Il telefono si collega direttamente a questo computer. Quando sei fuori, lascia Study in esecuzione e il computer attivo.',
+  MobilePhoneIntro:
+    'Apri Study sul computer, vai in Impostazioni → Study sul telefono e inquadra il QR o incolla qui l’invito.',
+  MobileInstallHint:
+    'Aggiungi Study alla schermata Home dal menu del browser. Aprilo dall’icona e incolla l’invito se richiesto.',
+  MobileConnected: 'Telefono e computer collegati',
+  MobileWaiting: 'In attesa che Study venga aperta sul telefono.',
+  MobileWaitingForDesktop: 'In attesa di collegare Study al computer…',
+  MobileQr: 'QR per abbinare il telefono',
+  MobileCopy: 'Copia il link di invito',
+  MobileCopied: 'Invito copiato',
+  MobileConfirmDesktop: 'Confronta questo codice con quello che vedi sul telefono.',
+  MobileConfirmPhone: 'Conferma questo codice sul computer.',
+  MobileApprove: 'Autorizza il telefono',
+  MobilePair: 'Collega il telefono',
+  MobilePairing: 'Collegamento al computer…',
+  MobileConnectionError:
+    'Study non ha completato l’operazione. Controlla la connessione e riprova.',
+  MobileRevoke: 'Revoca l’accesso del telefono',
+  MobileUnlink: 'Scollega questo telefono',
+  MobileInviteExpired: 'L’invito è scaduto. Creane uno nuovo sul computer.',
+  MobileInvite: 'Link di invito',
+  MobileShowDesktop: 'Apri Study',
+  MobileQuitDesktop: 'Esci da Study',
+  MobileBackgroundError:
+    'Study non riesce a restare disponibile con la finestra chiusa. Lascia aperta la finestra.',
 
   AnalyticsTitle: 'Analisi',
   AnalyticsLogsTitle: 'Log diagnostici',
@@ -2322,6 +2372,7 @@ export const italian = Object.freeze({
   SettingsGeneral: 'Generali',
   SettingsGroupWorkspace: 'Spazio di lavoro',
   SettingsGroupLibrary: 'Libreria',
+  SettingsGroupDevices: 'Dispositivi',
   PracticeSettingsIntro:
     'Queste preferenze si applicano alla generazione di questo tipo di esercizio. Gli altri tipi mantengono le proprie impostazioni.',
   PracticeSettingsQuestionCount: 'Domande per esercizio',

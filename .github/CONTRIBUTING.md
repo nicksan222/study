@@ -55,8 +55,13 @@ devcontainer up --workspace-folder .
 devcontainer exec --workspace-folder . bash
 ```
 
-`bun run landing-check` checks website types and builds every localized static preview, so
-preview rendering failures are caught by pull-request CI before deployment.
+`bun run landing-check` checks website types and builds the localized static previews and the
+mobile web app. This catches preview rendering failures before deployment.
+
+The browser client and the desktop and mobile hosts are separate build targets.
+`bun run --filter @study/desktop build` builds the frontend bundled by Tauri.
+`bun run --filter @study/mobile build` builds the installable mobile site, and
+`bun run --filter @study/mobile preview` serves it locally.
 
 The devcontainer installs root and landing dependencies from their committed locks. To
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then

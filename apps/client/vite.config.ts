@@ -42,6 +42,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: [
       'src/**/*.test.{ts,tsx}',
+      '../mobile/src/**/*.test.tsx',
       '../../packages/ui/src/**/*.test.{ts,tsx}',
       '../../packages/localization/test/**/*.test.tsx',
       '../../packages/testing/test/react.test.ts'

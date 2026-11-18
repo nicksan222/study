@@ -29,7 +29,8 @@ export async function buildContext(
     'apps/server',
     'tooling',
     'apps/client/package.json',
-    'apps/desktop/package.json'
+    'apps/desktop/package.json',
+    'apps/mobile/package.json'
   ];
 
   try {

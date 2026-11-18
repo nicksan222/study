@@ -30,6 +30,7 @@ import { Settings } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { ProjectSettings } from '#client/features/collections/index.ts';
+import type { ModuleSettings, ModuleSettingsId } from '#client/lib/client-modules.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AiActivitySettings } from './activity';
@@ -258,7 +259,11 @@ const sections = [
   keywords: readonly StaticMessageKey[];
 }[];
 
-export type SettingsSectionId = (typeof sections)[number]['id'];
+const appearanceSection = sections.find((item) => item.id === 'appearance')!;
+
+type BuiltInSettingsSectionId = (typeof sections)[number]['id'];
+
+export type SettingsSectionId = BuiltInSettingsSectionId | ModuleSettingsId;
 
 const navigationGroups = [
   {
@@ -286,9 +291,11 @@ export function PageView({
   section = 'appearance',
   onSectionChange,
   initialProject,
-  onProjectDeleted
+  onProjectDeleted,
+  extra = []
 }: {
   open: boolean;
+  extra?: readonly ModuleSettings[];
   onClose: () => void;
   model: AppearanceModel;
   search?: string;
@@ -299,7 +306,7 @@ export function PageView({
   onProjectDeleted?: (id: ProjectId) => void;
 }) {
   const { t } = useI18n();
-  const current = sections.find((item) => item.id === section)!;
+  const current = [...sections, ...extra].find((item) => item.id === section) ?? appearanceSection;
 
   return (
     <Settings.Root
@@ -311,7 +318,11 @@ export function PageView({
       closeLabel={t('Close')}
       navigation={
         onSectionChange && (
-          <SettingsNavigation section={section} onSectionChange={onSectionChange} />
+          <SettingsNavigation
+            section={current.id}
+            extra={extra}
+            onSectionChange={onSectionChange}
+          />
         )
       }
       search={
@@ -326,10 +337,17 @@ export function PageView({
       }
     >
       {search.trim() && onSectionChange ? (
-        <SearchContent search={search} model={model} onSectionChange={onSectionChange} />
+        <SearchContent
+          search={search}
+          model={model}
+          extra={extra}
+          onSectionChange={onSectionChange}
+        />
+      ) : 'Content' in current ? (
+        <current.Content />
       ) : (
         <SectionContent
-          section={section}
+          section={current.id}
           model={model}
           search={search}
           initialProject={initialProject}
@@ -342,9 +360,11 @@ export function PageView({
 
 function SettingsNavigation({
   section,
+  extra,
   onSectionChange
 }: {
   section: SettingsSectionId;
+  extra: readonly ModuleSettings[];
   onSectionChange: (section: SettingsSectionId) => void;
 }) {
   const { t } = useI18n();
@@ -353,14 +373,32 @@ function SettingsNavigation({
     items: group.ids.map((id) => {
       const item = sections.find((item) => item.id === id)!;
 
-      return { id: item.id, label: t(item.label), icon: <item.Icon aria-hidden="true" /> };
+      return navigationItem(item);
     })
   }));
+  const extensions = new Map<StaticMessageKey, ModuleSettings[]>();
+
+  for (const item of extra) {
+    const items = extensions.get(item.group);
+
+    if (items) items.push(item);
+    else extensions.set(item.group, [item]);
+  }
+
+  function navigationItem(item: (typeof sections)[number] | ModuleSettings) {
+    return { id: item.id, label: t(item.label), icon: <item.Icon aria-hidden="true" /> };
+  }
 
   return (
     <Settings.Navigation
       label={t('Settings')}
-      groups={groups}
+      groups={[
+        ...groups,
+        ...Array.from(extensions, ([label, items]) => ({
+          label: t(label),
+          items: items.map(navigationItem)
+        }))
+      ]}
       value={section}
       onValueChange={onSectionChange}
     />
@@ -371,15 +409,17 @@ function SettingsNavigation({
 function SearchContent({
   search,
   model,
+  extra,
   onSectionChange
 }: {
   search: string;
   model: AppearanceModel;
+  extra: readonly ModuleSettings[];
   onSectionChange: (section: SettingsSectionId) => void;
 }) {
   const { t } = useI18n();
   const query = search.trim().toLocaleLowerCase();
-  const matches = sections.filter((item) =>
+  const matches = [...sections, ...extra].filter((item) =>
     [t(item.label), ...item.keywords.map((key) => t(key))].some((label) =>
       label.toLocaleLowerCase().includes(query)
     )
@@ -415,7 +455,7 @@ function SectionContent({
   initialProject,
   onProjectDeleted
 }: {
-  section: SettingsSectionId;
+  section: BuiltInSettingsSectionId;
   model: AppearanceModel;
   search: string;
   initialProject?: ProjectId;
@@ -451,7 +491,7 @@ function SectionContent({
     ordering: <QuizSettings kind="ordering" />,
     matching: <QuizSettings kind="matching" />,
     true_false: <QuizSettings kind="true_false" />
-  } satisfies Record<SettingsSectionId, ReactNode>;
+  } satisfies Record<BuiltInSettingsSectionId, ReactNode>;
 
   return content[section];
 }

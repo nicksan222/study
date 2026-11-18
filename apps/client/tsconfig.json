@@ -3,6 +3,7 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "../mobile/src/**/*.test.tsx",
     "../../packages/ui/src/**/*.ts",
     "../../packages/ui/src/**/*.tsx"
   ]

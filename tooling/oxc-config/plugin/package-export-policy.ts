@@ -21,7 +21,14 @@ const libraryExportFacets: Readonly<Record<string, readonly string[]>> = {
 
 const applicationExportFacets: Readonly<Record<string, readonly string[]>> = {
   server: ['.', 'client', 'runtime', 'runtime/ownership', 'runtime/database', 'testing'],
-  client: ['feature-previews', 'feature-previews/catalog'],
+  client: [
+    'app',
+    'companion',
+    'transport',
+    'styles.css',
+    'feature-previews',
+    'feature-previews/catalog'
+  ],
   tooling: ['development/rpc-proxy']
 };
 

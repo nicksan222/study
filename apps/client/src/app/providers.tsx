@@ -7,6 +7,8 @@ import type { ReactNode } from 'react';
 
 import { AssistantProvider } from '#client/features/assistant/index.ts';
 
+import { ClientModules } from '../lib/client-modules';
+import type { ClientModule } from '../lib/client-modules';
 import { createRpcTransport } from '../lib/effect/rpc';
 import type { Locale } from '../lib/i18n';
 import { LanguageProvider, useLanguage, useI18n } from '../lib/i18n';
@@ -20,11 +22,13 @@ import { OnboardingProvider } from './onboarding';
 
 export function Providers({
   children,
+  modules,
   transport = defaultTransport,
   locale = 'english',
   renderApp = (content) => content
 }: {
   children: ReactNode;
+  modules?: readonly ClientModule[];
   transport?: ProtocolTransport;
   locale?: Locale;
   renderApp?: (content: ReactNode) => ReactNode;
@@ -38,7 +42,12 @@ export function Providers({
               <SavedLanguage />
               <Notifications transport={transport}>
                 <AssistantProvider>
-                  <OnboardingProvider>{children}</OnboardingProvider>
+                  <ClientModules.Provider value={modules ?? []}>
+                    {modules?.map(({ id, Background }) =>
+                      Background ? <Background key={id} /> : null
+                    )}
+                    <OnboardingProvider>{children}</OnboardingProvider>
+                  </ClientModules.Provider>
                 </AssistantProvider>
               </Notifications>
             </>
