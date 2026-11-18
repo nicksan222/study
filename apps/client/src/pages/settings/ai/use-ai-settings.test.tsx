@@ -1,4 +1,4 @@
-import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts';
+import { saveModelTierSchema, apiKeyInputSchema } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
 import { catalogs, createLocalization } from '@study/localization';
 import { test } from '@study/testing';
@@ -16,6 +16,7 @@ let runtime: ReturnType<typeof createRuntime>;
 function createOperations(mock: test.Mock) {
   return {
     loadAiSettings: mock.fn(),
+    refreshModelCatalog: mock.fn(),
     startChatGptSignIn: mock.fn(),
     finishChatGptSignIn: mock.fn(),
     cancelChatGptSignIn: mock.fn(),
@@ -68,7 +69,7 @@ test.unit.beforeEach(() => {
 
 const settings = {
   tiny: { provider: 1, model: 1 },
-  medium: { provider: 1, model: 2 },
+  medium: { provider: 1, model: 1 },
   smart: { provider: 1, model: 3 }
 } as const;
 
@@ -81,12 +82,16 @@ function mount(
     providers: [],
     status: { signedIn: Section === AiModelSettings, email: null, sharing: false }
   });
+  const reads = {
+    'auth.status': async () => (await operations.loadAiSettings()).status,
+    'auth.providers': async () => (await operations.loadAiSettings()).providers,
+    'settings.modelCatalog': () => ({ models: {}, recommendations: [] }),
+    'settings.refreshModelCatalog': () =>
+      operations.refreshModelCatalog() ?? { apiAvailable: true, chatAvailable: true },
+    'settings.llmSettings': async () => (await operations.loadAiSettings()).settings
+  };
   const fixture = rpcTestTransport(async (tag, input) => {
-    if (tag === 'auth.status') return (await operations.loadAiSettings()).status;
-
-    if (tag === 'auth.providers') return (await operations.loadAiSettings()).providers;
-
-    if (tag === 'settings.llmSettings') return (await operations.loadAiSettings()).settings;
+    if (Object.hasOwn(reads, tag)) return reads[tag as keyof typeof reads]();
 
     if (tag === 'auth.startSignIn') return operations.startChatGptSignIn();
 
@@ -107,8 +112,8 @@ function mount(
 
     if (tag === 'auth.signOut') return operations.signOutChatGpt();
 
-    if (tag === 'settings.saveLlmSettings')
-      return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
+    if (tag === 'settings.saveModelTier')
+      return operations.saveAiSettings(Schema.decodeUnknownSync(saveModelTierSchema)(input));
 
     if (tag === 'auth.saveApiKey')
       return operations.saveProviderApiKey(Schema.decodeUnknownSync(apiKeyInputSchema)(input));
@@ -122,6 +127,35 @@ function mount(
 }
 
 test.unit.stable(
+  'refreshes the catalog every time Models is opened',
+  async ({ vi, rpcTestTransport, render, expect, waitFor }) => {
+    const context = { vi, rpcTestTransport, render };
+    const view = mount(context, AiModelSettings);
+
+    await waitFor(() => expect(operations.refreshModelCatalog).toHaveBeenCalledTimes(1));
+    view.unmount();
+    mount(context, AiModelSettings);
+    await waitFor(() => expect(operations.refreshModelCatalog).toHaveBeenCalledTimes(2));
+  }
+);
+
+test.unit.stable(
+  'reports a provider catalog failure and retries without disabling model choices',
+  async ({ vi, rpcTestTransport, render, expect, screen, userEvent }) => {
+    operations.refreshModelCatalog.mockReturnValueOnce({
+      apiAvailable: false,
+      chatAvailable: true
+    });
+    mount({ vi, rpcTestTransport, render }, AiModelSettings);
+
+    await screen.findByText(catalogs.english.AiSettingsCatalogFailed);
+    expect(screen.getByRole('combobox', { name: catalogs.english.AiSettingsMedium })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: catalogs.english.Retry }));
+    expect(operations.refreshModelCatalog).toHaveBeenCalledTimes(2);
+  }
+);
+
+test.unit.stable(
   'saves a canonical model change while preserving the other tiers',
   async ({ vi, userEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     vi.mocked(operations.saveAiSettings).mockResolvedValue({});
@@ -131,11 +165,11 @@ test.unit.stable(
     await user.click(
       await screen.findByRole('combobox', { name: catalogs.english.AiSettingsMedium })
     );
-    await user.click(await screen.findByRole('option', { name: 'ChatGPT — GPT-6 Astra' }));
+    await user.click(await screen.findByRole('option', { name: /ChatGPT — Prefer Sol/ }));
     await waitFor(() =>
       expect(operations.saveAiSettings).toHaveBeenCalledWith({
-        ...settings,
-        medium: { provider: 1, model: 3 }
+        tier: 'medium',
+        setup: { provider: 1, model: 2 }
       })
     );
     expect(operations.startChatGptSignIn).not.toHaveBeenCalled();

@@ -56,6 +56,7 @@ for (const mode of [
       const resources = resourcesFixture;
       let generations = 0;
       let providerCalls = 0;
+      let catalogCalls = 0;
       let refilling = false;
       const refillPlanning = Promise.withResolvers<void>();
       const releaseRefillPlan = Promise.withResolvers<void>();
@@ -82,6 +83,21 @@ for (const mode of [
       const peer = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
+        routes: {
+          '/v1/models': {
+            GET: (request) => {
+              catalogCalls++;
+              expect(request.headers.get('authorization')).toBe('Bearer token');
+
+              return Response.json({
+                models: ['gpt-6-luna', 'gpt-6.2-sol', 'gpt-6.2-astra'].map((slug) => ({
+                  slug,
+                  visibility: 'list'
+                }))
+              });
+            }
+          }
+        },
         fetch: async (request) => {
           const body = await request.text();
 
@@ -371,6 +387,7 @@ for (const mode of [
             assert.strictEqual(stopped.slots.length, 0);
             const count = generations;
             const callsAtStop = providerCalls;
+            const catalogCallsAtStop = catalogCalls;
 
             releaseRefillPlan.resolve();
 
@@ -390,6 +407,7 @@ for (const mode of [
 
             assert.strictEqual(generations, count);
             assert.strictEqual(providerCalls, callsAtStop);
+            assert.strictEqual(catalogCalls, catalogCallsAtStop);
             assert.strictEqual(yield* client['projects.deleteProject']({ id: project.id }), true);
             expect(app.store.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
           })

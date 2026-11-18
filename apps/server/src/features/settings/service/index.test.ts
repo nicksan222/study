@@ -101,7 +101,7 @@ test.server.stable(
           });
           expect(yield* settings.model('smart')).toStrictEqual({
             provider: 1,
-            modelId: 'gpt-6-astra'
+            modelId: 'gpt-6.1-sol'
           });
           const app = {
             language: Language.ITALIAN,
@@ -117,17 +117,30 @@ test.server.stable(
           assert.strictEqual((yield* settings.appSettings()).appearance, Appearance.SYSTEM);
           yield* settings.saveAppSettings(app);
           const llm = {
-            tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.GPT6_ASTRA },
+            tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.ASTRA },
             medium: { provider: LlmProvider.CHAT_GPT },
             smart: { provider: LlmProvider.CHAT_GPT }
           };
 
           yield* settings.saveLlmSettings(llm);
-          expect(yield* settings.llmSettings()).toStrictEqual(llm);
+          expect(yield* settings.llmSettings()).toStrictEqual({
+            ...llm,
+            tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.SOL }
+          });
           expect(yield* settings.model('tiny')).toStrictEqual({
             provider: 1,
-            modelId: 'gpt-6-astra'
+            modelId: 'gpt-6.1-sol'
           });
+          const pin = context.db.orm.get<{ value: string }>(
+            sql`SELECT value FROM preferences WHERE scope = 'llm' AND key = 'tiny'`
+          );
+
+          expect(JSON.parse(pin!.value)).toEqual({ provider: 1, model: LlmModel.SOL });
+          context.db.orm.run(
+            sql`UPDATE preferences SET value = ${JSON.stringify(LlmModel.ASTRA)} WHERE scope = 'llm' AND key = 'tiny'`
+          );
+          expect((yield* settings.llmSettings()).tiny.model).toBe(LlmModel.SOL);
+          expect((yield* settings.model('tiny')).modelId).toBe('gpt-6.1-sol');
           yield* settings.saveMaterialSettings({ sift: false });
           yield* settings.saveReviewSettings({ newCardsPerDay: 42 });
           expect(yield* settings.materialSettings()).toStrictEqual({ sift: false });
@@ -377,7 +390,7 @@ test.server.stable(
 );
 
 test.server.stable(
-  'registered provider models round-trip and reject undeclared model IDs',
+  'discovered models round-trip and unpinned providers require an explicit choice',
   async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
@@ -395,12 +408,10 @@ test.server.stable(
             smart: { provider: 1 as const }
           };
 
+          yield* settings.refreshModelCatalog({ anthropic: ['claude-sonnet-5-5'] }, []);
           yield* settings.saveLlmSettings(selection);
           expect(yield* settings.llmSettings()).toStrictEqual(selection);
-          expect(yield* settings.model('tiny')).toStrictEqual({
-            provider: 'deepseek',
-            modelId: 'deepseek-flash'
-          });
+          expect((yield* Effect.flip(settings.model('tiny'))).kind).toBe('config');
           expect(yield* settings.model('medium')).toStrictEqual({
             provider: 'anthropic',
             modelId: 'claude-sonnet-5-5'
@@ -422,6 +433,13 @@ test.server.stable(
           );
 
           expect(invalidModel.kind).toBe('invalid_input');
+          yield* settings.refreshModelCatalog({ anthropic: [] }, []);
+          yield* settings.saveLlmSettings(selection);
+          const transfer = yield* Effect.flip(
+            settings.saveModelTier({ tier: 'smart', setup: selection.medium })
+          );
+
+          expect(transfer.kind).toBe('invalid_input');
           expect(yield* settings.llmSettings()).toStrictEqual(selection);
         }).pipe(Effect.provide(layer))
       );

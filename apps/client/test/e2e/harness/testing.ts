@@ -28,6 +28,8 @@ type Fixtures = {
   aiEnabled: boolean;
   microphoneEnabled: boolean;
   microphone: Awaited<ReturnType<typeof createMicrophone>>;
+  chatGpt: Pick<NonNullable<Parameters<typeof openWebStack>[0]>, 'chatGptReleases'>;
+  selectChatGptRelease: Awaited<ReturnType<typeof openWebStack>>['selectChatGptRelease'];
   ai: ReturnType<typeof createAiMock>;
   app: Awaited<ReturnType<typeof openWebStack>>['app'];
   rpc: Awaited<ReturnType<typeof openWebStack>>['rpc'];
@@ -48,6 +50,8 @@ const testHarness = testBrowser.extend<Fixtures>({
   microphone: async ({ page, webStack }, provide) => {
     await provide(await webStack.bindMicrophone(page));
   },
+  chatGpt: [{}, { option: true }],
+  selectChatGptRelease: async ({ webStack }, provide) => provide(webStack.selectChatGptRelease),
   ai: async ({ browserName: _browserName }, provide) => {
     using mock = createAiMock();
 
@@ -61,13 +65,14 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
-  webStack: async ({ ai, aiEnabled, microphoneEnabled }, provide) => {
+  webStack: async ({ ai, aiEnabled, chatGpt, microphoneEnabled }, provide) => {
     assertCapturePlatform();
     using voice = microphoneEnabled ? createVoiceMock() : undefined;
 
     await using stack = await openWebStack({
       ai: aiEnabled ? ai.runtime : undefined,
-      voice: voice?.runtime
+      voice: voice?.runtime,
+      ...chatGpt
     });
 
     await provide({

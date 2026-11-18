@@ -1,6 +1,6 @@
 import { StudyRpc, Appearance, Language } from '@study/contracts';
 import { makeStudyClient } from '@study/server/client';
-import { createServerFixture } from '@study/server/testing';
+import { createChatGptReleasePeer, createServerFixture } from '@study/server/testing';
 import { testPolicy } from '@study/testing';
 import { runTestEffect } from '@study/testing/effect';
 import { createTestResources } from '@study/testing/resources';
@@ -16,13 +16,26 @@ export async function openWebStack(
   options: Pick<
     NonNullable<Parameters<Awaited<ReturnType<typeof createServerFixture>>['openApp']>[0]>,
     'ai' | 'voice'
-  > = {}
+  > & { chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0] } = {}
 ) {
+  const { ai, voice, chatGptReleases } = options;
+  const chatGpt = chatGptReleases?.length ? createChatGptReleasePeer(chatGptReleases) : undefined;
+
   await using resources = createTestResources();
   const fixture = resources.manage(await createServerFixture());
   const { app, server } = await fixture.openRpc({
     timestampClock: captureTimestampClock(),
-    ...options
+    ai,
+    voice,
+    fetch:
+      chatGpt?.fetch ??
+      ((...args) => {
+        const request = new Request(...args);
+
+        return request.url === 'https://models.dev/api.json'
+          ? Promise.resolve(Response.json({}))
+          : fetch(request);
+      })
   });
 
   await app.workers.start();
@@ -79,6 +92,11 @@ export async function openWebStack(
     rpc,
     url: `http://127.0.0.1:${address.port}`,
     loseCreationResponse: creation.arm,
+    selectChatGptRelease: (model: string) => {
+      if (!chatGpt) throw new Error('No scripted ChatGPT releases configured');
+
+      return chatGpt.select(app, model);
+    },
     [Symbol.asyncDispose]: owner.close
   };
 }

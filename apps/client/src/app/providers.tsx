@@ -15,6 +15,7 @@ const defaultTransport = createRpcTransport();
 
 configureRpcTransport(defaultTransport);
 import { BackupNotifications } from '../pages/settings/data/notifications';
+import { ModelUpdateNotifications } from './model-update-notifications';
 import { OnboardingProvider } from './onboarding';
 
 export function Providers({
@@ -35,7 +36,7 @@ export function Providers({
           {renderApp(
             <>
               <SavedLanguage />
-              <Notifications>
+              <Notifications transport={transport}>
                 <AssistantProvider>
                   <OnboardingProvider>{children}</OnboardingProvider>
                 </AssistantProvider>
@@ -59,12 +60,19 @@ function SavedLanguage() {
   return null;
 }
 
-function Notifications({ children }: { children: ReactNode }) {
+function Notifications({
+  children,
+  transport
+}: {
+  children: ReactNode;
+  transport: ProtocolTransport;
+}) {
   const { t } = useI18n();
 
   return (
     <ToastProvider closeLabel={t('Close')} viewportLabel={t('NotificationsLabel')}>
       <BackupNotifications />
+      <ModelUpdateNotifications transport={transport} />
       {children}
     </ToastProvider>
   );

@@ -14,10 +14,13 @@ import {
 
 import { AiRequestCheck } from '#server/platform/ai/model';
 import type { AiModel } from '#server/platform/ai/model';
+import { requireAllowedAiModel } from '#server/platform/ai/providers/model-policy';
 import { providerFetch } from '#server/platform/ai/providers/transport';
 
-import type { AuthManager } from './session.ts';
+import type { ChatGptCredentials } from './session.ts';
 import { chatGptTools } from './tools.ts';
+
+export const chatGptApiUrl = 'https://api.openai.com/v1';
 
 class ChatGptRequestError extends StudyError {
   readonly kind: 'auth' | 'rate_limited' | 'transient' | 'unsupported';
@@ -29,7 +32,10 @@ class ChatGptRequestError extends StudyError {
   }
 }
 
-async function waitForToken(auth: AuthManager, signal?: AbortSignal | null): Promise<string> {
+async function waitForToken(
+  auth: ChatGptCredentials,
+  signal?: AbortSignal | null
+): Promise<string> {
   if (!signal) return auth.token();
 
   signal.throwIfAborted();
@@ -50,7 +56,7 @@ async function waitForToken(auth: AuthManager, signal?: AbortSignal | null): Pro
 export type ChatGptModel = AiModel;
 
 export interface ChatGptModelOptions {
-  auth: AuthManager;
+  auth: ChatGptCredentials;
   modelId: string;
   baseUrl?: string;
   fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
@@ -72,12 +78,14 @@ function streamFailure() {
 export function createChatGptModel({
   auth,
   modelId,
-  baseUrl = 'https://api.openai.com/v1',
+  baseUrl = chatGptApiUrl,
   fetch: request = globalThis.fetch,
   clock = auth.clock,
   outputSchema
 }: ChatGptModelOptions): ChatGptModel {
   if (!modelId) throw new Error('A ChatGPT model ID is required');
+
+  requireAllowedAiModel(modelId);
 
   const http = Layer.effect(
     HttpClient.HttpClient,
@@ -225,7 +233,7 @@ function systemText(content: unknown): string[] {
 function chatHttpRequest(
   client: HttpClient.HttpClient,
   original: HttpClientRequest.HttpClientRequest,
-  auth: AuthManager
+  auth: ChatGptCredentials
 ) {
   return Effect.gen(function* () {
     for (let attempt = 0; attempt < 2; attempt++) {

@@ -48,7 +48,9 @@ function Toaster({ closeLabel, viewportLabel }: { closeLabel: string; viewportLa
                   )}
                 </div>
                 {toast.actionProps && (
-                  <ToastPrimitive.Action render={<Button size="sm" variant="outline" />} />
+                  <ToastPrimitive.Action
+                    render={<Button className="ui-toast-action" size="sm" variant="outline" />}
+                  />
                 )}
                 <ToastPrimitive.Close
                   aria-label={closeLabel}

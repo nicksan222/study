@@ -3,6 +3,7 @@ import type { StudyError } from '@study/contracts';
 import type { Effect } from 'effect';
 
 import type { ApiKeyProvider } from './definition.ts';
+import { requireAllowedAiModel } from './model-policy.ts';
 
 export function createApiKeyModel(
   provider: ApiKeyProvider,
@@ -10,5 +11,7 @@ export function createApiKeyModel(
   apiKey: Effect.Effect<string, StudyError>,
   fetch?: (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>
 ) {
+  requireAllowedAiModel(modelId);
+
   return provider.createModel({ apiKey: 'unconfigured', resolveApiKey: apiKey, modelId, fetch });
 }

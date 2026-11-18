@@ -99,6 +99,8 @@ export function nativeLayers(
 
   const lifecycleLayer = Layer.succeed(WorkerLifecycle, lifecycle);
 
+  const session = Layer.succeed(ChatGptSession, { manager, issuer, hostId, request });
+
   const services = Layer.mergeAll(
     Voice.layer.pipe(
       Layer.provide(
@@ -126,11 +128,15 @@ export function nativeLayers(
     System.layer
   ).pipe(
     Layer.provideMerge(
-      Layer.mergeAll(database, backups, lifecycleLayer, Layer.succeed(WorkflowControl, control))
+      Layer.mergeAll(
+        database,
+        backups,
+        session,
+        lifecycleLayer,
+        Layer.succeed(WorkflowControl, control)
+      )
     )
   );
-
-  const session = Layer.succeed(ChatGptSession, { manager, issuer, hostId, request });
 
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(database, session)));
 
@@ -184,19 +190,25 @@ export function nativeLayers(
           ai?.model
             ? ai.model(tier, call).pipe(Effect.mapError(normalizeError))
             : settings.model(tier, call.definition.requiredProvider).pipe(
-                Effect.flatMap(({ provider, modelId }): ReturnType<Agents['Service']['model']> =>
-                  typeof provider === 'string'
-                    ? Effect.try({
+                Effect.flatMap((selection): ReturnType<Agents['Service']['model']> =>
+                  typeof selection.provider === 'string'
+                    ? Effect.sync(() =>
+                        createApiKeyModel(
+                          getApiKeyProvider(selection.provider),
+                          selection.modelId,
+                          auth.apiKey(selection.provider),
+                          request
+                        )
+                      )
+                    : Effect.try({
                         try: () =>
-                          createApiKeyModel(
-                            getApiKeyProvider(provider),
-                            modelId,
-                            auth.apiKey(provider),
-                            request
-                          ),
-                        catch: () => new StudyError('config', 'Could not initialize AI provider')
+                          createChatGptModel({
+                            auth: manager.credentials(),
+                            modelId: selection.modelId,
+                            fetch: request
+                          }),
+                        catch: normalizeError
                       })
-                    : Effect.succeed(createChatGptModel({ auth: manager, modelId, fetch: request }))
                 )
               ),
         searchSources: () =>

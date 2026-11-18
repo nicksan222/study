@@ -7,12 +7,12 @@ import type { AiConfiguration } from '#client/lib/study-client/ai-settings.ts';
 /** Keep provider edits local; committed settings arrive through the live protocol. */
 export function useProviderSettings(data: AiConfiguration | undefined) {
   const [credentialProvider, selectCredentialProvider] = useState('1');
-  const save = rpc.settings.saveLlmSettings.useMutation();
+  const save = rpc.settings.saveModelTier.useMutation();
   const saveKey = rpc.auth.saveApiKey.useMutation();
   const [keyError, setKeyError] = useState(false);
 
   function setSetup(tier: ModelTier, setup: TierSetup) {
-    if (data) void save.mutateAsync({ ...data.settings, [tier]: setup }).catch(() => {});
+    if (data) void save.mutateAsync({ tier, setup }).catch(() => {});
   }
 
   return {

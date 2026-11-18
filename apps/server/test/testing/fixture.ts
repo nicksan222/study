@@ -6,6 +6,8 @@ import { createTestResources } from '@study/testing/resources';
 import type { App } from '#server/runtime/service';
 
 import type { test as serverTestApi } from './scenarios.ts';
+export { createChatGptReleasePeer } from './chatgpt-releases.ts';
+
 import type { createStudyMaterials as makeStudyMaterials } from './study-materials.ts';
 
 /** Acquire once, register immediately, and close consumers before deleting their database. */

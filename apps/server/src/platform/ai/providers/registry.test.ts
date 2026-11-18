@@ -15,7 +15,6 @@ import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { LanguageModel, Model } from 'effect/ai';
 
-import { anthropic } from './anthropic.ts';
 import { apiKeyProviders, getApiKeyProvider, providerCatalog } from './registry.ts';
 
 test.unit.stable(
@@ -158,21 +157,6 @@ test.unit.stable(
       }
     } finally {
       await server.stop(true);
-    }
-  }
-);
-
-test.unit.stable(
-  'provider model options retain literal types and every tier default is selectable',
-  ({ expectTypeOf, expect }) => {
-    expectTypeOf(anthropic.models).toEqualTypeOf<
-      readonly ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
-    >();
-
-    for (const provider of apiKeyProviders) {
-      const models: readonly string[] = provider.models;
-
-      for (const model of Object.values(provider.defaults)) expect(models).toContain(model);
     }
   }
 );

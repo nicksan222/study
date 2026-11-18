@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import { failureSchema } from '../errors.ts';
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
+import { modelCatalogViewSchema, modelUpdateSchema } from './model-updates.ts';
 import {
   voiceSettingsSchema,
   voiceSettingsPatchSchema,
@@ -13,6 +14,7 @@ import {
   concurrencySettingsSchema,
   appearancePreferencesSchema,
   llmSettingsSchema,
+  saveModelTierSchema,
   materialSettingsSchema,
   reviewSettingsSchema
 } from './schemas.ts';
@@ -29,6 +31,40 @@ export const settingsEndpoints = {
   saveVoiceSettings: mutation(
     'settings.saveVoiceSettings',
     { payload: voiceSettingsPatchSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
+  saveModelTier: mutation(
+    'settings.saveModelTier',
+    { payload: saveModelTierSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
+  modelUpdates: liveQuery(
+    'settings.modelUpdates',
+    { payload: {}, success: Schema.Array(modelUpdateSchema), error: failureSchema },
+    { dependencies: [dependency.settings, dependency.auth], refresh: 'database' }
+  ),
+  modelCatalog: liveQuery(
+    'settings.modelCatalog',
+    { payload: {}, success: modelCatalogViewSchema, error: failureSchema },
+    { dependencies: [dependency.settings, dependency.auth], refresh: 'database' }
+  ),
+  refreshModelCatalog: mutation(
+    'settings.refreshModelCatalog',
+    {
+      payload: {},
+      success: Schema.Struct({ apiAvailable: Schema.Boolean, chatAvailable: Schema.Boolean }),
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  ),
+  applyModelUpdate: mutation(
+    'settings.applyModelUpdate',
+    { payload: modelUpdateSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
+  dismissModelUpdate: mutation(
+    'settings.dismissModelUpdate',
+    { payload: modelUpdateSchema, success: saved, error: failureSchema },
     { changes: [dependency.settings] }
   ),
   usage: liveQuery(

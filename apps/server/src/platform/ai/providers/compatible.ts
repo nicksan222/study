@@ -7,13 +7,15 @@ import { Model, OpenAiStructuredOutput } from 'effect/ai';
 import type { AiModel } from '#server/platform/ai/model';
 
 import { defineApiKeyProvider } from './definition.ts';
-import type { ProviderDefinition } from './definition.ts';
+import type { ApiKeyProvider } from './definition.ts';
 import { providerHttpLayer } from './transport.ts';
 
-export function compatibleProvider<
-  const Id extends string,
-  const Models extends readonly [string, ...string[]]
->(definition: Omit<ProviderDefinition<Id, Models>, 'createModel'> & { baseURL: string }) {
+export function compatibleProvider(
+  definition: Omit<ApiKeyProvider, 'createModel' | 'catalogId'> & {
+    baseURL: string;
+    catalogId?: string;
+  }
+) {
   const { baseURL, ...metadata } = definition;
 
   return defineApiKeyProvider({

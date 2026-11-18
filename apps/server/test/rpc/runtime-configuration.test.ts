@@ -1,4 +1,5 @@
-import { Agents } from '@study/server';
+import { AgentRule } from '@study/contracts';
+import { Agents, ChatGptSession, defineAgent, generateAgent } from '@study/server';
 import { encodeAccount } from '@study/server';
 import { Database } from '@study/server';
 import { transaction } from '@study/server';
@@ -21,11 +22,12 @@ import { test } from '@study/testing';
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthStore } from '#server/features/auth/store/index';
 import { Settings } from '#server/features/settings/index';
+import { textResponseEvents } from '#testing/responses';
 
 test.server.stable(
   'same-account credential replacement changes the durable nonsecret fingerprint',
@@ -104,6 +106,197 @@ test.server.stable(
     } finally {
       await app.close();
       await location.close();
+    }
+  }
+);
+
+const versionCheckAgent = defineAgent({
+  id: 'model-version-check',
+  input: Schema.String,
+  output: Schema.String,
+  model: 'medium',
+  customRules: [AgentRule.Replies],
+  instructions: 'Reply to the supplied message.',
+  prompt: (message) => message
+});
+
+function textCompletion(model: string) {
+  const base = { id: 'test', object: 'chat.completion.chunk', created: 1, model };
+  const events = [
+    {
+      ...base,
+      choices: [{ index: 0, delta: { role: 'assistant', content: 'Hello' }, finish_reason: null }]
+    },
+    {
+      ...base,
+      choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+    }
+  ];
+
+  return new Response(
+    events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('') + 'data: [DONE]\n\n',
+    {
+      headers: { 'content-type': 'text/event-stream' }
+    }
+  );
+}
+
+test.server.stable(
+  'refreshes an API-key catalog on demand, preserves it offline and changes models on consent',
+  async ({ resources, expect }) => {
+    const before = 'deepseek-flash';
+    const after = 'deepseek-newer-flash';
+    let expected = before;
+    let catalogRequests = 0;
+    let unavailable = false;
+    let emptyCatalog = false;
+    let delisted = false;
+    const fetchCatalog = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+
+      if (request.url.endsWith('/chat/completions')) {
+        expect(await request.json()).toMatchObject({ model: expected });
+
+        return textCompletion(expected);
+      }
+
+      expect(request.url).toBe('https://models.dev/api.json');
+      expect(request.headers.has('authorization')).toBe(false);
+      catalogRequests++;
+
+      if (unavailable) return new Response(null, { status: 503 });
+
+      if (emptyCatalog) return Response.json({ deepseek: { models: {} } });
+
+      return Response.json({
+        deepseek: {
+          models: Object.fromEntries(
+            (delisted ? [after] : [before, after]).map((id) => [
+              id,
+              {
+                id,
+                name: id,
+                family: 'deepseek',
+                release_date: id === after ? '2026-11-18' : '2026-11-17',
+                tool_call: true,
+                modalities: { output: ['text'] },
+                cost: { output: 1 }
+              }
+            ])
+          )
+        }
+      });
+    };
+    const app = await resources.openApp({ path: resources.path, fetch: fetchCatalog });
+
+    try {
+      await app.nativeRuntime.runPromise(
+        Effect.gen(function* () {
+          const auth = yield* Auth;
+          const settings = yield* Settings;
+          const session = yield* ChatGptSession;
+
+          yield* auth.saveApiKey({ provider: 'deepseek', apiKey: 'test-secret' });
+          yield* settings.refreshModelRecommendations(session);
+          yield* settings.saveLlmSettings({
+            tiny: { provider: 1 },
+            medium: { provider: 'deepseek', model: before },
+            smart: { provider: 1 }
+          });
+          const agents = yield* Agents;
+
+          yield* agents.model('medium', {
+            definition: { input: Schema.String, output: Schema.String },
+            input: 'Hello'
+          });
+          expect(yield* settings.modelUpdates()).toEqual([]);
+          expect(catalogRequests).toBe(1);
+          delisted = true;
+          yield* settings.refreshModelRecommendations(session);
+          expect(catalogRequests).toBe(2);
+          unavailable = true;
+          yield* settings.refreshModelRecommendations(session);
+          expect(catalogRequests).toBe(3);
+          expect((yield* settings.modelCatalog()).models.deepseek).toEqual([after]);
+          const [notice] = yield* settings.modelUpdates();
+
+          expect(notice).toEqual({
+            tier: 'medium',
+            provider: 'deepseek',
+            previousModel: before,
+            model: after
+          });
+          unavailable = false;
+          emptyCatalog = true;
+          yield* settings.refreshModelRecommendations(session);
+          expect((yield* settings.modelCatalog()).models.deepseek).toEqual([after]);
+          expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
+          yield* settings.updateModel(notice!, true);
+          expected = after;
+          expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
+          expect(yield* settings.modelUpdates()).toEqual([]);
+        })
+      );
+    } finally {
+      await app.close();
+      await resources.close();
+    }
+  }
+);
+
+test.server.stable(
+  'a catalog-only ChatGPT denial does not block pinned inference',
+  async ({ resources, expect }) => {
+    const requests: string[] = [];
+    const app = await resources.openApp({
+      path: resources.path,
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        const path = new URL(request.url).pathname;
+
+        requests.push(path);
+
+        if (path.endsWith('/models')) return new Response(null, { status: 403 });
+
+        expect(path).toBe('/v1/responses');
+        expect(await request.json()).toMatchObject({ model: 'gpt-6.1-sol' });
+
+        return new Response(
+          textResponseEvents('Hello')
+            .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+            .join(''),
+          { headers: { 'content-type': 'text/event-stream' } }
+        );
+      }
+    });
+
+    try {
+      await app.nativeRuntime.runPromise(
+        Effect.gen(function* () {
+          const settings = yield* Settings;
+          const session = yield* ChatGptSession;
+
+          yield* Effect.promise(() =>
+            session.manager.replace(
+              { subject: 'fixture', clientId: 'study', refreshToken: null, sharing: true },
+              { accessToken: 'token', expiresIn: 3600 }
+            )
+          );
+          yield* settings.refreshModelRecommendations({
+            ...session,
+            request: (input, init) =>
+              String(input) === 'https://models.dev/api.json'
+                ? Promise.resolve(Response.json({}))
+                : session.request!(input, init)
+          });
+          expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
+          expect(requests).toEqual(['/v1/models', '/v1/responses']);
+        })
+      );
+    } finally {
+      await app.close();
+      await resources.close();
     }
   }
 );

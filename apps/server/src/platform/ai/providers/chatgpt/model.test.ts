@@ -22,7 +22,7 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 test.unit.stable(
-  'Responses adapter retries 401 with rotated OAuth token and consumes SSE',
+  'Responses adapter preserves the configured Sol model across a 401 retry',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
 
@@ -56,7 +56,7 @@ test.unit.stable(
         for (const event of [
           {
             type: 'response.created',
-            response: { id: 'resp', created_at: 1, model: 'gpt-test' }
+            response: { id: 'resp', created_at: 1, model: 'gpt-6.2-sol' }
           },
           {
             type: 'response.output_item.added',
@@ -81,7 +81,7 @@ test.unit.stable(
             response: {
               id: 'resp',
               created_at: 1,
-              model: 'gpt-test',
+              model: 'gpt-6.2-sol',
               output: [
                 {
                   type: 'message',
@@ -115,8 +115,8 @@ test.unit.stable(
         { accessToken: 'original', expiresIn: 3600 }
       );
       const model = createChatGptModel({
-        auth,
-        modelId: 'gpt-test',
+        auth: auth.credentials(),
+        modelId: 'gpt-6.2-sol',
         baseUrl: base
       });
       const result = await Effect.runPromise(
@@ -130,6 +130,7 @@ test.unit.stable(
 
       assert.ok(result.text === 'Biology');
       expect(headers).toStrictEqual(['Bearer original', 'Bearer renewed']);
+      expect(bodies.map((body) => body.model)).toEqual(['gpt-6.2-sol', 'gpt-6.2-sol']);
       assert.ok(bodies[1].stream === true);
       assert.ok(bodies[1].store === false);
       expect(String(bodies[1].instructions)).toMatch(/study note/i);

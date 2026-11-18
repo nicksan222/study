@@ -30,13 +30,21 @@ export const LlmProvider = {
 
 export type LlmProvider = (typeof LlmProvider)[keyof typeof LlmProvider];
 
+/** ChatGPT model families. Numeric IDs are persisted in tier settings. */
 export const LlmModel = {
-  GPT6_LUNA: 1,
-  GPT61_SOL: 2,
-  GPT6_ASTRA: 3
+  LUNA: 1,
+  SOL: 2,
+  /** Legacy value decoded from saved settings and replaced with Sol. */
+  ASTRA: 3
 } as const;
 
 export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
+
+export const chatGptModelIds = {
+  [LlmModel.LUNA]: 'gpt-6-luna',
+  [LlmModel.SOL]: 'gpt-6.1-sol',
+  [LlmModel.ASTRA]: 'gpt-6.1-sol'
+} as const;
 
 import type {
   voiceSettingsSchema,
