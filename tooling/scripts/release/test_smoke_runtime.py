@@ -45,6 +45,12 @@ print(json.dumps({'url': 'http://127.0.0.1:12345'}))
         self.assertIn("model_unavailable", result.stderr)
 
     @unittest.skipIf(sys.platform == 'win32', 'Fixture uses a POSIX executable script')
+    def test_valid_initialization_marker_does_not_hide_process_failure(self):
+        result = self.smoke({"initialized": True}, 1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Bundled speech runtime initialization failed", result.stderr)
+
+    @unittest.skipIf(sys.platform == 'win32', 'Fixture uses a POSIX executable script')
     def test_success_requires_exactly_the_boolean_initialization_marker(self):
         for response in ({"initialized": 1}, {"initialized": True, "extra": "value"}, [True]):
             with self.subTest(response=response):
