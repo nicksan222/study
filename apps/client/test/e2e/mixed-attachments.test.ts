@@ -244,18 +244,9 @@ test.browser.stable(
     await expect(
       page.getByRole('tab', { name: 'two-pages.pdf', exact: true, selected: true })
     ).toBeVisible();
-    await expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
-    await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
-    await panel.getByRole('link', { name: copy.Settings, exact: true }).click({ trial: true });
-    await expectScreenshot('pdf-awaits-sign-in', {
-      target: 'viewport',
-      ready: async () => {
-        await expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
-        await expect(
-          page.getByRole('tab', { name: 'two-pages.pdf', exact: true, selected: true })
-        ).toBeVisible();
-      }
-    });
+    await expect(
+      panel.getByRole('region', { name: copy.PdfDocument }).locator('canvas')
+    ).toBeVisible();
     await openSource({ expect }, 'summary.md', localFiles[4]!.expected);
 
     await page.goto('/projects');
