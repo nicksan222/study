@@ -9,7 +9,6 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { useNarrowLayout } from '#client/lib/viewport.ts';
 
 import { DefaultContextMenu } from './default-context-menu';
-import { DesktopUpdates } from './desktop-updates';
 import { Sidebar } from './sidebar';
 import { useSidebarContext } from './sidebar-context.queries';
 
@@ -209,7 +208,6 @@ function ShellContent() {
 
   return (
     <>
-      <DesktopUpdates />
       <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
         <SidebarUI.Frame
           variant={notebook ? 'note-entry' : 'default'}

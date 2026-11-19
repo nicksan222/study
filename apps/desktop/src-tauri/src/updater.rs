@@ -16,7 +16,7 @@ pub struct PendingUpdate {
 #[derive(serde::Serialize)]
 pub struct UpdateStatus {
     version: String,
-    supported: bool,
+    pub(crate) supported: bool,
 }
 
 #[tauri::command]
