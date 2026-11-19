@@ -1,4 +1,5 @@
 """Launch the packaged desktop executable and wait for the rendered client's health snapshot."""
+from contextlib import suppress
 import os
 from pathlib import Path
 import selectors
@@ -24,16 +25,9 @@ def check_webview(executable, timeout=90):
             try:
                 wait_for_snapshot(app.stdout, timeout)
             finally:
-                try:
-                    os.killpg(app.pid, signal.SIGTERM)
-                    app.wait(timeout=5)
-                except ProcessLookupError:
-                    pass
-                except subprocess.TimeoutExpired:
-                    try:
-                        os.killpg(app.pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
+                # The disposable app and its private Bun server own this process group.
+                with suppress(ProcessLookupError):
+                    os.killpg(app.pid, signal.SIGKILL)
 
 
 def wait_for_snapshot(output, timeout):

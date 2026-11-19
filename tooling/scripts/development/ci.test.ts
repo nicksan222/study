@@ -188,6 +188,11 @@ test.unit.stable(
         ?.name,
       'bundle-macos-aarch64'
     );
+    assert.isTrue(
+      webview.steps!.some((step) =>
+        step.run?.includes('smoke_macos_webview.py target/macos-release/study-macos-aarch64.dmg')
+      )
+    );
 
     for (const name of platforms) {
       const job = release.jobs[name]!;
