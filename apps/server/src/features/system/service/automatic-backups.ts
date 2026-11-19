@@ -77,16 +77,17 @@ export function* automaticBackupOperations(lock: Semaphore.Semaphore) {
 
   function deliver(state: AutomaticBackupState, destination: NonNullable<Destination>) {
     const name = `Study-${state.installation}-${state.nextSlot + 1}.studybackup`;
+    const { pendingObjectId, ...current } = state;
 
     return backupAttempt(() => owner.automaticSnapshot()).pipe(
       Effect.flatMap((bytes) =>
         strategies.publish(destination, {
           name,
           bytes,
-          pendingObjectId: state.pendingObjectId,
+          pendingObjectId,
           checkpoint: (connection, objectId) =>
             persist({
-              ...state,
+              ...current,
               destination: connection,
               ...(objectId ? { pendingObjectId: objectId } : {})
             })

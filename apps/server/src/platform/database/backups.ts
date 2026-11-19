@@ -495,6 +495,7 @@ export class ManagedBackups {
 
     if (path === undefined) {
       await privateDirectory(folder);
+      await syncDirectory(this.root);
       await durableWrite(join(folder, name), bytes, (parent) =>
         runFileSystemPromise(syncPublishedBackupDirectory(parent))
       );

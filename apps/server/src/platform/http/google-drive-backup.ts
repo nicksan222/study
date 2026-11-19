@@ -59,7 +59,7 @@ export function googleDrive(call: BackupHttp) {
     call
   );
 
-  async function find(accessToken: string, name: string, signal: AbortSignal) {
+  async function find(accessToken: string, name: string, signal: AbortSignal, excluded?: string) {
     const value = driveQueryValue(name);
     const url = new URL(drivePath, driveOrigin);
 
@@ -76,8 +76,9 @@ export function googleDrive(call: BackupHttp) {
         signal
       });
       const result = await backupJson(response, fileList);
+      const matching = result.files.find(({ id }) => id !== excluded);
 
-      if (result.files[0]) return result.files[0].id;
+      if (matching) return matching.id;
 
       if (!result.nextPageToken) return undefined;
 
@@ -128,7 +129,7 @@ export function googleDrive(call: BackupHttp) {
     return call(
       url,
       { method: create ? 'POST' : 'PATCH', headers, body, signal },
-      { allow: create ? [409] : [404] }
+      { allow: create ? [404, 409, 410] : [404, 410] }
     );
   }
 
@@ -145,15 +146,14 @@ export function googleDrive(call: BackupHttp) {
 
     if (create.ok) return resumableLocation(create);
 
+    if (create.status !== 409) return undefined;
+
     // A previous attempt can commit between the failed lookup and this create request.
     const committed = await startUpload(input);
 
     await committed.body?.cancel();
 
-    if (!committed.ok)
-      throw new StudyError('transient', 'Google Drive backup is awaiting confirmation');
-
-    return resumableLocation(committed);
+    return committed.ok ? resumableLocation(committed) : undefined;
   }
 
   return {
@@ -162,20 +162,23 @@ export function googleDrive(call: BackupHttp) {
       accessToken: string,
       name: string,
       currentId: string | undefined,
-      signal: AbortSignal
+      signal: AbortSignal,
+      excluded?: string
     ) =>
-      currentId ?? (await find(accessToken, name, signal)) ?? (await reserve(accessToken, signal)),
+      (Schema.is(fileId)(currentId) ? currentId : undefined) ??
+      (await find(accessToken, name, signal, excluded)) ??
+      (await reserve(accessToken, signal)),
     upload: async (
       accessToken: string,
       name: string,
       bytes: Uint8Array<ArrayBuffer>,
       signal: AbortSignal,
-      id?: string
+      id: string
     ) => {
-      if (!id || !Schema.is(fileId)(id))
-        throw new StudyError('config', 'Google Drive backup requires a reserved file ID');
-
       const url = await uploadUrl({ id, name, accessToken, signal, length: bytes.length });
+
+      if (!url) return 'rejected-id' as const;
+
       const response = await call(
         url,
         {

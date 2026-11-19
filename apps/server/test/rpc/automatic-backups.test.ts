@@ -1,7 +1,9 @@
-import { MAX_AUTOMATIC_BACKUPS } from '@study/contracts';
+import { backupIdSchema, MAX_AUTOMATIC_BACKUPS } from '@study/contracts';
 import { test } from '@study/testing';
-import { Effect, Fiber, Option, PlatformError, Result, Stream } from 'effect';
+import { Effect, Fiber, Option, PlatformError, Result, Schema, Stream } from 'effect';
 
+import { Settings } from '#server/features/settings/index';
+import { System } from '#server/features/system/index';
 import { BackupStorage } from '#server/platform/database/backups';
 import { fileSystem, nativePaths, runFileSystemPromise } from '#server/platform/filesystem/index';
 import { acceptance, backupFixture, createPage, packet } from '#testing/managed-backups';
@@ -63,6 +65,80 @@ test.server.stable(
       expect(await runFileSystemPromise(fs.readFileString(marker))).toBe('unrelated file');
     } finally {
       await fixture.close();
+    }
+  }
+);
+
+test.server.stable(
+  'Google Drive replaces a permanently rejected upload ID in the same backup slot',
+  async ({ expect, resources }) => {
+    const reserved = 'replacement';
+    const rejected = 'deleted';
+    const attemptedIds: string[] = [];
+    let readCheckpoint: () => Promise<string | undefined>;
+    const app = await resources.openApp({
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        const url = new URL(request.url);
+
+        if (url.pathname.endsWith('/token')) return Response.json({ access_token: 'token' });
+
+        if (url.searchParams.has('q')) return Response.json({ files: [{ id: rejected }] });
+
+        if (url.pathname.endsWith('/generateIds')) return Response.json({ ids: [reserved] });
+
+        if (request.method === 'PATCH') return new Response(null, { status: 404 });
+
+        if (request.method === 'PUT') {
+          expect(await readCheckpoint()).toBe(reserved);
+
+          return new Response(null, { status: 201 });
+        }
+
+        const metadata = await request.json();
+
+        attemptedIds.push(metadata.id);
+
+        return metadata.id === rejected
+          ? new Response(null, { status: 409 })
+          : new Response(null, {
+              headers: {
+                location: 'https://www.googleapis.com/upload/drive/v3/files?upload_id=test'
+              }
+            });
+      }
+    });
+
+    try {
+      const runtime = app.nativeRuntime;
+      const system = await runtime.runPromise(System);
+      const settings = await runtime.runPromise(Settings);
+      const current = async () =>
+        Option.getOrThrow(await runtime.runPromise(settings.automaticBackupState()));
+
+      readCheckpoint = async () => (await current()).pendingObjectId;
+      await runtime.runPromise(
+        settings.saveAutomaticBackupState({
+          destination: {
+            kind: 'google-drive',
+            clientId: 'desktop-client',
+            clientSecret: 'secret',
+            refreshToken: 'refresh'
+          },
+          installation: Schema.decodeUnknownSync(backupIdSchema)(crypto.randomUUID()),
+          nextSlot: 0,
+          lastSuccessAtMs: null,
+          lastFailure: null,
+          retryAtMs: 0,
+          pendingObjectId: rejected
+        })
+      );
+      await runtime.runPromise(system.runAutomaticBackup());
+      expect(attemptedIds).toEqual([rejected, reserved]);
+      expect(await current()).toMatchObject({ nextSlot: 1, lastFailure: null });
+      expect(await readCheckpoint()).toBeUndefined();
+    } finally {
+      await app.close();
     }
   }
 );
