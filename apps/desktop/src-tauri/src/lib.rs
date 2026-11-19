@@ -28,7 +28,11 @@ async fn diagnostic_log(app: tauri::AppHandle) -> Result<String, NativeError> {
         .map_err(|e| NativeError::internal(e.to_string()))
 }
 pub fn run() {
-    let result = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(feature = "desktop-e2e")]
+    let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+
+    let result = builder
         .on_permission_request(microphone::permission)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
