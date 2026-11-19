@@ -61,6 +61,8 @@ test.browser.stable(
 
       await page.getByRole('button', { name: copy.NoteEditNote }).click();
       const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+      await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
       const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
       await expect(editor).toHaveValue(content);
@@ -227,10 +229,10 @@ test.browser.stable(
       ratio: 1
     });
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
-    await expect(
-      page.getByRole('dialog', { name: copy.NoteEditNote }).getByRole('textbox')
-    ).toHaveValue(content);
     const editing = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await editing.getByRole('button', { name: copy.NoteMarkdownSource }).click();
+    await expect(editing.getByRole('textbox')).toHaveValue(content);
 
     await page.setViewportSize({ width: 760, height: 900 });
     await expect(editing.getByRole('button', { name: copy.NoteBackToNotebook })).toBeInViewport({
@@ -250,6 +252,7 @@ test.browser.stable(
     await page.setViewportSize({ width: 2560, height: 1440 });
     await notebook.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
+    await editing.getByRole('button', { name: copy.NoteMarkdownSource }).click();
     await expect(editing.getByRole('textbox')).toHaveValue(content);
     await editing.getByRole('button', { name: copy.NoteBackToNotebook }).click();
     await expect(editing).toBeHidden();

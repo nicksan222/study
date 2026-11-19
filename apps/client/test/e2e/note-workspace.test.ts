@@ -94,6 +94,8 @@ test.browser.stable(
     await capture.hover();
     await capture.getByRole('button', { name: copy.NoteEditNote }).click();
     const edit = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await edit.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
     const editor = edit.getByRole('textbox', { name: copy.NoteEditNote });
 
     await editor.fill(revised);
