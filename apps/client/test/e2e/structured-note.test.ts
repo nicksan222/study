@@ -366,8 +366,9 @@ test.browser.stable(
     await italianEditor
       .getByText('END-OF-LECTURE: retain every observation and its original order.')
       .click();
-    await italianEditor.press('End');
+    await italianEditor.press('ControlOrMeta+End');
     await italianEditor.press('Enter');
+    await expect(italianEditor.locator('p').last()).toBeEmpty();
     await page.keyboard.insertText(arabic);
     const paragraph = italianEditor.getByText(arabic, { exact: true });
 
