@@ -18,7 +18,7 @@ import { storeMutation, storeQuery } from '@study/server';
 import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
 
-import { writePreference } from './write-preference';
+import { writePreference } from './write-preference.ts';
 
 const values = Schema.Record(Schema.String, Schema.MutableJson);
 

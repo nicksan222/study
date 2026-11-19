@@ -4,7 +4,7 @@ import { preferences, sql } from '@study/db';
 import { catalogIdentitiesSchema, defineStore, storeMutation, storeQuery } from '@study/server';
 import { Schema } from 'effect';
 
-import { writePreference } from './write-preference';
+import { writePreference } from './write-preference.ts';
 
 const snapshot = Schema.Struct({
   catalog: modelCatalogSchema,
