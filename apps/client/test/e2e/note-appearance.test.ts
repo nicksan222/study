@@ -127,12 +127,16 @@ test.browser.stable(
     await expect(editor).toBeEditable();
     await expect(notebook).toHaveAttribute('data-open');
     await editor.fill('River survey report');
-    await expect(page.getByRole('status').filter({ hasText: copy.NoteAutosaved })).toBeVisible();
+    const saved = page.getByRole('status').and(page.getByText(copy.NoteAutosaved, { exact: true }));
+    const editorReady = async () => {
+      await expect(editor).toHaveText('River survey report');
+      await expect(saved).toBeVisible();
+    };
     const comfortableEditorWidth = (await editor.boundingBox())!.width;
 
     await expectScreenshot('editor-below-notebook', {
       target: 'viewport',
-      ready: () => expect(editor).toHaveText('River survey report')
+      ready: editorReady
     });
 
     await openAppearance(page);
@@ -144,7 +148,7 @@ test.browser.stable(
     expect((await editor.boundingBox())!.width).toBeGreaterThan(comfortableEditorWidth);
     await expectScreenshot('editor-full-width', {
       target: 'viewport',
-      ready: () => expect(editor).toHaveText('River survey report')
+      ready: editorReady
     });
 
     await openAppearance(page);
