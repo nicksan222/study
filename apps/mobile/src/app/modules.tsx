@@ -21,5 +21,5 @@ export function mobileModules(initialError?: PairingError): readonly ClientModul
     );
   }
 
-  return [{ id: 'pairing', Boundary: PairingBoundary, PageActions: UnlinkAction }];
+  return [{ id: 'pairing', Boundary: PairingBoundary, slots: { 'capture.actions': UnlinkAction } }];
 }

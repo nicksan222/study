@@ -14,11 +14,20 @@ export type ModuleSettings = {
   Content: ComponentType;
 };
 
+type SlotProps = {
+  'shell.pageActions': { busy?: boolean };
+  'capture.actions': { busy: boolean };
+};
+
+type ModuleSlots = {
+  [Slot in keyof SlotProps]?: ComponentType<SlotProps[Slot]>;
+};
+
 export type ClientModule = {
   id: string;
   Boundary?: ComponentType<PropsWithChildren>;
   Background?: ComponentType;
-  PageActions?: ComponentType<{ busy?: boolean }>;
+  slots?: ModuleSlots;
   settings?: ModuleSettings;
 };
 
@@ -46,9 +55,17 @@ export function ClientExtensions({
   );
 }
 
-/** A page places platform actions without importing any host implementation. */
-export function ClientPageActions({ busy }: { busy?: boolean }) {
-  return useContext(ClientModules).map(({ id, PageActions }) =>
-    PageActions ? <PageActions key={id} busy={busy} /> : null
-  );
+/** Pages own slot placement. A module can contribute UI independently of its provider or background work. */
+export function ClientSlot<Slot extends keyof SlotProps>({
+  name,
+  props
+}: {
+  name: Slot;
+  props: SlotProps[Slot];
+}) {
+  return useContext(ClientModules).map(({ id, slots }) => {
+    const Content: ComponentType<SlotProps[Slot]> | undefined = slots?.[name];
+
+    return Content ? <Content key={id} {...props} /> : null;
+  });
 }

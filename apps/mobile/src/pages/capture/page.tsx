@@ -1,5 +1,5 @@
 import { useI18n } from '@study/client/companion';
-import { ClientPageActions } from '@study/client/extensions';
+import { ClientSlot } from '@study/client/extensions';
 import { MobileStudy } from '@study/ui';
 import { useContext } from 'react';
 
@@ -18,7 +18,7 @@ export function CapturePage() {
         <p>{t('MobileCaptureIntro')}</p>
       </MobileStudy.Header>
       <MobileCapture transport={transport} />
-      <ClientPageActions busy={status === 'sending'} />
+      <ClientSlot name="capture.actions" props={{ busy: status === 'sending' }} />
     </MobileStudy.Screen>
   );
 }
