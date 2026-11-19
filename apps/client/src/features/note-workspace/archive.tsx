@@ -12,7 +12,6 @@ import {
   RetryButton,
   Button,
   ChatMessage,
-  ChatMessageText,
   ErrorState,
   Loading,
   Notebook,
@@ -27,8 +26,8 @@ import { PageNotebookDeletion } from '../document-editing';
 import { DocumentReader } from '../document-presentation';
 import { SourceDeletion } from '../source-library';
 import { useItemArchive } from './archive.queries';
+import { MessageContent, useMessageCitations } from './message-citations';
 import { MessageDeletion } from './message-deletion';
-import { NoteContent } from './note-editor';
 import { NoteError, NoteReadError } from './status';
 
 const itemKey = (target: NoteArchiveTarget) => target.kind + ':' + String(target.id);
@@ -213,14 +212,13 @@ function ArchiveActions({
 function ArchivedMessage({ id, noteId, onDeleted }: PreviewProps & { id: MessageId }) {
   const { t } = useI18n();
   const message = rpc.notes.message.useQuery({ id: id });
+  const value = message.data;
+  const version = value?.versions.find((v) => v.id === value.activeVersionId);
 
   if (message.error)
     return <NoteReadError error={message.error} retry={() => void message.refetch()} />;
 
-  if (!message.data) return <Loading label={t('LoadingStudy')} />;
-
-  const value = message.data;
-  const version = value.versions.find((v) => v.id === value.activeVersionId);
+  if (!value) return <Loading label={t('LoadingStudy')} />;
 
   return (
     <Surface.ArchiveFrame>
@@ -229,11 +227,7 @@ function ArchivedMessage({ id, noteId, onDeleted }: PreviewProps & { id: Message
           <ArchiveContext>
             <ChatMessage data-role={value.role}>
               {version ? (
-                value.format === 'document' || value.role === 'assistant' ? (
-                  <NoteContent value={version.text} />
-                ) : (
-                  <ChatMessageText text={version.text} />
-                )
+                <ArchivedMessageContent message={value} version={version} />
               ) : (
                 <Notebook.Status>{t('NoteReadUnavailable')}</Notebook.Status>
               )}
@@ -264,6 +258,12 @@ function ArchivedMessage({ id, noteId, onDeleted }: PreviewProps & { id: Message
       )}
     </Surface.ArchiveFrame>
   );
+}
+
+function ArchivedMessageContent(props: Omit<Parameters<typeof MessageContent>[0], 'citations'>) {
+  const { items } = useMessageCitations(props.message, props.version.id);
+
+  return <MessageContent {...props} citations={items} />;
 }
 
 function ArchivedPage({ id, noteId, onDeleted }: PreviewProps & { id: PageId }) {

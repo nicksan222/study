@@ -218,14 +218,14 @@ test.unit.stable(
 );
 
 test.unit.stable.for(['text', undefined] as const)(
-  'keeps %s quick captures as literal text rather than document cards',
+  'renders Markdown inline for %s quick captures',
   async (format, { vi, expect, within, screen, rpcHandlersTransport, render }) => {
-    const literal = '# A quick thought **with stars** and [a link](https://example.com)';
+    const markdown = '# A quick thought **with emphasis** and [a link](https://example.com)';
     const quick = Schema.decodeUnknownSync(chatMessageSchema)({
       ...message,
       format,
       description: null,
-      versions: [{ ...message.versions[0], text: literal }]
+      versions: [{ ...message.versions[0], text: markdown }]
     });
     const onOpen = vi.fn();
 
@@ -235,11 +235,16 @@ test.unit.stable.for(['text', undefined] as const)(
       <History id={message.noteId} onOpen={onOpen} />
     );
 
-    expect(
-      await within(view.container.querySelector('.note-history')!).findByText(literal)
-    ).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'A quick thought' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'a link' })).toBeNull();
+    const heading = await within(view.container.querySelector('.note-history')!).findByRole(
+      'heading',
+      { level: 1, name: 'A quick thought with emphasis and a link' }
+    );
+
+    expect(heading.querySelector('strong')).toHaveTextContent('with emphasis');
+    expect(within(heading).getByRole('link', { name: 'a link' })).toHaveAttribute(
+      'href',
+      'https://example.com'
+    );
     expect(view.container.querySelector('.workspace-desk-page')).toBeNull();
     expect(screen.queryByRole('button', { name: 'NoteOpenPage' })).toBeNull();
     expect(onOpen).not.toHaveBeenCalled();
