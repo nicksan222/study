@@ -98,9 +98,10 @@ function PdfPages({ total }: { total: number }) {
 
 function PdfPage({ page, width, scale }: { page: number; width: number; scale: number }) {
   const { t } = useI18n();
-  const [failedScale, setFailedScale] = useState<number>();
+  const [failedSize, setFailedSize] = useState<{ width: number; scale: number }>();
 
-  if (failedScale === scale) return <ErrorState title={t('PdfPageFailed')} />;
+  if (failedSize?.width === width && failedSize.scale === scale)
+    return <ErrorState title={t('PdfPageFailed')} />;
 
   return (
     <Page
@@ -111,7 +112,7 @@ function PdfPage({ page, width, scale }: { page: number; width: number; scale: n
       renderAnnotationLayer={false}
       loading={<Loading label={t('PdfPageLoading')} layout="panel" />}
       error={<ErrorState title={t('PdfPageFailed')} />}
-      onRenderError={() => setFailedScale(scale)}
+      onRenderError={() => setFailedSize({ width, scale })}
     />
   );
 }
