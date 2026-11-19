@@ -107,8 +107,8 @@ export function MessageContent({
     return (
       <ChatQuestionAnswer
         label={t('NoteAnswer')}
-        question={<ChatMessageText text={original.text} renderText={citationRenderer} />}
-        answer={<NoteContent value={answer} renderText={citationRenderer} />}
+        question={<NotebookMessageText value={original.text} renderText={citationRenderer} />}
+        answer={<NoteContent variant="notebook" value={answer} renderText={citationRenderer} />}
       />
     );
   }
@@ -119,9 +119,26 @@ export function MessageContent({
     version.origin === 'improve' ||
     version.origin === 'summarize' ||
     version.origin === 'instruction' ? (
-    <NoteContent value={version.text} renderText={citationRenderer} />
+    <NoteContent variant="notebook" value={version.text} renderText={citationRenderer} />
   ) : (
-    <ChatMessageText text={version.text} renderText={citationRenderer} />
+    <NotebookMessageText value={version.text} renderText={citationRenderer} />
+  );
+}
+
+function NotebookMessageText({
+  value,
+  renderText
+}: {
+  value: string;
+  renderText?: (value: string) => ReactNode;
+}) {
+  return (
+    <NoteContent
+      variant="notebook"
+      value={value}
+      renderText={renderText}
+      renderPlainText={() => <ChatMessageText text={value} renderText={renderText} />}
+    />
   );
 }
 
