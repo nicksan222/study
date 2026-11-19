@@ -2383,6 +2383,21 @@ export const italian = Object.freeze({
   InterfaceSettings: 'Interfaccia',
   AppearanceContrast: 'Contrasto',
   AppearanceContrastDescription: 'Regola il contrasto dei colori e dei bordi nell’interfaccia.',
+  AppearanceNotes: 'Layout delle note',
+  AppearanceNoteWidth: 'Larghezza delle note',
+  AppearanceNoteWidthDescription:
+    'Scegli quanto spazio occupano i quaderni e le loro pagine sugli schermi grandi.',
+  AppearanceNoteWidthFull: 'Larghezza intera',
+  AppearanceNoteWidthWide: 'Ampia',
+  AppearanceNoteWidthComfortable: 'Comoda',
+  AppearanceNoteComposer: 'Mostra sempre il campo appunti',
+  AppearanceNoteComposerDescription:
+    'Tieni il campo in basso nei quaderni aperti. Disattiva l’opzione per aprirlo con Aggiungi alla nota.',
+  AppearanceNoteEditorDock: 'Posizione predefinita dell’editor',
+  AppearanceNoteEditorDockDescription:
+    'Scegli dove si apre l’editor quando è affiancato al quaderno.',
+  AppearanceNoteEditorDockSide: 'A lato delle note',
+  AppearanceNoteEditorDockBottom: 'Sotto le note',
   GlassOpacity: 'Opacità delle superfici',
   GlassOpacityDescription: 'Rendi menu e finestre di dialogo più trasparenti o più opachi.',
   PanelAnimations: 'Animazioni dell’interfaccia',

@@ -1,5 +1,5 @@
 import { Appearance } from '@study/contracts';
-import type { ProjectId, AppearancePreferences } from '@study/contracts';
+import type { ProjectId, AppearancePreferencesPatch } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import type { Appearance as AppearanceMode } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -17,7 +17,7 @@ export interface AppearanceModel {
   error: boolean;
   pending: boolean;
   retry: () => void;
-  setPreferences: (preferences: AppearancePreferences) => void;
+  setPreferences: (patch: AppearancePreferencesPatch) => void;
   setZoom: (percent: number) => void;
   setAppearance: (mode: AppearanceMode) => void;
   selectTheme: (id: string) => void;

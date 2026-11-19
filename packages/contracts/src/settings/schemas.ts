@@ -68,8 +68,17 @@ export const reviewSettingsSchema = Schema.Struct({
 export const appearancePreferencesSchema = Schema.Struct({
   contrast: Schema.Int.check(Schema.isBetween({ minimum: 75, maximum: 150 })),
   glassOpacity: Schema.Int.check(Schema.isBetween({ minimum: 40, maximum: 100 })),
-  animationDurationMs: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 400 }))
+  animationDurationMs: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 400 })),
+  noteWidth: Schema.Literals(['comfortable', 'wide', 'full']),
+  showNoteComposer: Schema.Boolean,
+  noteEditorDock: Schema.Literals(['side', 'bottom'])
 });
+
+export const appearancePreferencesPatchSchema = appearancePreferencesSchema.mapFields(
+  Struct.map(Schema.optionalKey)
+);
+
+export type AppearancePreferencesPatch = typeof appearancePreferencesPatchSchema.Type;
 
 export const concurrencySettingsSchema = Schema.Struct({
   maxConcurrentAi: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 })),

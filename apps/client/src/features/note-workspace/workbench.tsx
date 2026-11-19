@@ -1,12 +1,14 @@
 import type { NoteId, PageId, SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Loading, WorkspaceDeskSurface as Desk } from '@study/ui';
+import { Loading, WorkspaceSurface, WorkspaceDeskSurface as Desk } from '@study/ui';
+import { useState } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { NoteAssistantPanel } from '../assistant';
 import { SourcePanel } from '../source-library';
+import { DictationSubmissionScope, useDictationSubmission } from '../voice';
 import { Composer } from './composer';
 import { NoteContextActions } from './context-actions';
 import { History } from './history';
@@ -45,11 +47,22 @@ function PageTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'page' }
   return material.data?.title ?? target.title;
 }
 
-/** Keeps quick note and document work side by side, with one full-screen editor on narrow displays. */
+/** Keep the current capture mounted until its microphone owner finishes. */
+function useComposerPlacement(preferDock: boolean) {
+  const { scope, blocked } = useDictationSubmission();
+  const [docked, setDocked] = useState(preferDock);
 
+  if (!blocked && docked !== preferDock) setDocked(preferDock);
+
+  return { docked, scope };
+}
+
+/** Keeps quick note and document work side by side, with one full-screen editor on narrow displays. */
 export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => void }) {
   const { t } = useI18n();
   const model = useWorkbench(id);
+  const { noteWidth, showNoteComposer } = model.appearance;
+  const { docked, scope } = useComposerPlacement(showNoteComposer);
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
   const creation = useNotePageCreation(id);
@@ -63,6 +76,11 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
       if (material) openPage(material);
     });
   };
+  const capture = (
+    <DictationSubmissionScope value={scope}>
+      <Composer id={id} onPage={create} docked={docked} />
+    </DictationSubmissionScope>
+  );
 
   return (
     <Desk.Root
@@ -70,6 +88,7 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
       expanded={model.expanded}
       dock={model.dock}
       cardOpen={model.cardVisible}
+      contentWidth={noteWidth}
     >
       <Desk.Notebook>
         <Desk.ScrollArea>
@@ -86,7 +105,7 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
                 <History
                   id={id}
                   state={thread}
-                  capture={<Composer id={id} onPage={create} />}
+                  capture={!docked && capture}
                   pages={pages.data?.items}
                   onOpenPage={openPage}
                   onOpenSource={openSource}
@@ -132,6 +151,9 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
           </Desk.NotebookLayout>
         </Desk.ScrollArea>
         <Desk.NavigationHost />
+        <Desk.FloatingComposer>
+          {docked && <WorkspaceSurface.Dock>{capture}</WorkspaceSurface.Dock>}
+        </Desk.FloatingComposer>
       </Desk.Notebook>
 
       <EditorPanel id={id} model={model} active={active} create={create} openPage={openPage} />

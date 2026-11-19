@@ -76,7 +76,10 @@ export type AppearancePreferences = typeof appearancePreferencesSchema.Type;
 export const defaultAppearancePreferences: AppearancePreferences = {
   contrast: 100,
   glassOpacity: 80,
-  animationDurationMs: 150
+  animationDurationMs: 150,
+  noteWidth: 'full',
+  showNoteComposer: true,
+  noteEditorDock: 'side'
 };
 
 export type ConcurrencySettings = typeof concurrencySettingsSchema.Type;

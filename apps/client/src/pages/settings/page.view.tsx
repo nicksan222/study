@@ -41,7 +41,7 @@ import { DataSettings } from './data';
 import { GeneralSettings } from './general';
 import { SidebarSettings } from './general/sidebar-settings';
 import { IntegrationsSettings } from './integrations';
-import { InterfaceSettings } from './interface-settings';
+import { InterfaceSettings, NoteAppearanceSettings } from './interface-settings';
 import { PerformanceSettings } from './performance';
 import { StudySettings } from './study';
 import { QuizSettings } from './study/quiz-settings';
@@ -87,7 +87,17 @@ const sections = [
     id: 'appearance',
     label: 'Appearance',
     Icon: AppearanceIcon,
-    keywords: ['Themes', 'AppearanceContrast', 'GlassOpacity', 'PanelAnimations', 'TextSize']
+    keywords: [
+      'Themes',
+      'AppearanceContrast',
+      'GlassOpacity',
+      'PanelAnimations',
+      'TextSize',
+      'AppearanceNotes',
+      'AppearanceNoteWidth',
+      'AppearanceNoteComposer',
+      'AppearanceNoteEditorDock'
+    ]
   },
   {
     id: 'sidebar',
@@ -465,6 +475,7 @@ function AppearanceContent({ model, search }: { model: AppearanceModel; search: 
           <ColorScheme model={model} />
           <ThemeLibrary model={model} search={search} />
           <InterfaceSettings model={model} />
+          <NoteAppearanceSettings model={model} />
         </>
       )}
     </>

@@ -27,7 +27,15 @@ import { UnavailableAttempt } from './unavailable-attempt';
 type ComposerModel = ReturnType<typeof useComposer>;
 
 /** Composes notes, questions and attachments while preserving mixed clipboard content. */
-export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
+export function Composer({
+  id,
+  onPage,
+  docked = false
+}: {
+  id: NoteId;
+  onPage?: () => void;
+  docked?: boolean;
+}) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();
   const { t, draft, files, blocked, setDraft, submitNote } = model;
@@ -43,71 +51,81 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
     input
   });
 
-  return (
-    <Desk.Capture {...capture} label={t('NoteAddCapture')} closeLabel={t('NoteHideCapture')}>
-      <NotebookComposer
-        inputRef={input}
-        inputId={`note-note-${id}`}
-        label={t('NoteCompose')}
-        hint={t('NoteNotebookHint')}
-        placeholder={t('NoteComposeHint')}
-        submitLabel={t('NoteSaveNote')}
-        value={draft.text}
-        spellcheck={preferences.spellcheck}
-        onChange={(text) => setDraft((previous) => ({ ...previous, text }))}
-        onSubmit={submit}
-        disabled={
-          blocked ||
-          submission.blocked ||
-          model.filesBlocked ||
-          (!draft.text.trim() && !model.sourceIds.length)
+  const form = (
+    <NotebookComposer
+      inputRef={input}
+      inputId={`note-note-${id}`}
+      label={t('NoteCompose')}
+      hint={t('NoteNotebookHint')}
+      placeholder={t('NoteComposeHint')}
+      submitLabel={t('NoteSaveNote')}
+      value={draft.text}
+      spellcheck={preferences.spellcheck}
+      onChange={(text) => setDraft((previous) => ({ ...previous, text }))}
+      onSubmit={submit}
+      disabled={
+        blocked ||
+        submission.blocked ||
+        model.filesBlocked ||
+        (!draft.text.trim() && !model.sourceIds.length)
+      }
+      onDragOver={(event) => {
+        if (!blocked) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!blocked) files.add(Array.from(event.dataTransfer.files));
+      }}
+      onPaste={(event) => {
+        if (event.clipboardData.files.length && !blocked) {
+          if (!event.clipboardData.getData('text/plain')) event.preventDefault();
+
+          files.add(Array.from(event.clipboardData.files));
         }
-        onDragOver={(event) => {
-          if (!blocked) event.preventDefault();
-        }}
-        onDrop={(event) => {
+      }}
+      onKeyDown={(event) => {
+        if (isNoteSubmit(event, preferences.submitOnEnter)) {
           event.preventDefault();
-          event.stopPropagation();
-
-          if (!blocked) files.add(Array.from(event.dataTransfer.files));
-        }}
-        onPaste={(event) => {
-          if (event.clipboardData.files.length && !blocked) {
-            if (!event.clipboardData.getData('text/plain')) event.preventDefault();
-
-            files.add(Array.from(event.clipboardData.files));
-          }
-        }}
-        onKeyDown={(event) => {
-          if (isNoteSubmit(event, preferences.submitOnEnter)) {
-            event.preventDefault();
-            submit();
-          }
-        }}
-        attachments={<AttachmentTray id={id} blocked={blocked} />}
-        tools={
-          <>
-            <AttachmentPicker id={id} blocked={blocked} />
-            <DictationSubmissionScope value={submission.scope}>
-              <DictationButton targetKey={id} {...dictation} disabled={blocked || !capture.open} />
-            </DictationSubmissionScope>
-            {onPage && (
-              <Button
-                variant="ghost-muted"
-                size="sm"
-                disabled={blocked || submission.blocked}
-                onClick={() => {
-                  if (!submission.isBlocked()) onPage();
-                }}
-              >
-                <ComposeIcon size={16} aria-hidden="true" />
-                {t('NoteWritePage')}
-              </Button>
-            )}
-          </>
+          submit();
         }
-        recovery={<ComposerRecovery model={model} />}
-      />
+      }}
+      attachments={<AttachmentTray id={id} blocked={blocked} />}
+      tools={
+        <>
+          <AttachmentPicker id={id} blocked={blocked} />
+          <DictationSubmissionScope value={submission.scope}>
+            <DictationButton
+              targetKey={id}
+              {...dictation}
+              disabled={blocked || !(docked || capture.open)}
+            />
+          </DictationSubmissionScope>
+          {onPage && (
+            <Button
+              variant="ghost-muted"
+              size="sm"
+              disabled={blocked || submission.blocked}
+              onClick={() => {
+                if (!submission.isBlocked()) onPage();
+              }}
+            >
+              <ComposeIcon size={16} aria-hidden="true" />
+              {t('NoteWritePage')}
+            </Button>
+          )}
+        </>
+      }
+      recovery={<ComposerRecovery model={model} />}
+    />
+  );
+
+  return docked ? (
+    form
+  ) : (
+    <Desk.Capture {...capture} label={t('NoteAddCapture')} closeLabel={t('NoteHideCapture')}>
+      {form}
     </Desk.Capture>
   );
 }

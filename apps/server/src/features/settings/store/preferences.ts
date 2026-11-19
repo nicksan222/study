@@ -4,7 +4,7 @@ import {
   voiceSettingsPatchSchema,
   agentRulesSchema,
   appSettingsSchema,
-  appearancePreferencesSchema,
+  appearancePreferencesPatchSchema,
   concurrencySettingsSchema,
   llmSettingsSchema,
   materialSettingsSchema,
@@ -17,6 +17,8 @@ import { preferences, sql } from '@study/db';
 import { storeMutation, storeQuery } from '@study/server';
 import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
+
+import { writePreference } from './write-preference.ts';
 
 const values = Schema.Record(Schema.String, Schema.MutableJson);
 
@@ -33,11 +35,22 @@ function makeHelpers({ db }: StoreResources) {
       );
   }
 
-  return { replace };
+  function upsert(
+    scope: string,
+    patch: Record<string, typeof Schema.MutableJson.Type | undefined>
+  ) {
+    for (const [key, setting] of Object.entries(patch)) {
+      if (setting === undefined) continue;
+
+      writePreference(db, scope, key, JSON.stringify(setting));
+    }
+  }
+
+  return { replace, upsert };
 }
 
 export function makeSettingsStore({ db, clock, timestampClock }: StoreResources) {
-  const { replace } = makeHelpers({ db, clock, timestampClock });
+  const { replace, upsert } = makeHelpers({ db, clock, timestampClock });
 
   return {
     queries: {
@@ -70,17 +83,7 @@ export function makeSettingsStore({ db, clock, timestampClock }: StoreResources)
         input: voiceSettingsPatchSchema,
         output: Schema.Void,
         run: (patch) => {
-          for (const [key, setting] of Object.entries(patch)) {
-            if (setting === undefined) continue;
-
-            const value = JSON.stringify(setting);
-
-            db.orm
-              .insert(preferences)
-              .values({ scope: 'voice', key, value })
-              .onConflictDoUpdate({ target: [preferences.scope, preferences.key], set: { value } })
-              .run();
-          }
+          upsert('voice', patch);
         }
       }),
       saveAgentRules: storeMutation({
@@ -115,9 +118,9 @@ export function makeSettingsStore({ db, clock, timestampClock }: StoreResources)
       }),
       saveAppearancePreferences: storeMutation({
         changes: ['settings'],
-        input: appearancePreferencesSchema,
+        input: appearancePreferencesPatchSchema,
         output: Schema.Void,
-        run: (input) => replace('appearance', { ...input })
+        run: (patch) => upsert('appearance', patch)
       }),
       saveAppSettings: storeMutation({
         changes: ['settings'],

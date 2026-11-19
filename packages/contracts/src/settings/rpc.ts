@@ -13,6 +13,7 @@ import {
   appSettingsSchema,
   concurrencySettingsSchema,
   appearancePreferencesSchema,
+  appearancePreferencesPatchSchema,
   llmSettingsSchema,
   saveModelTierSchema,
   materialSettingsSchema,
@@ -166,7 +167,7 @@ export const settingsEndpoints = {
   saveAppearancePreferences: mutation(
     'settings.saveAppearancePreferences',
     {
-      payload: appearancePreferencesSchema,
+      payload: appearancePreferencesPatchSchema,
       success: saved,
       error: failureSchema
     },

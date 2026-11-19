@@ -23,12 +23,14 @@ function Root({
   expanded,
   dock = 'side',
   cardOpen = false,
+  contentWidth,
   children
 }: {
   open: boolean;
   expanded: boolean;
   dock?: 'side' | 'bottom';
   cardOpen?: boolean;
+  contentWidth?: 'comfortable' | 'wide' | 'full';
   children: ReactNode;
 }) {
   return (
@@ -38,6 +40,7 @@ function Root({
       data-expanded={(open && expanded) || undefined}
       data-dock={dock}
       data-card-open={(!open && cardOpen) || undefined}
+      data-content-width={contentWidth}
     >
       <div className="workspace-desk-layout">{children}</div>
     </div>

@@ -4,6 +4,8 @@ import { preferences, sql } from '@study/db';
 import { catalogIdentitiesSchema, defineStore, storeMutation, storeQuery } from '@study/server';
 import { Schema } from 'effect';
 
+import { writePreference } from './write-preference.ts';
+
 const snapshot = Schema.Struct({
   catalog: modelCatalogSchema,
   chatAccount: Schema.optionalKey(Schema.NullOr(Schema.String)),
@@ -61,15 +63,7 @@ export const ModelUpdatesStore = defineStore({
         changes: ['settings'],
         input: snapshot,
         output: Schema.Void,
-        run: (state) => {
-          const value = encode(state);
-
-          db.orm
-            .insert(preferences)
-            .values({ scope, key, value })
-            .onConflictDoUpdate({ target: [preferences.scope, preferences.key], set: { value } })
-            .run();
-        }
+        run: (state) => writePreference(db, scope, key, encode(state))
       })
     }
   })

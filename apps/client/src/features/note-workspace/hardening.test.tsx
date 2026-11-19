@@ -1109,7 +1109,6 @@ test.unit.stable(
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteAddCapture' }));
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Keep writing during refresh' } });
@@ -1161,7 +1160,6 @@ test.unit.stable(
       .mockReturnValue(new Promise(() => {}));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteAddCapture' }));
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Retained while status is unknown' } });
