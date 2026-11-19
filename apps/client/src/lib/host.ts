@@ -89,5 +89,9 @@ export const installDesktopUpdate = (expectedVersion: string) =>
 
 export const diagnosticLog = () => invoke<string>('diagnostic_log');
 
+export function reportServerConnected() {
+  if (isTauri()) void invoke('report_server_connected').catch(() => {});
+}
+
 export { microphoneAvailable, captureMicrophone } from './effect/native.ts';
 export type { MicrophoneCapture } from './effect/native.ts';

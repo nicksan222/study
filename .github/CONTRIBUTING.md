@@ -269,6 +269,9 @@ dependencies, the macOS SQLite library and Drizzle migrations under `target/desk
 ship in both installers and updates. Every platform smoke-tests Tauri’s copied runtime
 from `target/devcontainer/<target>/release` in an isolated directory with a fresh database,
 then restarts against that database without depending on a system Bun installation.
+Before publishing, a macOS 27 runner installs Study from the built disk image into a
+temporary directory and requires the WebView to receive a healthy live RPC snapshot
+with an isolated database.
 On macOS, even read-only startup validation selects the bundled SQLite library before
 opening a connection. Release size reports use the same Cargo output directory. Run
 `bun run desktop:runtime` to stage it independently. macOS development also requires
@@ -376,6 +379,8 @@ and runs the client's Home navigation journey in the native WebView on each desk
 release platform. Both runners use the same navigation assertions. Screenshot comparisons
 run in Chromium. To run the native journey against a test build on a desktop session,
 use `bun run --cwd apps/client e2e:desktop /absolute/path/to/study`.
+The macOS 27 lane also tests startup from a release-mode disk image with the same
+WebView health check used before publishing.
 
 `bun run web:e2e` builds the real frontend once, then runs Playwright Test under Bun
 with fresh real SQLite/RPC state. `bun run web:e2e:compare` uses the same Turbo task
@@ -514,6 +519,9 @@ Release builds use four explicit parallel jobs for Linux x64, Linux ARM64, macOS
 and Windows x64. They call the same reusable platform workflow without a matrix. The
 single publisher waits for every platform, verifies the complete signed artifact set,
 and only then publishes the release.
+
+The shared Ubuntu runner setup retries transient APT download failures for both package
+indexes and installation. It fails the job if downloads still fail.
 
 Pure unit tests, typechecks and web builds are cached locally under `.turbo/cache`.
 Root task commands evict entries older than seven days and then the oldest entries above

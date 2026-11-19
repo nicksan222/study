@@ -17,6 +17,11 @@ async fn server_connection(
 ) -> Result<transport::Connection, NativeError> {
     Ok(shell.server.lock().await.client.connection())
 }
+/// Records that the rendered client received its first healthy live RPC snapshot.
+#[tauri::command]
+fn report_server_connected() {
+    tracing::info!("WebView received a healthy server snapshot");
+}
 /// Returns a bounded snapshot of the canonical desktop diagnostic log.
 #[tauri::command]
 async fn diagnostic_log(app: tauri::AppHandle) -> Result<String, NativeError> {
@@ -77,6 +82,7 @@ pub fn run() {
             let server =
                 tauri::async_runtime::block_on(server::Server::start(bun, entry, database))
                     .map_err(|e| std::io::Error::other(e.message))?;
+            tracing::info!("private server is ready");
             app.manage(std::sync::Arc::new(Shell {
                 server: tokio::sync::Mutex::new(server),
             }));
@@ -84,6 +90,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_connection,
+            report_server_connected,
             diagnostic_log,
             updater::desktop_update_status,
             updater::check_for_update,

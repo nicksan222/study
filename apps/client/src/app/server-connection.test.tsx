@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useNativeAction } from '#client/lib/effect/native.ts';
+import * as host from '#client/lib/host.ts';
 import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { ServerConnection } from './server-connection';
@@ -34,6 +35,7 @@ test.unit.stable.for(['english', 'italian'] as const)(
     const save = vi.fn().mockRejectedValue(new Error('Offline'));
     const fixture = rpcTestTransport(async () => health());
     const reconnect = vi.fn();
+    const report = vi.spyOn(host, 'reportServerConnected').mockImplementation(() => {});
 
     render(
       <LanguageProvider locale={locale}>
@@ -44,7 +46,8 @@ test.unit.stable.for(['english', 'italian'] as const)(
         </fixture.wrapper>
       </LanguageProvider>
     );
-    await waitFor(() => expect(health).toHaveBeenCalledOnce());
+    expect(report).not.toHaveBeenCalled();
+    await waitFor(() => expect(report).toHaveBeenCalledOnce());
     const input = screen.getByRole('textbox', { name: 'Draft' });
 
     fireEvent.change(input, { target: { value: 'My unsent question' } });
@@ -70,5 +73,6 @@ test.unit.stable.for(['english', 'italian'] as const)(
     expect(portal).toBeVisible();
     expect(reconnect).toHaveBeenCalledOnce();
     expect(save).toHaveBeenCalledOnce();
+    expect(report).toHaveBeenCalledOnce();
   }
 );
