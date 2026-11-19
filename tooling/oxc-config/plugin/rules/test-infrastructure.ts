@@ -253,6 +253,13 @@ function forbiddenTestFacetImport(
   return isTest && !owner && !typeOnly && privateTestFacet(source);
 }
 
+function platformPairingFixtureImport(path: string, source: string | null): boolean {
+  return (
+    path.endsWith('/test/platform/mobile-pairing.test.ts') &&
+    (source === '@study/desktop/testing' || source === '@study/mobile/testing')
+  );
+}
+
 function runnerConfigurationImport(typeOnly: boolean, source: string | null): boolean {
   return !typeOnly && source !== null && /^(?:vite-plus\/test\/node|vitest\/node)$/.test(source);
 }
@@ -634,7 +641,9 @@ export default defineRule({
       if (
         forbiddenTestFacetImport(
           actualTest,
-          testApiOwnerPath(path) || fixtureSubjectPath(path),
+          testApiOwnerPath(path) ||
+            fixtureSubjectPath(path) ||
+            platformPairingFixtureImport(path, source),
           typeOnly,
           source
         )

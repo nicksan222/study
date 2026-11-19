@@ -69,6 +69,7 @@
         "//#check:global",
         "//#check:landing",
         "//#runtime:smoke",
+        "typecheck",
         "fmt:check",
         "lint",
         "deny",
@@ -95,6 +96,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "!src/routeTree.gen.ts",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/packages/**",
         "!$TURBO_ROOT$/packages/**/.turbo/**"
       ],
@@ -108,6 +110,11 @@
       "dependsOn": ["^build", "typecheck", "@study/tooling#typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "!src/routeTree.gen.ts"],
       "outputs": ["dist/**"]
+    },
+    "@study/client#e2e": {
+      "dependsOn": ["build", "@study/desktop#build"],
+      "cache": false,
+      "envMode": "loose"
     },
     "e2e": {
       "dependsOn": ["build"],
@@ -183,6 +190,7 @@
     },
     "@study/client#test": {
       "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/mobile/src/**"],
       "cache": true,
       "envMode": "strict",
       "outputs": ["test-results/vitest/**"]
@@ -191,6 +199,9 @@
       "dependsOn": ["^typecheck"],
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/test/platform/**",
+        "$TURBO_ROOT$/apps/desktop/src/**",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/apps/client/vite.config.ts",
         "$TURBO_ROOT$/apps/client/test/e2e/**",
         "$TURBO_ROOT$/packages/testing/**"
@@ -201,6 +212,9 @@
       "envMode": "loose",
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/test/platform/**",
+        "$TURBO_ROOT$/apps/desktop/src/**",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/permissions/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/capabilities/**",
@@ -212,6 +226,9 @@
       "envMode": "loose",
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/test/platform/**",
+        "$TURBO_ROOT$/apps/desktop/src/**",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/permissions/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/capabilities/**",
@@ -262,7 +279,12 @@
       "cache": false
     },
     "//#check:types": {
-      "dependsOn": ["@study/client#typecheck", "@study/tooling#typecheck"],
+      "dependsOn": [
+        "@study/client#typecheck",
+        "@study/desktop#typecheck",
+        "@study/mobile#typecheck",
+        "@study/tooling#typecheck"
+      ],
       "cache": false
     },
     "//#check:shared": {

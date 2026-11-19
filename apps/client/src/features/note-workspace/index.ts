@@ -17,7 +17,7 @@ export {
   startDraftKey,
   dismissStartDraft
 } from './start-drafts.queries';
-export { creationFlow } from './start.queries';
+export { creationFlow, startNote } from './start.queries';
 
 export { useRegenerateNoteTitle } from './note-title.queries';
 

@@ -53,6 +53,7 @@ test.unit.stable(
       'apps/server/package.json',
       'apps/client/package.json',
       'apps/desktop/package.json',
+      'apps/mobile/package.json',
       'tooling/package.json',
       'packages/integrations/src/provider.ts',
       'packages/integrations/.env.secret',

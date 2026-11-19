@@ -10,6 +10,7 @@ import type {
   transformRequestSchema
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
+import type { RpcCallOptions } from '@study/contracts/react';
 
 export type AskInput = typeof askInputSchema.Type;
 
@@ -35,12 +36,12 @@ export const deleteNote = (id: NoteId) => rpc.notes.delete.call({ id });
 
 export const retryDeletion = (id: NoteId) => rpc.notes.retryNoteDeletion.call({ id });
 
-export const uploadSource = async (file: File) =>
-  rpc.sources.create.call({
-    name: file.name,
-    bytes: new Uint8Array(await file.arrayBuffer()),
-    projectId: null
-  });
+export async function uploadSource(file: File, options?: RpcCallOptions) {
+  options?.signal?.throwIfAborted();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  return rpc.sources.create.call({ name: file.name, bytes, projectId: null }, options);
+}
 
 export const editNote = (input: typeof editMessageInputSchema.Type) =>
   rpc.notes.editMessage.call(input);

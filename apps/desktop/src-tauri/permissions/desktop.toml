@@ -14,3 +14,7 @@ commands.allow = [
 [[permission]]
 identifier = "allow-diagnostic-log"
 commands.allow = ["diagnostic_log"]
+
+[[permission]]
+identifier = "allow-mobile-background"
+commands.allow = ["set_mobile_background"]

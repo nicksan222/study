@@ -16,7 +16,7 @@ export async function openWebStack(
   options: Pick<
     NonNullable<Parameters<Awaited<ReturnType<typeof createServerFixture>>['openApp']>[0]>,
     'ai' | 'voice'
-  > & { chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0] } = {}
+  > & { chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0]; desktop?: boolean } = {}
 ) {
   const { ai, voice, chatGptReleases } = options;
   const chatGpt = chatGptReleases?.length ? createChatGptReleasePeer(chatGptReleases) : undefined;
@@ -71,7 +71,12 @@ export async function openWebStack(
 
   proxy['/rpc'] = creation.proxy(proxy['/rpc']!);
   const web = await preview({
-    configFile: Bun.fileURLToPath(new URL('../../../vite.config.ts', import.meta.url)),
+    configFile: Bun.fileURLToPath(
+      new URL(
+        options.desktop ? '../../../../desktop/vite.config.ts' : '../../../vite.config.ts',
+        import.meta.url
+      )
+    ),
     preview: {
       host: '127.0.0.1',
       port: 0,

@@ -21,7 +21,19 @@ const libraryExportFacets: Readonly<Record<string, readonly string[]>> = {
 
 const applicationExportFacets: Readonly<Record<string, readonly string[]>> = {
   server: ['.', 'client', 'runtime', 'runtime/ownership', 'runtime/database', 'testing'],
-  client: ['feature-previews', 'feature-previews/catalog'],
+  desktop: ['testing'],
+  mobile: ['testing'],
+  client: [
+    'app',
+    'companion',
+    'extensions',
+    'pairing',
+    'pairing/room',
+    'transport',
+    'styles.css',
+    'feature-previews',
+    'feature-previews/catalog'
+  ],
   tooling: ['development/rpc-proxy']
 };
 
@@ -60,7 +72,13 @@ type PackageScope = {
 
 function packageScope(path: string, exportsValue: unknown): PackageScope | undefined {
   const library = path.startsWith('packages/');
-  const application = path === 'apps/server' || path === 'apps/client' || path === 'tooling';
+  const application = [
+    'apps/server',
+    'apps/client',
+    'apps/desktop',
+    'apps/mobile',
+    'tooling'
+  ].includes(path);
 
   if ((!library && !application) || (application && exportsValue === undefined)) return undefined;
 

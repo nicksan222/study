@@ -34,6 +34,7 @@ COPY --chown=bun:bun package.json bun.lock ./
 COPY --chown=bun:bun apps/server/package.json apps/server/package.json
 COPY --chown=bun:bun apps/client/package.json apps/client/package.json
 COPY --chown=bun:bun apps/desktop/package.json apps/desktop/package.json
+COPY --chown=bun:bun apps/mobile/package.json apps/mobile/package.json
 COPY --chown=bun:bun packages/contracts/package.json packages/contracts/package.json
 COPY --chown=bun:bun packages/db/package.json packages/db/package.json
 COPY --chown=bun:bun packages/icons/package.json packages/icons/package.json

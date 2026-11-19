@@ -66,7 +66,9 @@
           "packages/testing/**",
           "packages/db/src/testing.ts",
           "packages/contracts/src/testing.ts",
-          "packages/contracts/src/react-testing.ts"
+          "packages/contracts/src/react-testing.ts",
+          "apps/mobile/src/testing.ts",
+          "apps/desktop/src/testing.ts"
         ]
       },
       {
@@ -122,6 +124,10 @@
         "patterns": ["apps/client/src/**", "apps/client/index.html"]
       },
       {
+        "name": "client-hosts",
+        "patterns": ["apps/{mobile,desktop}/src/**", "apps/{mobile,desktop}/index.html"]
+      },
+      {
         "name": "landing",
         "patterns": ["apps/landing/src/**"]
       },
@@ -130,9 +136,10 @@
         "patterns": [
           "tooling/**",
           "**/*.config.*",
-          "apps/desktop/**",
+          "apps/desktop/src-tauri/**",
           "apps/client/tsr.config.json",
           "apps/client/*.ts",
+          "apps/mobile/prepare.ts",
           "apps/landing/*.ts",
           "apps/landing/scripts/**"
         ]
@@ -200,6 +207,10 @@
         "allow": ["server-client", "contracts", "ui", "icons", "localization", "theme"]
       },
       {
+        "from": "client-hosts",
+        "allow": ["client", "contracts", "ui", "icons", "localization"]
+      },
+      {
         "from": "landing",
         "allow": ["theme", "localization", "ui", "icons", "contracts", "client-previews"]
       },
@@ -220,6 +231,7 @@
           "server-runtime",
           "client",
           "client-previews",
+          "client-hosts",
           "landing",
           "tooling"
         ]
@@ -240,6 +252,7 @@
           "server-runtime",
           "client",
           "client-previews",
+          "client-hosts",
           "landing",
           "tooling"
         ]
@@ -252,7 +265,9 @@
   // Astro's native compiler consumes this pinned transitive runtime without a source import.
   "ignoreDependencies": ["@emnapi/runtime"],
   "entry": [
-    // The client HTML application is a runtime root.
+    // Each host HTML selects its own React bootstrap.
+    "apps/mobile/src/main.tsx",
+    "apps/desktop/src/main.tsx",
     "apps/client/src/main.tsx",
     "packages/localization/test/api.types.ts",
     "packages/testing/test/api.types.ts",
@@ -273,6 +288,8 @@
       "toolingDependencies": ["@stylistic/eslint-plugin"],
       // Test runners consume these default exports as fixture configuration and global setup.
       "configPatterns": [
+        "apps/mobile/vite.config.ts",
+        "apps/desktop/vite.config.ts",
         "apps/client/playwright.config.ts",
         "apps/server/test/testing/automatic-fixture.config.ts",
         "apps/client/test/e2e/harness/preflight.ts"

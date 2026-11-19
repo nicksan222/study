@@ -56,6 +56,60 @@ export const english = Object.freeze({
     'Recordings are processed on the Study server connected to this browser or desktop app. Audio is not sent to an AI provider or saved as a source.',
   VoiceRecordingHelp:
     'Click the microphone to start. Text appears as you speak. Use the checkmark to finish or Escape to cancel.',
+  MobileUseBrowser: 'Continue in browser',
+  MobileCaptureTitle: 'Quick capture',
+  MobileCaptureIntro: 'Send a note or a photo to Study on your computer.',
+  MobileCaptureText: 'Note',
+  MobileCaptureCamera: 'Take a photo',
+  MobileCaptureChoosePhoto: 'Choose a photo',
+  MobileCaptureRemovePhoto: 'Remove photo',
+  MobileCaptureSave: 'Save to Study',
+  MobileCaptureSending: 'Saving to your computer…',
+  MobileCaptureSaved: 'Saved to Study on your computer.',
+  MobileCaptureRejected: 'Study couldn’t save this capture. Check the note or photo and try again.',
+  MobileCaptureUncertain:
+    'Study couldn’t confirm the save. Check your computer before sending this capture again.',
+  MobileCaptureAnother: 'Start another capture',
+  MobileStudy: 'Study on your phone',
+  MobileDesktopIntro: 'Send notes and photos from your phone. Your data stays on this computer.',
+  MobileScanTitle: 'Scan the QR code',
+  MobileScanDescription: 'Open the invitation and scan the QR code with your phone’s camera.',
+  MobileMatchTitle: 'Match the codes',
+  MobileMatchDescription: 'Compare the code on both screens, then approve the phone here.',
+  MobileAvailabilityTitle: 'Keep Study available',
+  MobileAvailabilityDescription:
+    'Your phone connects directly to this computer. Keep it awake and Study running while you’re away. On Mac, Study requires macOS 14 or later.',
+  MobilePhoneIntro:
+    'Open Study on your computer, go to Settings → Study on your phone, and scan the QR code or paste the invitation here.',
+  MobileInstallHint:
+    'Add Study to your Home Screen from the browser menu. Open it from the icon and paste the invitation if prompted.',
+  MobileConnected: 'Phone and computer connected',
+  MobileWaiting: 'Waiting for your phone to open Study.',
+  MobileWaitingForDesktop: 'Waiting for Study to connect to your computer…',
+  MobileQr: 'QR code for pairing your phone',
+  MobileCopy: 'Copy invitation link',
+  MobileCopied: 'Invitation copied',
+  MobileConfirmDesktop: 'Compare this code with the one displayed on your phone.',
+  MobileConfirmPhone: 'Confirm this code on your computer.',
+  MobileApprove: 'Approve phone',
+  MobilePair: 'Connect phone',
+  MobilePairing: 'Connecting to your computer…',
+  MobileConnectionError:
+    'Study could not complete the operation. Check the connection and try again.',
+  MobileRevoke: 'Revoke phone access',
+  MobileRevocationError:
+    'The connection closed, but Study could not remove the saved pairing. Try revoking access again.',
+  MobileUnlink: 'Unlink this phone',
+  MobileUnlinkError:
+    'The phone disconnected, but Study couldn’t remove the saved pairing. Try again.',
+  MobileAlreadyPaired: 'Unlink this phone before using an invitation from another computer.',
+  MobileInviteWaitEnded:
+    'No approval arrived. Open Study on your computer and scan a new invitation.',
+  MobileInvite: 'Invitation link',
+  MobileShowDesktop: 'Open Study',
+  MobileQuitDesktop: 'Quit Study',
+  MobileBackgroundError:
+    'Study could not stay available with its window closed. Keep the window open.',
 
   AnalyticsTitle: 'Analytics',
   AnalyticsLogsTitle: 'Diagnostic logs',
@@ -2273,6 +2327,7 @@ export const english = Object.freeze({
   SettingsGeneral: 'General',
   SettingsGroupWorkspace: 'Workspace',
   SettingsGroupLibrary: 'Library',
+  SettingsGroupDevices: 'Devices',
   PracticeSettingsIntro:
     'These defaults apply when generating this type of practice. Other practice types keep their own settings.',
   PracticeSettingsQuestionCount: 'Questions per practice',

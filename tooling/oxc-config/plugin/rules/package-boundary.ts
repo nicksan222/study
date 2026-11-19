@@ -39,6 +39,7 @@ const directories = {
   'apps/server': '@study/server',
   'apps/client': '@study/client',
   'apps/desktop': '@study/desktop',
+  'apps/mobile': '@study/mobile',
   'apps/landing': 'study-landing'
 } as const;
 
@@ -76,16 +77,27 @@ const allowed: Record<Owner, readonly Owner[]> = {
     '@study/localization',
     '@study/theme'
   ],
-  '@study/desktop': [],
+  '@study/desktop': ['@study/client', '@study/ui', '@study/icons'],
+  '@study/mobile': ['@study/client', '@study/contracts', '@study/localization', '@study/ui'],
   'study-landing': ['@study/ui', '@study/icons', '@study/localization', '@study/contracts']
 };
+
+const browserOwners = new Set<Owner>([
+  '@study/client',
+  '@study/mobile',
+  '@study/desktop',
+  '@study/ui',
+  '@study/icons',
+  '@study/theme',
+  '@study/contracts'
+]);
 
 const exportsByPackage = new Map<string, unknown>();
 
 for (const [directory, name] of Object.entries(directories)) {
   if (
     !directory.startsWith('packages/') &&
-    !['apps/server', 'apps/client', 'tooling'].includes(directory)
+    !['apps/server', 'apps/client', 'apps/desktop', 'apps/mobile', 'tooling'].includes(directory)
   )
     continue;
 
@@ -214,6 +226,9 @@ export default defineRule({
     }
 
     function permitsPackageLayer(name: string, subpath: string, nativeClient: boolean): boolean {
+      if (subpath === '/testing' && ['@study/desktop', '@study/mobile'].includes(name))
+        return false;
+
       const featurePreview =
         owner === 'study-landing' &&
         name === '@study/client' &&
@@ -274,11 +289,7 @@ export default defineRule({
 
     function checkBrowserBuiltin(node: ReportNode, source: string): boolean {
       if (
-        (owner === '@study/client' ||
-          owner === '@study/ui' ||
-          owner === '@study/icons' ||
-          owner === '@study/theme' ||
-          owner === '@study/contracts') &&
+        browserOwners.has(owner) &&
         context.filename.replaceAll('\\', '/').includes('/src/') &&
         !/\.(?:test|spec)\.[^/]+$|\/(?:test|tests|__tests__|test-support|testing)\//.test(
           context.filename.replaceAll('\\', '/')

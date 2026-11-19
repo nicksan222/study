@@ -2,6 +2,7 @@
 mod diagnostics;
 mod logging;
 mod microphone;
+mod mobile;
 mod server;
 mod transport;
 mod update_menu;
@@ -41,6 +42,8 @@ pub fn run() {
     let result = builder
         .on_menu_event(update_menu::on_menu_event)
         .on_permission_request(microphone::permission)
+        .on_window_event(mobile::handle_close)
+        .on_menu_event(mobile::handle_menu)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
         .plugin(
@@ -49,10 +52,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            mobile::show_main(app);
         }))
         .setup(|app| {
             let data = app.path().app_data_dir()?;
@@ -94,6 +94,7 @@ pub fn run() {
             server_connection,
             report_server_connected,
             diagnostic_log,
+            mobile::set_mobile_background,
             update_menu::set_desktop_update_menu,
             updater::desktop_update_status,
             updater::check_for_update,
@@ -101,10 +102,14 @@ pub fn run() {
         ])
         .build(tauri::generate_context!());
     match result {
-        Ok(application) => application.run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                tauri::async_runtime::block_on(shutdown_server(app));
-            }
+        Ok(application) => application.run(|app, event| match event {
+            tauri::RunEvent::Exit => tauri::async_runtime::block_on(shutdown_server(app)),
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } => mobile::show_main(app),
+            _ => {}
         }),
         Err(error) => {
             tracing::error!(%error, "desktop failed");

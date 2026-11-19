@@ -51,17 +51,21 @@ recording formats.
 ## Your privacy
 
 Only what the models need goes to OpenAI, through your own ChatGPT plan: the pages to read
-and the passages that answers and study material come from. Your recordings and your
-database never leave your computer. Speech-to-text and search models download only when you
-choose to.
+and the passages that answers and study material come from. Study keeps your database on your
+computer. Pair your phone to send notes and photos from the mobile capture screen to Study
+on your computer over WebRTC. Public signaling relays help the paired devices find each other.
+Speech-to-text and search models download only when you choose to.
 
 ## Contribute
 
 Study is built in the open, and contributions are welcome. Start with
 [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
-The shared React application in `apps/client` runs in the browser and the Tauri desktop
-host. The desktop shell runs a private TypeScript server; application services expose
+The browser and Tauri desktop app use the React application in `apps/client`. Study Mobile
+owns its pages and features in `apps/mobile` and uses the shared client operations. Each app
+registers its modules at startup. The client provides page boundaries, background components,
+settings sections and page actions for those modules. Desktop and Mobile each own their side
+of pairing and share its wire protocol. The desktop shell runs a private TypeScript server. Application services expose
 typed Effect RPC contracts and use Drizzle over one local SQLite database. Model calls
 use your ChatGPT provider sign-in. The accepted structure and tradeoffs are recorded in
 [Shared application client](doc/adr/shared-application-client.md).

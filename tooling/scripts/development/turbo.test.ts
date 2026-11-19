@@ -202,11 +202,13 @@ test.unit.stable(
 
     assert.includeMembers(types, [
       '@study/client#typecheck',
+      '@study/desktop#typecheck',
+      '@study/mobile#typecheck',
       '@study/server#typecheck',
       '@study/tooling#typecheck'
     ]);
     assert.isTrue(types.every((task) => task.endsWith('#typecheck')));
-    assert.include(selected, '@study/client#build');
+    assert.includeMembers(selected, ['@study/client#build', '@study/desktop#build']);
     assert.deepEqual(database, ['@study/db#test']);
     assert.deepEqual(server, ['@study/server#test']);
     assert.sameMembers(
@@ -362,11 +364,22 @@ test.unit.stable(
     await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
 
     assert.isEmpty((await repo.plan('check', '--affected')).tasks);
+    await Bun.write(`${repo.path}/apps/mobile/src/input.ts`, 'changed');
+    assert.includeMembers(
+      (await repo.plan('check', '--affected')).tasks.map((task) => task.taskId),
+      ['@study/mobile#check', '@study/mobile#typecheck', '@study/client#test']
+    );
+    await $`git -C ${repo.path} checkout -- apps/mobile/src/input.ts`.quiet();
     await Bun.write(`${repo.path}/packages/ui/src/input.ts`, 'changed');
     let ids = (await repo.plan('check', '--affected')).tasks.map((task) => task.taskId);
 
-    assert.includeMembers(ids, ['@study/ui#test', '@study/client#e2e', '//#check:global']);
-    assert.notInclude(ids, '@study/desktop#check', JSON.stringify(ids));
+    assert.includeMembers(ids, [
+      '@study/ui#test',
+      '@study/client#e2e',
+      '@study/desktop#check',
+      '@study/mobile#check',
+      '//#check:global'
+    ]);
     await $`git -C ${repo.path} checkout -- packages/ui/src/input.ts`.quiet();
     await Bun.write(`${repo.path}/packages/ui/src/new\nfile.ts`, 'untracked');
     assert.include(
@@ -448,6 +461,13 @@ test.unit.stable(
       changed.tasks.find((task) => task.taskId === '@study/client#build')?.dependencies ?? [],
       '@study/client#typecheck'
     );
+    const typecheck = () => repo.plan('typecheck', '--filter=@study/client');
+    const typecheckHash = (plan: Plan) =>
+      plan.tasks.find((task) => task.taskId === '@study/client#typecheck')?.hash;
+    const beforeMobileChange = await typecheck();
+
+    await Bun.write(`${repo.path}/apps/mobile/src/pairing.test.tsx`, 'export const changed = true');
+    assert.notEqual(typecheckHash(await typecheck()), typecheckHash(beforeMobileChange));
   }
 );
 

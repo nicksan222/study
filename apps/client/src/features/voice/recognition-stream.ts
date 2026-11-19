@@ -1,15 +1,7 @@
 import { Effect, Stream } from 'effect';
 
+import { forwardAbort } from '#client/lib/abort.ts';
 import { deferredPromise } from '#client/lib/deferred-promise.ts';
-
-function forwardAbort(source: AbortSignal, request: AbortController) {
-  const abort = () => request.abort(source.reason);
-
-  if (source.aborted) abort();
-  else source.addEventListener('abort', abort, { once: true });
-
-  return () => source.removeEventListener('abort', abort);
-}
 
 function requireActive(signal: AbortSignal) {
   if (signal.aborted) throw signal.reason ?? new DOMException('Cancelled', 'AbortError');

@@ -1,11 +1,12 @@
 {
   "extends": "./frontend.json",
   "compilerOptions": {
-    "types": ["bun"]
+    "types": ["bun", "vite-plus/client"]
   },
   "include": [
     "../../apps/server/src/platform/speech/rnnoise-wasm.d.ts",
     "../../vite.config.ts",
+    "../../test/platform/**/*.ts",
     "../../apps/client/vite.config.ts",
     "../../apps/client/test/e2e/**/*.ts",
     "../oxc-config/**/*.ts",

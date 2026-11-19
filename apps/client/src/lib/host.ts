@@ -102,3 +102,20 @@ export function reportServerConnected() {
 
 export { microphoneAvailable, captureMicrophone } from './effect/native.ts';
 export type { MicrophoneCapture } from './effect/native.ts';
+
+export async function setMobileBackground(enabled: boolean, openLabel: string, quitLabel: string) {
+  if (isTauri()) await invoke('set_mobile_background', { enabled, openLabel, quitLabel });
+}
+
+export async function openStudyRpcSocket() {
+  const base = await rpcBaseUrl();
+  const url = new URL('/rpc/live', base);
+
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+
+  const socket = new WebSocket(url.href);
+
+  socket.binaryType = 'arraybuffer';
+
+  return socket;
+}

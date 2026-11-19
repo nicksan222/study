@@ -258,3 +258,4 @@ export { OrderingResultView } from './components/ordering-result-view.tsx';
 
 export { NotebookEditor } from './components/notebook-editor.tsx';
 export { dictationSpacing } from './components/editor-text-spacing.ts';
+export { MobileStudy } from './components/mobile-study.tsx';

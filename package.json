@@ -4,6 +4,7 @@
   "workspaces": [
     "apps/client",
     "apps/desktop",
+    "apps/mobile",
     "apps/server",
     "packages/*",
     "tooling"
@@ -39,7 +40,7 @@
     "check:changed": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check --affected --concurrency=1 --continue=dependencies-successful",
     "test:web": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run test --filter=@study/client --filter=@study/ui --filter=@study/localization --concurrency=1",
     "check": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check --concurrency=1 --continue=dependencies-successful",
-    "check:landing": "bun install --cwd apps/landing --frozen-lockfile && bun run --cwd apps/landing check && bun run --cwd apps/landing build",
+    "check:landing": "bun install --cwd apps/landing --frozen-lockfile && bun run --cwd apps/landing check && bun run --cwd apps/landing build && bun run --filter @study/mobile build",
     "desktop": "bash tooling/scripts/desktop/restart.sh",
     "desktop-window": "bash tooling/scripts/desktop/window.sh",
     "desktop-shot": "bash tooling/scripts/desktop/shot.sh",
@@ -93,6 +94,10 @@
     "ci:database": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:database --concurrency=2 --continue=dependencies-successful"
   },
   "devDependencies": {
+    "@study/client": "*",
+    "@study/contracts": "*",
+    "@study/desktop": "*",
+    "@study/mobile": "*",
     "@study/testing": "*",
     "@study/tooling": "*",
     "@stylistic/eslint-plugin": "5.10.0",
@@ -107,6 +112,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "effect": "4.0.7",
     "fallow": "3.38.0",
     "jsdom": "^30.1.3",
     "playwright": "1.65.0",

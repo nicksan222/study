@@ -56,6 +56,7 @@ export default defineConfig({
           environment: 'node',
           include: [
             'tooling/**/*.test.ts',
+            'test/platform/**/*.test.ts',
             'apps/client/test/e2e/harness/**/*.test.ts',
             'packages/testing/test/**/*.test.ts',
             'apps/desktop/src-tauri/tests/**/*.test.mjs'

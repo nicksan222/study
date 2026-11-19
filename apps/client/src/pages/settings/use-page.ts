@@ -3,9 +3,10 @@ import type { ProjectId, AppearancePreferences } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import type { Appearance as AppearanceMode } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 
 import { applyAppearance } from '#client/lib/appearance.ts';
+import { ClientModules } from '#client/lib/client-modules.tsx';
 
 import type { AppearanceData } from './appearance.queries';
 import { useAppSettingsPatch } from './general/app-settings';
@@ -105,6 +106,7 @@ export function usePage(
   const navigate = useNavigate();
   const scope = useSearch({ from: '__root__' });
   const model = useAppearance();
+  const modules = useContext(ClientModules);
   const [search, onSearch] = useState('');
   const [section, setSection] = useState<SettingsSectionId>(initialSection);
 
@@ -124,6 +126,7 @@ export function usePage(
       }
     },
     search,
+    extra: modules.flatMap(({ settings }) => (settings ? [settings] : [])),
     onSearch,
     section,
     onSectionChange: (next: SettingsSectionId) => {

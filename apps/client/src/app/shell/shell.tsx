@@ -5,6 +5,7 @@ import type { Ref } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { WrittenExamProvider } from '#client/features/practice/index.ts';
+import { ClientSlot } from '#client/lib/client-modules.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useNarrowLayout } from '#client/lib/viewport.ts';
 
@@ -241,6 +242,7 @@ function ShellContent() {
             />
             <PageShell.PageBody layout={layout}>
               <Outlet />
+              <ClientSlot name="shell.pageActions" props={{}} />
             </PageShell.PageBody>
           </SidebarUI.Main>
         </SidebarUI.Frame>
