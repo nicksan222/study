@@ -47,18 +47,22 @@ function PageTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'page' }
   return material.data?.title ?? target.title;
 }
 
-/** Keeps quick note and document work side by side, with one full-screen editor on narrow displays. */
+/** Keep the current capture mounted until its microphone owner finishes. */
+function useComposerPlacement(preferDock: boolean) {
+  const { scope, blocked } = useDictationSubmission();
+  const [docked, setDocked] = useState(preferDock);
 
+  if (!blocked && docked !== preferDock) setDocked(preferDock);
+
+  return { docked, scope };
+}
+
+/** Keeps quick note and document work side by side, with one full-screen editor on narrow displays. */
 export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => void }) {
   const { t } = useI18n();
   const model = useWorkbench(id);
   const { noteWidth, showNoteComposer } = model.appearance;
-  const submission = useDictationSubmission();
-  const [docked, setDocked] = useState(showNoteComposer);
-
-  // Moving capture remounts its controls. Let the current microphone owner finish first.
-  if (!submission.blocked && docked !== showNoteComposer) setDocked(showNoteComposer);
-
+  const { docked, scope } = useComposerPlacement(showNoteComposer);
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
   const creation = useNotePageCreation(id);
@@ -73,7 +77,7 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
     });
   };
   const capture = (
-    <DictationSubmissionScope value={submission.scope}>
+    <DictationSubmissionScope value={scope}>
       <Composer id={id} onPage={create} docked={docked} />
     </DictationSubmissionScope>
   );

@@ -18,6 +18,8 @@ import { storeMutation, storeQuery } from '@study/server';
 import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
 
+import { writePreference } from './write-preference';
+
 const values = Schema.Record(Schema.String, Schema.MutableJson);
 
 function makeHelpers({ db }: StoreResources) {
@@ -40,13 +42,7 @@ function makeHelpers({ db }: StoreResources) {
     for (const [key, setting] of Object.entries(patch)) {
       if (setting === undefined) continue;
 
-      const value = JSON.stringify(setting);
-
-      db.orm
-        .insert(preferences)
-        .values({ scope, key, value })
-        .onConflictDoUpdate({ target: [preferences.scope, preferences.key], set: { value } })
-        .run();
+      writePreference(db, scope, key, JSON.stringify(setting));
     }
   }
 
