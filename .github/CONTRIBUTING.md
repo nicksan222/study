@@ -520,6 +520,9 @@ and Windows x64. They call the same reusable platform workflow without a matrix.
 single publisher waits for every platform, verifies the complete signed artifact set,
 and only then publishes the release.
 
+The shared Ubuntu runner setup retries transient APT download failures for both package
+indexes and installation. It fails the job if downloads still fail.
+
 Pure unit tests, typechecks and web builds are cached locally under `.turbo/cache`.
 Root task commands evict entries older than seven days and then the oldest entries above
 512 MiB after Turbo exits. Persistent Vitest transforms are bounded separately to 128 MiB
