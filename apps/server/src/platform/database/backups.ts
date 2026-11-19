@@ -31,6 +31,7 @@ import type { Clock } from 'effect';
 import { Context, Effect, Schema } from 'effect';
 
 import { fileSystem, nativePaths, runFileSystemPromise } from '#server/platform/filesystem/index';
+import { recordBackupDirectorySyncFailure } from '#server/platform/observability/index';
 import { liveClock } from '#server/platform/time/index';
 
 type Scope = typeof backupScopeSchema.Type;
@@ -161,14 +162,20 @@ async function writeExclusive(path: string, bytes: Uint8Array | string) {
   );
 }
 
-async function durableWrite(path: string, bytes: Uint8Array | string) {
+function syncPublishedBackupDirectory(path: string) {
+  return Effect.tryPromise({ try: () => syncDirectory(path), catch: () => invalid() }).pipe(
+    Effect.catch(recordBackupDirectorySyncFailure)
+  );
+}
+
+async function durableWrite(path: string, bytes: Uint8Array | string, syncParent = syncDirectory) {
   const fs = await fileSystem;
   const temporary = path + '.writing';
 
   await runFileSystemPromise(fs.remove(temporary, { force: true }));
   await writeExclusive(temporary, bytes);
   await runFileSystemPromise(fs.rename(temporary, path));
-  await syncDirectory(dirname(path));
+  await syncParent(dirname(path));
 }
 
 function encode(manifest: BackupManifest, bytes: Uint8Array) {
@@ -488,7 +495,9 @@ export class ManagedBackups {
 
     if (path === undefined) {
       await privateDirectory(folder);
-      await durableWrite(join(folder, name), bytes);
+      await durableWrite(join(folder, name), bytes, (parent) =>
+        runFileSystemPromise(syncPublishedBackupDirectory(parent))
+      );
 
       return;
     }
@@ -511,7 +520,7 @@ export class ManagedBackups {
             catch: () => invalid()
           });
           yield* fs.rename(temporary, join(folder, name));
-          yield* Effect.tryPromise({ try: () => syncDirectory(folder), catch: () => invalid() });
+          yield* syncPublishedBackupDirectory(folder);
         })
       )
     );

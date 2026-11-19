@@ -34,6 +34,8 @@ type Destination = Status['destination'];
 
 type SignInId = typeof backupSignInIdSchema.Type;
 
+type SignInAttempt = { browser: SignInBrowser; id?: SignInId; cancelling?: boolean };
+
 type Configuration = typeof automaticBackupConfigurationSchema.Type;
 
 type Feedback =
@@ -63,7 +65,7 @@ function useBackupActions() {
   const cancel = rpc.system.cancelBackupSignIn.useMutation();
   const [feedback, setFeedback] = useState<Feedback>();
   const [signIn, setSignIn] = useState<SignInId>();
-  const owned = useRef<{ browser: SignInBrowser; id?: SignInId }>(undefined);
+  const owned = useRef<SignInAttempt>(undefined);
   const cleanup = useEffectEvent(() => {
     const attempt = owned.current;
 
@@ -79,7 +81,7 @@ function useBackupActions() {
     if (owned.current) return false;
 
     setFeedback(undefined);
-    const attempt: { browser: SignInBrowser; id?: SignInId } = { browser: prepareSignInBrowser() };
+    const attempt: SignInAttempt = { browser: prepareSignInBrowser() };
 
     owned.current = attempt;
 
@@ -105,7 +107,8 @@ function useBackupActions() {
 
       return owned.current === attempt;
     } catch {
-      if (owned.current === attempt) setFeedback('DataAutoBackupSignInFailed');
+      if (owned.current === attempt && !attempt.cancelling)
+        setFeedback('DataAutoBackupSignInFailed');
 
       if (attempt.id) await cancel.mutateAsync({ id: attempt.id }).catch(() => {});
 
@@ -123,7 +126,9 @@ function useBackupActions() {
   function cancelSignIn() {
     const attempt = owned.current;
 
-    if (!attempt || !signIn || attempt.id !== signIn) return;
+    if (!attempt || !signIn || attempt.id !== signIn || attempt.cancelling) return;
+
+    attempt.cancelling = true;
 
     void cancel
       .mutateAsync({ id: signIn })
@@ -135,6 +140,8 @@ function useBackupActions() {
         setSignIn(undefined);
       })
       .catch(() => {
+        attempt.cancelling = false;
+
         if (owned.current === attempt) setFeedback('DataAutoBackupSignInFailed');
       });
   }

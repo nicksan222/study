@@ -6,6 +6,7 @@ import { Option, Schema } from 'effect';
 
 import { signInCallbackPage } from '#server/platform/ai/auth/index';
 
+import { backupUploadTimeout } from './backup-storage-http.ts';
 import { streamingFetch } from './index.ts';
 
 const callbackPath = '/study-backup';
@@ -38,7 +39,7 @@ export function backupHttp(request?: Fetch) {
     options: { allow?: readonly number[]; upload?: boolean; token?: boolean } = {}
   ) => {
     const response = await streamingFetch(url, init, {
-      timeoutMs: options.upload ? 5 * 60_000 : 45_000,
+      timeoutMs: options.upload ? backupUploadTimeout(init.body, 5 * 60_000) : 45_000,
       maxBytes: 64 * 1024,
       fetch: request,
       sensitive: true

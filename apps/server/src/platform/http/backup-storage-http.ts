@@ -2,6 +2,7 @@
 
 import { StudyError } from '@study/contracts';
 import type { ErrorKind, storageBackupDestinationSchema } from '@study/contracts';
+import type { Clock } from 'effect';
 
 import { streamingFetch } from './index.ts';
 
@@ -89,15 +90,23 @@ function uploadFailure(status: number): ErrorKind {
   return 'config';
 }
 
-export function sendBackupRequest(request?: Fetch) {
+export function backupUploadTimeout(body: RequestInit['body'], minimumMs = 120_000) {
+  const bytes = ArrayBuffer.isView(body) || body instanceof ArrayBuffer ? body.byteLength : 0;
+
+  // Allow two minutes for setup and response, plus a transfer at 16 KiB/s.
+  return Math.max(minimumMs, 120_000 + Math.ceil((bytes * 1000) / (16 * 1024)));
+}
+
+export function sendBackupRequest(request?: Fetch, clock?: Clock.Clock) {
   return async (url: URL, init: RequestInit): Promise<void> => {
     let response: Response;
 
     try {
       response = await streamingFetch(url, init, {
-        timeoutMs: 120_000,
+        timeoutMs: backupUploadTimeout(init.body),
         maxBytes: 64 * 1024,
         fetch: request,
+        clock,
         sensitive: true
       });
       await response.body?.cancel();

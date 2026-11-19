@@ -1,6 +1,6 @@
 import { MAX_AUTOMATIC_BACKUPS } from '@study/contracts';
 import { test } from '@study/testing';
-import { Effect, Fiber, Option, Result, Semaphore, Stream } from 'effect';
+import { Effect, Fiber, Option, PlatformError, Result, Semaphore, Stream } from 'effect';
 
 import { systemBackupOperations } from '#server/features/system/service/backups';
 import { BackupStorage } from '#server/platform/database/backups';
@@ -63,6 +63,46 @@ test.server.stable(
       expect((await run().runPromise(system.automaticBackup())).lastFailure).toBeNull();
       expect(await runFileSystemPromise(fs.readFileString(marker))).toBe('unrelated file');
     } finally {
+      await fixture.close();
+    }
+  }
+);
+
+test.server.stable(
+  'records a synced folder backup already published on a filesystem without directory sync',
+  async ({ expect, vi }) => {
+    const fixture = await backupFixture();
+    const fs = await fileSystem;
+    const folder = nativePaths.join(fixture.location.dir, 'synced');
+    const open = fs.open.bind(fs);
+    const unsupported = vi.spyOn(fs, 'open').mockImplementation((path, options) =>
+      path === folder && options?.flag === 'r'
+        ? Effect.fail(
+            PlatformError.systemError({
+              _tag: 'BadResource',
+              module: 'FileSystem',
+              method: 'open'
+            })
+          )
+        : open(path, options)
+    );
+
+    try {
+      await runFileSystemPromise(fs.makeDirectory(folder));
+      const runtime = fixture.app.nativeRuntime;
+      const system = await fixture.api();
+
+      await runtime.runPromise(system.configureAutomaticBackup({ kind: 'folder', path: folder }));
+      await runtime.runPromise(system.runAutomaticBackup());
+      const status = await runtime.runPromise(system.automaticBackup());
+
+      expect(status.lastSuccessAtMs).toBeGreaterThan(0);
+      expect(status.lastFailure).toBeNull();
+      expect(await runFileSystemPromise(fs.readDirectory(folder))).toEqual([
+        expect.stringMatching(/\.studybackup$/)
+      ]);
+    } finally {
+      unsupported.mockRestore();
       await fixture.close();
     }
   }

@@ -1,11 +1,47 @@
+import { MAX_BACKUP_BYTES } from '@study/contracts';
 import { test } from '@study/testing';
+import { Clock, Effect } from 'effect';
+import { TestClock } from 'effect/testing';
 
+import { sendBackupRequest } from './backup-storage-http.ts';
 import { signS3Put } from './s3-backup.ts';
 import { storageStrategies } from './storage-backup.ts';
 
 const name = 'Study-folder-1.studybackup';
 
 const bytes = new TextEncoder().encode('study backup');
+
+test.server.stable(
+  'a large upload can finish after two minutes on a slow link',
+  async ({ expect }) => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const clock = yield* Clock.Clock;
+        const dispatched = Promise.withResolvers<void>();
+        const response = Promise.withResolvers<Response>();
+        const send = sendBackupRequest(async () => {
+          dispatched.resolve();
+
+          return response.promise;
+        }, clock);
+        const upload = send(new URL('https://objects.example.test/backup'), {
+          method: 'PUT',
+          body: new Uint8Array(MAX_BACKUP_BYTES)
+        });
+        const result = upload.then(
+          () => undefined,
+          (error: unknown) => error
+        );
+
+        yield* Effect.promise(() => dispatched.promise);
+
+        yield* TestClock.adjust('10 minutes');
+        response.resolve(new Response(null, { status: 201 }));
+        expect(yield* Effect.promise(() => result)).toBeUndefined();
+      }).pipe(Effect.provide(TestClock.layer()))
+    );
+  }
+);
 
 test.server.stable(
   'S3 uses a bounded PUT signed for the configured bucket, region and prefix',
