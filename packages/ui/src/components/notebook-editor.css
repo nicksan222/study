@@ -88,6 +88,7 @@
   background: transparent;
   color: var(--foreground);
   caret-color: var(--foreground);
+  unicode-bidi: plaintext;
   font: inherit;
   font-size: 0.9375rem;
   line-height: 1.7;
@@ -107,6 +108,10 @@
 .notebook-editor-body > .rich-note-editor {
   max-width: 75ch;
   margin-inline: auto;
+}
+.notebook-editor-body .tiptap:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 6px;
 }
 .notebook-editor-footer .note-actions {
   margin-inline-start: auto;

@@ -193,6 +193,8 @@ test.browser.stable(
 
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
 
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource }).click();
+
     const edited = original
       .replace('Mixed attachment field lecture', 'Mixed attachment field lecture — corrected')
       .replace(last, correctedLast);

@@ -111,6 +111,8 @@ test.browser.stable(
       await notebook.locator('[data-role="user"]').hover();
       await page.getByRole('button', { name: copy.NoteEditNote }).click();
       const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+      await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
       const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
       await expect(editor).toHaveValue(content);
@@ -267,6 +269,8 @@ test.browser.stable(
     await localizedNotebook.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: italian.NoteEditNote }).click();
     const localizedEditor = page.getByRole('dialog', { name: italian.NoteEditNote });
+
+    await localizedEditor.getByRole('button', { name: italian.NoteMarkdownSource }).click();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(

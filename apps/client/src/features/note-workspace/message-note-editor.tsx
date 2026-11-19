@@ -1,6 +1,4 @@
 import { Button, Dialog, DialogTitle, Notebook, NotebookEditor, PreviousButton } from '@study/ui';
-import type { RichNoteEditorHandle } from '@study/ui';
-import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -11,7 +9,7 @@ import {
 } from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
-import { initialEditPosition } from './edit-position';
+import { useEditPosition } from './edit-position';
 import type { useMessageActions } from './message-actions.queries';
 import { NoteEditor, NoteSummary } from './note-editor';
 
@@ -21,8 +19,7 @@ type Model = ReturnType<typeof useMessageActions>;
 export function MessageNoteEditor({ model, recovery }: { model: Model; recovery: ReactNode }) {
   const { t, draft, patch } = model;
   const preferences = useWorkspacePreferences();
-  const body = useRef<HTMLDivElement>(null);
-  const textInput = useRef<HTMLTextAreaElement>(null);
+  const position = useEditPosition(draft.position);
   const submission = useDictationSubmission();
   const submit = () => {
     if (!submission.isBlocked()) model.submit();
@@ -30,30 +27,10 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
   const dictation = useTextDictation({
     value: draft.text,
     onChange: (text) => patch({ text }),
-    input: textInput
+    input: position.textInput
   });
-  const richEditor = useRef<RichNoteEditorHandle>(null);
-  const position = useRef(initialEditPosition());
-  const recordingPosition = useRef(false);
-  const pause = () => {
-    // Native caret scrolling can precede its queued scroll/select events. Capture
-    // the actual position before closing instead of relying on those events.
-    if (body.current) position.current.scroll = body.current.scrollTop;
-
-    const input = body.current?.querySelector('textarea');
-
-    if (input) {
-      position.current.start = input.selectionStart;
-      position.current.end = input.selectionEnd;
-      position.current.direction = input.selectionDirection;
-      position.current.inputScroll = input.scrollTop;
-    }
-
-    if (richEditor.current) position.current.rich = richEditor.current.selection();
-
-    recordingPosition.current = false;
-    model.pauseEdit({ ...position.current });
-  };
+  const pause = () => model.pauseEdit(position.pause());
+  const { source } = position;
   const open = draft.mode === 'edit';
 
   return (
@@ -76,31 +53,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
 
           return false;
         }}
-        initialFocus={() => {
-          position.current = { ...(draft.position ?? initialEditPosition()) };
-          recordingPosition.current = true;
-          const input = body.current?.querySelector<HTMLElement>(
-            'textarea, [contenteditable="true"]'
-          );
-
-          input?.focus({ preventScroll: true });
-
-          if (input instanceof HTMLTextAreaElement) {
-            input.setSelectionRange(
-              position.current.start,
-              position.current.end,
-              position.current.direction
-            );
-            input.scrollTop = position.current.inputScroll;
-          }
-
-          if (richEditor.current && position.current.rich)
-            richEditor.current.restoreSelection(position.current.rich);
-
-          if (body.current) body.current.scrollTop = position.current.scroll;
-
-          return false;
-        }}
+        initialFocus={position.restore}
         onKeyDownCapture={(event) => {
           if (
             event.nativeEvent.isComposing ||
@@ -130,6 +83,20 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
             onClick={pause}
             title={t('NoteEditBackHelp')}
           />
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-pressed={source}
+            data-pressed={source || undefined}
+            disabled={!!draft.attempt || submission.blocked}
+            onClick={() => {
+              if (submission.isBlocked()) return;
+
+              patch({ position: position.switchMode() });
+            }}
+          >
+            {t('NoteMarkdownSource')}
+          </Button>
           <NotebookEditor.Identity>
             <DialogTitle>{t('NoteEditNote')}</DialogTitle>
             <NotebookEditor.Subject>
@@ -141,36 +108,30 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
           </NotebookEditor.Identity>
         </NotebookEditor.Header>
         <NotebookEditor.Body
-          ref={body}
-          onScroll={(event) => {
-            if (recordingPosition.current) position.current.scroll = event.currentTarget.scrollTop;
-          }}
+          ref={position.body}
+          onScroll={(event) => position.recordScroll(event.currentTarget.scrollTop)}
         >
-          {model.message.format === 'document' ? (
+          {!source ? (
             <DictationSubmissionScope value={submission.scope}>
               <NoteEditor
                 targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
-                ref={richEditor}
+                ref={position.richEditor}
                 label={t('NoteEditNote')}
                 value={draft.text}
                 disabled={!!draft.attempt}
+                variant="notebook"
                 onChange={(text) => patch({ text })}
               />
             </DictationSubmissionScope>
           ) : (
             <NotebookEditor.Text
-              ref={textInput}
+              ref={position.textInput}
               aria-label={t('NoteEditNote')}
               value={draft.text}
               disabled={!!draft.attempt}
               spellCheck={preferences.spellcheck}
               onChange={(event) => patch({ text: event.target.value })}
-              onSelect={(event) => {
-                if (!recordingPosition.current) return;
-
-                position.current.start = event.currentTarget.selectionStart;
-                position.current.end = event.currentTarget.selectionEnd;
-              }}
+              onSelect={(event) => position.recordSelection(event.currentTarget)}
             />
           )}
         </NotebookEditor.Body>
@@ -179,7 +140,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
             {t(draft.text === draft.targetText ? 'NoteEditUnchanged' : 'NoteEditUnsaved')}
           </NotebookEditor.Status>
           <Notebook.Actions>
-            {model.message.format !== 'document' && (
+            {source && (
               <DictationSubmissionScope value={submission.scope}>
                 <DictationButton
                   targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
@@ -194,7 +155,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
               disabled={!!draft.attempt}
               aria-label={t('NoteDiscardEdits')}
               onClick={() => {
-                position.current = initialEditPosition();
+                position.reset();
                 model.discardEdit();
               }}
             >
