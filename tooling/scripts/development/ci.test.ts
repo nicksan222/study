@@ -7,6 +7,7 @@ type Workflow = {
       name: string;
       needs?: string | string[];
       if?: string;
+      'runs-on'?: string;
       strategy?: { 'fail-fast': boolean; 'max-parallel': number; matrix: { shard: number[] } };
       uses?: string;
       steps?: {
@@ -163,7 +164,7 @@ test.unit.stable.for(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
 );
 
 test.unit.stable(
-  'release publication waits for four independent platform builds without a matrix',
+  'release publication waits for every platform and the packaged macOS WebView',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
@@ -172,7 +173,21 @@ test.unit.stable(
     ) as Workflow;
     const platforms = ['linux_x64', 'linux_arm64', 'macos', 'windows'];
 
-    assert.sameMembers(release.jobs.publish!.needs as string[], ['version', ...platforms]);
+    assert.sameMembers(release.jobs.publish!.needs as string[], [
+      'version',
+      ...platforms,
+      'macos_webview'
+    ]);
+
+    const webview = release.jobs.macos_webview!;
+
+    assert.equal(webview.needs, 'macos');
+    assert.equal(webview['runs-on'], 'xcode-27');
+    assert.equal(
+      webview.steps!.find((step) => step.uses?.startsWith('actions/download-artifact@'))?.with
+        ?.name,
+      'bundle-macos-aarch64'
+    );
 
     for (const name of platforms) {
       const job = release.jobs[name]!;

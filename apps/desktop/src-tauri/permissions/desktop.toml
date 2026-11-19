@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "allow-server-connection"
-commands.allow = ["server_connection"]
+commands.allow = ["server_connection", "report_server_connected"]
 
 [[permission]]
 identifier = "allow-desktop-update"

@@ -82,9 +82,26 @@ jobs:
       version: ${{ needs.version.outputs.version }}
     secrets: inherit
 
+  macos_webview:
+    name: Verify the macOS release WebView on macOS 27
+    needs: macos
+    runs-on: xcode-27
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: bundle-macos-aarch64
+          path: target/macos-release
+      - name: Launch Study from the release disk image
+        shell: bash
+        run: |
+          sw_vers
+          python3 tooling/scripts/release/smoke_macos_webview.py target/macos-release/study-macos-aarch64.dmg
+
   publish:
     name: 🚀 Verify & publish release
-    needs: [version, linux_x64, linux_arm64, macos, windows]
+    needs: [version, linux_x64, linux_arm64, macos, windows, macos_webview]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
