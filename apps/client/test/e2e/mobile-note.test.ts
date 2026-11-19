@@ -55,6 +55,8 @@ test.browser.stable(
     await expect(edit).toBeInViewport({ ratio: 1 });
     await edit.tap();
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
     const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
     const changed = original + '\n\nBridge inspection corrected on mobile.';
 
@@ -233,7 +235,11 @@ test.browser.stable(
     await page.setViewportSize({ width: 320, height: 520 });
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
 
-    await expect(dialog.getByRole('textbox')).toHaveValue(text);
+    const visual = dialog.getByRole('textbox', { name: copy.NoteEditNote });
+    const paragraphs = visual.locator('p');
+
+    await expect(visual).toHaveAttribute('contenteditable', 'true');
+    await expect(paragraphs).toHaveText(text.split('\n\n'));
     await expect(
       dialog.getByRole('button', { name: copy.NoteSaveNote, exact: true })
     ).toBeInViewport({ ratio: 1 });
@@ -241,7 +247,7 @@ test.browser.stable(
     await expectScreenshot('narrow-short-editor', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () => expect(dialog.getByRole('textbox')).toHaveValue(text)
+      ready: () => expect(paragraphs).toHaveText(text.split('\n\n'))
     });
   }
 );

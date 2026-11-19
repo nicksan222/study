@@ -23,6 +23,7 @@ test.browser.stable(
 
     await entry.hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource }).click();
     await expect(editor).toBeFocused();
     await expectScreenshot('unchanged-editor', {
       target: dialog,
@@ -75,6 +76,7 @@ test.browser.stable(
     await expect(resume).toHaveCount(0);
     await entry.hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource }).click();
     await expect(editor).toHaveValue(original);
     await expectScreenshot('discard-restored-original', {
       target: dialog,
