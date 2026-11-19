@@ -1,0 +1,50 @@
+name: Desktop E2E
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: Desktop E2E (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2022]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/setup
+        with:
+          packages: xvfb xauth
+          optimize-dependencies: 'true'
+          target-dir: target/devcontainer
+      - if: runner.os != 'Linux'
+        uses: ./.github/actions/setup-javascript
+      - if: runner.os != 'Linux'
+        uses: dtolnay/rust-toolchain@stable
+      - if: runner.os != 'Linux'
+        uses: Swatinem/rust-cache@v2
+      - if: runner.os == 'macOS'
+        run: brew install sqlite
+      - name: Build Study with the test-only WebDriver
+        shell: bash
+        run: |
+          version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json | tr -d '\r')
+          config=$(bash tooling/scripts/release/release.sh configure "$version" target/desktop-e2e.json --unsigned)
+          bun run --cwd apps/desktop tauri build --no-bundle --features desktop-e2e --config "$config" -- --locked
+      - name: Run the client journey in the native WebView
+        shell: bash
+        run: |
+          app="$PWD/target/devcontainer/release/study"
+          if [ "$RUNNER_OS" = Windows ]; then app="$app.exe"; fi
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a dbus-run-session -- bun run --cwd apps/client e2e:desktop "$app"
+          else
+            bun run --cwd apps/client e2e:desktop "$app"
+          fi

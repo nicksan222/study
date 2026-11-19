@@ -18,7 +18,8 @@
     "typecheck": "bun --bun vp run gen:routes && bun --bun tsc --noEmit",
     "gen:routes": "bun --bun tsr generate",
     "test": "bun --bun vp test run --config ../../vite.config.ts --project @study/client --exclude \"../../packages/**\"",
-    "e2e": "bun --bun playwright test --config playwright.config.ts"
+    "e2e": "bun --bun playwright test --config playwright.config.ts",
+    "e2e:desktop": "bun test/e2e/harness/desktop.ts"
   },
   "dependencies": {
     "@effect/atom-react": "4.0.7",
@@ -40,6 +41,7 @@
     "@effect/platform-bun": "4.0.7",
     "@study/db": "*",
     "@study/testing": "*",
-    "@study/tooling": "*"
+    "@study/tooling": "*",
+    "webdriverio": "9.33.1"
   }
 }

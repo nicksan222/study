@@ -376,6 +376,12 @@ The server suite runs a Bun-hosted server against a disposable database, kills i
 
 ### Browser journeys and visual references
 
+The Desktop E2E workflow builds Study with the opt-in `desktop-e2e` Cargo feature
+and runs the client's Home navigation journey in the native WebView on each desktop
+release platform. Both runners use the same navigation assertions. Screenshot comparisons
+run in Chromium. To run the native journey against a test build on a desktop session,
+use `bun run --cwd apps/client e2e:desktop /absolute/path/to/study`.
+
 `bun run web:e2e` builds the real frontend once, then runs Playwright Test under Bun
 with fresh real SQLite/RPC state. `bun run web:e2e:compare` uses the same Turbo task
 and reuses a matching build from its cache. Use native runner filters, for example
