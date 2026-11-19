@@ -6,20 +6,19 @@ import { createRpcTransport } from '@study/client/transport';
 import { createRoot } from 'react-dom/client';
 
 import { MobileCapture } from './capture';
-import { Phone, rememberInvitation } from './phone';
+import { Phone, importInvitation } from './phone';
+
+const initialError = location.hash ? importInvitation(location.href) : undefined;
 
 if (location.hash) {
-  try {
-    rememberInvitation(location.href);
-  } catch {
-    // The pairing form also accepts the original invitation link.
-  }
-
   history.replaceState(null, '', location.pathname + location.search);
 }
 
 createRoot(document.getElementById('root')!).render(
   <LanguageProvider locale={navigator.language.startsWith('it') ? 'italian' : 'english'}>
-    <Phone renderApp={(open) => <MobileCapture transport={createRpcTransport(open)} />} />
+    <Phone
+      initialError={initialError}
+      renderApp={(open) => <MobileCapture transport={createRpcTransport(open)} />}
+    />
   </LanguageProvider>
 );

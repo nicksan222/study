@@ -461,6 +461,13 @@ test.unit.stable(
       changed.tasks.find((task) => task.taskId === '@study/client#build')?.dependencies ?? [],
       '@study/client#typecheck'
     );
+    const typecheck = () => repo.plan('typecheck', '--filter=@study/client');
+    const typecheckHash = (plan: Plan) =>
+      plan.tasks.find((task) => task.taskId === '@study/client#typecheck')?.hash;
+    const beforeMobileChange = await typecheck();
+
+    await Bun.write(`${repo.path}/apps/mobile/src/pairing.test.tsx`, 'export const changed = true');
+    assert.notEqual(typecheckHash(await typecheck()), typecheckHash(beforeMobileChange));
   }
 );
 

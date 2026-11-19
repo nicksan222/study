@@ -20,18 +20,46 @@ import {
 import { Activity, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { UnlinkPhone } from './session';
+import { CaptureSaveState, UnlinkPhone } from './session';
+import type { SaveStatus } from './session';
 
 const linkKey = 'study.mobile.phone.v1';
 
 const inviteKey = 'study.mobile.invite.v1';
 
-export function rememberInvitation(url: string) {
-  const invitation = parseInvitation(url);
+type PairingError =
+  | 'MobileAlreadyPaired'
+  | 'MobileConnectionError'
+  | 'MobileInviteExpired'
+  | 'MobileUnlinkError';
 
+function rememberInvitation(invitation: Invitation) {
   localStorage.setItem(inviteKey, JSON.stringify(invitation));
 
   return invitation;
+}
+
+export function importInvitation(url: string): PairingError | undefined {
+  try {
+    const incoming = parseInvitation(url);
+    const paired = fromStorage(linkKey, invitationSchema);
+
+    if (paired) return paired.room === incoming.room ? undefined : 'MobileAlreadyPaired';
+
+    rememberInvitation(incoming);
+  } catch {
+    return 'MobileConnectionError';
+  }
+}
+
+function removeStored(key: string) {
+  try {
+    localStorage.removeItem(key);
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function initialLink() {
@@ -42,10 +70,16 @@ function initialLink() {
   return { invitation: fromStorage(inviteKey, invitationSchema), paired: false };
 }
 
-export function Phone({ renderApp }: { renderApp: (open: OpenPhoneRpc) => ReactNode }) {
+export function Phone({
+  initialError,
+  renderApp
+}: {
+  initialError?: PairingError;
+  renderApp: (open: OpenPhoneRpc) => ReactNode;
+}) {
   const { t } = useI18n();
   const [{ invitation, paired }, setLink] = useState(initialLink);
-  const [error, setError] = useState<'MobileConnectionError' | 'MobileInviteExpired'>();
+  const [error, setError] = useState(initialError);
   const [browserApproved, setBrowserApproved] = useState(false);
   const standalone = matchMedia('(display-mode: standalone)').matches;
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -56,7 +90,7 @@ export function Phone({ renderApp }: { renderApp: (open: OpenPhoneRpc) => ReactN
 
     return scheduleRequest(
       async () => {
-        localStorage.removeItem(inviteKey);
+        removeStored(inviteKey);
         setLink({ invitation: undefined, paired: false });
         setError('MobileInviteExpired');
       },
@@ -66,7 +100,7 @@ export function Phone({ renderApp }: { renderApp: (open: OpenPhoneRpc) => ReactN
 
   function pair(url: string) {
     try {
-      setLink({ invitation: rememberInvitation(url), paired: false });
+      setLink({ invitation: rememberInvitation(parseInvitation(url)), paired: false });
       setError(undefined);
     } catch {
       setError('MobileConnectionError');
@@ -74,18 +108,19 @@ export function Phone({ renderApp }: { renderApp: (open: OpenPhoneRpc) => ReactN
   }
 
   function reset() {
-    localStorage.removeItem(linkKey);
-    localStorage.removeItem(inviteKey);
     setLink({ invitation: undefined, paired: false });
-    setError(undefined);
     setBrowserApproved(false);
+    const linkRemoved = removeStored(linkKey);
+    const inviteRemoved = removeStored(inviteKey);
+
+    setError(linkRemoved && inviteRemoved ? undefined : 'MobileUnlinkError');
   }
 
   function approve() {
     if (!invitation) return;
 
     localStorage.setItem(linkKey, JSON.stringify(invitation));
-    localStorage.removeItem(inviteKey);
+    removeStored(inviteKey);
     setLink({ invitation, paired: true });
   }
 
@@ -96,6 +131,7 @@ export function Phone({ renderApp }: { renderApp: (open: OpenPhoneRpc) => ReactN
         invitation={invitation}
         paired={paired}
         showInstallHint={!standalone}
+        notice={error && <ErrorState title={t(error)} />}
         approve={approve}
         reset={reset}
         renderApp={renderApp}
@@ -104,10 +140,7 @@ export function Phone({ renderApp }: { renderApp: (open: OpenPhoneRpc) => ReactN
   }
 
   return (
-    <MobileStudy.Screen>
-      <MobileStudy.Header title={t('MobileStudy')} />
-      {!standalone && <p>{t('MobileInstallHint')}</p>}
-      {error && <ErrorState title={t(error)} />}
+    <PhoneEntry error={error} standalone={standalone} retryUnlink={reset}>
       {invitation ? (
         <PhoneInstall
           invitation={invitation}
@@ -116,6 +149,38 @@ export function Phone({ renderApp }: { renderApp: (open: OpenPhoneRpc) => ReactN
         />
       ) : (
         <InviteForm onSubmit={pair} />
+      )}
+    </PhoneEntry>
+  );
+}
+
+function PhoneEntry({
+  error,
+  standalone,
+  retryUnlink,
+  children
+}: {
+  error?: PairingError;
+  standalone: boolean;
+  retryUnlink: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <MobileStudy.Screen>
+      <MobileStudy.Header title={t('MobileStudy')} />
+      {error === 'MobileUnlinkError' ? (
+        <ErrorState
+          title={t(error)}
+          action={<RetryButton label={t('Retry')} onClick={retryUnlink} />}
+        />
+      ) : (
+        <>
+          {!standalone && <p>{t('MobileInstallHint')}</p>}
+          {error && <ErrorState title={t(error)} />}
+          {children}
+        </>
       )}
     </MobileStudy.Screen>
   );
@@ -182,6 +247,7 @@ function PhoneSession({
   invitation,
   paired,
   showInstallHint,
+  notice,
   approve,
   reset,
   renderApp
@@ -189,6 +255,7 @@ function PhoneSession({
   invitation: Invitation;
   paired: boolean;
   showInstallHint: boolean;
+  notice?: ReactNode;
   approve: () => void;
   reset: () => void;
   renderApp: (open: OpenPhoneRpc) => ReactNode;
@@ -197,6 +264,7 @@ function PhoneSession({
   const [connected, setConnected] = useState(false);
   const [code, setCode] = useState<string>();
   const [error, setError] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>('idle');
   const [retry, setRetry] = useState(0);
   const current = useRef({ paired, approve, renderApp });
   const teardown = useRef<Promise<void>>(undefined);
@@ -210,6 +278,13 @@ function PhoneSession({
     let opened = false;
     let stop: (() => Promise<void>) | undefined;
 
+    function showApp(open: OpenPhoneRpc) {
+      if (opened) return;
+
+      setApp(current.current.renderApp(open));
+      opened = true;
+    }
+
     void loadPhoneConnection()
       .then(async ({ connectPhone }) => {
         await teardown.current;
@@ -220,11 +295,7 @@ function PhoneSession({
           challenge: setCode,
           paired: () => current.current.approve(),
           connected: (open) => {
-            if (!opened) {
-              setApp(current.current.renderApp(open));
-              opened = true;
-            }
-
+            showApp(open);
             setError(false);
             setConnected(true);
           },
@@ -244,16 +315,18 @@ function PhoneSession({
 
   return (
     <>
-      {app && (
-        <Activity mode={connected ? 'visible' : 'hidden'}>
+      {notice}
+      <Activity mode={connected ? 'visible' : 'hidden'}>
+        <CaptureSaveState.Provider value={{ status, setStatus }}>
           <UnlinkPhone.Provider value={reset}>{app}</UnlinkPhone.Provider>
-        </Activity>
-      )}
+        </CaptureSaveState.Provider>
+      </Activity>
       {!connected && (
         <PhoneConnectionPanel
           paired={paired}
           code={code}
           error={error}
+          uncertain={status === 'uncertain'}
           showInstallHint={showInstallHint}
           reset={reset}
           retry={() => {
@@ -270,6 +343,7 @@ function PhoneConnectionPanel({
   paired,
   code,
   error,
+  uncertain,
   showInstallHint,
   reset,
   retry
@@ -277,6 +351,7 @@ function PhoneConnectionPanel({
   paired: boolean;
   code?: string;
   error: boolean;
+  uncertain: boolean;
   showInstallHint: boolean;
   reset: () => void;
   retry: () => void;
@@ -289,6 +364,7 @@ function PhoneConnectionPanel({
         <StatusMessage>{t(paired ? 'MobileWaitingForDesktop' : 'MobilePairing')}</StatusMessage>
       </MobileStudy.Header>
       {showInstallHint && <p>{t('MobileInstallHint')}</p>}
+      {uncertain && <StatusMessage>{t('MobileCaptureUncertain')}</StatusMessage>}
       {code && !paired && (
         <div>
           <p>{t('MobileConfirmPhone')}</p>

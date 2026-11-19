@@ -100,6 +100,9 @@ export const english = Object.freeze({
   MobileRevocationError:
     'The connection closed, but Study could not remove the saved pairing. Try revoking access again.',
   MobileUnlink: 'Unlink this phone',
+  MobileUnlinkError:
+    'The phone disconnected, but Study couldn’t remove the saved pairing. Try again.',
+  MobileAlreadyPaired: 'Unlink this phone before using an invitation from another computer.',
   MobileInviteExpired: 'The invitation expired. Create a new one on your computer.',
   MobileInvite: 'Invitation link',
   MobileShowDesktop: 'Open Study',

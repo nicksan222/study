@@ -5,16 +5,15 @@ import { Button, Field, MobileStudy, StatusMessage, Textarea } from '@study/ui';
 import { useContext, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 
-import { UnlinkPhone } from './session';
-
-type SaveStatus = 'idle' | 'sending' | 'saved' | 'rejected' | 'uncertain';
+import { CaptureSaveState, UnlinkPhone } from './session';
+import type { SaveStatus } from './session';
 
 export function MobileCapture({ transport }: { transport: ProtocolTransport }) {
   const { t } = useI18n();
   const unlink = useContext(UnlinkPhone);
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<File>();
-  const [status, setStatus] = useState<SaveStatus>('idle');
+  const { status, setStatus } = useContext(CaptureSaveState)!;
   const locked = status === 'sending' || status === 'uncertain';
 
   useEffect(() => configureRpcTransport(transport), [transport]);

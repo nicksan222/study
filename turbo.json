@@ -96,6 +96,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "!src/routeTree.gen.ts",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/packages/**",
         "!$TURBO_ROOT$/packages/**/.turbo/**"
       ],

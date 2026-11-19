@@ -106,6 +106,9 @@ export const italian = Object.freeze({
   MobileRevocationError:
     'La connessione è stata chiusa, ma Study non ha potuto rimuovere l’abbinamento salvato. Riprova a revocare l’accesso.',
   MobileUnlink: 'Scollega questo telefono',
+  MobileUnlinkError:
+    'Il telefono si è scollegato, ma Study non ha potuto rimuovere l’abbinamento salvato. Riprova.',
+  MobileAlreadyPaired: 'Scollega questo telefono prima di usare un invito da un altro computer.',
   MobileInviteExpired: 'L’invito è scaduto. Creane uno nuovo sul computer.',
   MobileInvite: 'Link di invito',
   MobileShowDesktop: 'Apri Study',

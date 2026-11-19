@@ -1,5 +1,6 @@
 import { LanguageProvider, invitationUrl } from '@study/client/companion';
 import type { loadPhoneConnection } from '@study/client/companion';
+import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { useContext } from 'react';
@@ -8,6 +9,23 @@ type ConnectionEvents = Parameters<
   Awaited<ReturnType<typeof loadPhoneConnection>>['connectPhone']
 >[2];
 
+const companion = Bun.pathToFileURL(Bun.resolveSync('@study/client/companion', process.cwd()));
+
+const phoneConnection = new URL('../lib/mobile-link/phone-connection.ts', companion);
+
+const inviteKey = 'study.mobile.invite.v1';
+
+const linkKey = 'study.mobile.phone.v1';
+
+function invite(expiresAt?: number) {
+  return {
+    room: crypto.randomUUID(),
+    secret: crypto.randomUUID(),
+    desktop: 'desktop012345678901234',
+    expiresAt
+  };
+}
+
 test.unit.stable.for(['english', 'italian'] as const)(
   'the phone gates access until approval, waits during disconnect and forgets the link on unlink (%s)',
   async (locale, { mock, expect, screen, render, fireEvent, userEvent, act, onTestFinished }) => {
@@ -15,13 +33,9 @@ test.unit.stable.for(['english', 'italian'] as const)(
     const active = Promise.withResolvers<ConnectionEvents>();
     const stop = mock.fn(async () => {});
     const renderApp = mock.fn(() => <SharedStudy />);
-    const invitation = invitationUrl('https://example.com/study/mobile/', {
-      room: crypto.randomUUID(),
-      secret: crypto.randomUUID(),
-      desktop: 'desktop012345678901234'
-    });
+    const invitation = invitationUrl('https://example.com/study/mobile/', invite());
 
-    mock('#client/lib/mobile-link/phone-connection.ts', () => ({
+    mock(phoneConnection, () => ({
       connectPhone: (_invitation: unknown, _paired: boolean, events: ConnectionEvents) => {
         active.resolve(events);
 
@@ -78,6 +92,159 @@ test.unit.stable.for(['english', 'italian'] as const)(
         <Phone renderApp={renderApp} />
       </LanguageProvider>
     );
+    expect(screen.getByRole('textbox', { name: copy.MobileInvite })).toBeVisible();
+  }
+);
+
+test.unit.stable(
+  'an incoming invitation does not silently replace an existing link',
+  async ({ mock, expect, screen, render, onTestFinished }) => {
+    const copy = catalogs.english;
+    const saved = invite();
+
+    onTestFinished(() => localStorage.clear());
+    localStorage.setItem(linkKey, JSON.stringify(saved));
+    mock(phoneConnection, () => ({ connectPhone: mock.fn(() => async () => {}) }));
+    const { Phone, importInvitation } = await import('./phone');
+    const notice = importInvitation(invitationUrl('https://example.com/study/mobile/', invite()));
+
+    render(
+      <LanguageProvider locale="english">
+        <Phone initialError={notice} renderApp={() => null} />
+      </LanguageProvider>
+    );
+    expect(screen.getByText(copy.MobileAlreadyPaired)).toBeVisible();
+    expect(localStorage.getItem(linkKey)).toBe(JSON.stringify(saved));
+    expect(localStorage.getItem(inviteKey)).toBeNull();
+  }
+);
+
+test.unit.stable(
+  'an invitation still expires if storage removal throws',
+  async ({ mock, expect, screen, render, act, onTestFinished }) => {
+    const copy = catalogs.english;
+    const expiry = Promise.withResolvers<() => Promise<void>>();
+
+    onTestFinished(() => localStorage.clear());
+    localStorage.setItem(inviteKey, JSON.stringify(invite(Date.now() + 30_000)));
+    mock(phoneConnection, () => ({ connectPhone: mock.fn(() => async () => {}) }));
+    mock(new URL('../lib/study-client/repeat-request.ts', companion), () => ({
+      scheduleRequest: (callback: () => Promise<void>) => {
+        expiry.resolve(callback);
+
+        return () => {};
+      }
+    }));
+    const { Phone } = await import('./phone');
+
+    render(
+      <LanguageProvider locale="english">
+        <Phone renderApp={() => null} />
+      </LanguageProvider>
+    );
+    const expire = await expiry.promise;
+
+    mock.spyOn(Storage.prototype, 'removeItem').mockImplementationOnce(() => {
+      throw new DOMException('Blocked', 'SecurityError');
+    });
+    await act(expire);
+    expect(screen.getByText(copy.MobileInviteExpired)).toBeVisible();
+    expect(screen.getByRole('textbox', { name: copy.MobileInvite })).toBeVisible();
+  }
+);
+
+test.unit.stable(
+  'an interrupted save is visible while disconnected and is not replayed',
+  async ({ mock, expect, screen, render, userEvent, act, rpc, waitFor, onTestFinished }) => {
+    const copy = catalogs.italian;
+    const active = Promise.withResolvers<ConnectionEvents>();
+    const disconnect = Promise.withResolvers<void>();
+    const save = mock.fn(async () => {
+      await disconnect.promise;
+
+      throw new StudyError('transient', 'Disconnected');
+    });
+
+    onTestFinished(() => localStorage.clear());
+    localStorage.setItem(linkKey, JSON.stringify(invite()));
+    const noteStart = new URL('../features/note-workspace/start.queries.ts', companion);
+
+    mock(noteStart, async () => ({
+      ...(await mock.importActual<Record<string, unknown>>(Bun.fileURLToPath(noteStart))),
+      startNote: save
+    }));
+    mock(phoneConnection, () => ({
+      connectPhone: (_invitation: unknown, _paired: boolean, events: ConnectionEvents) => {
+        active.resolve(events);
+
+        return async () => {};
+      }
+    }));
+    const { Phone } = await import('./phone');
+    const { MobileCapture } = await import('./capture');
+
+    render(
+      <LanguageProvider locale="italian">
+        <Phone renderApp={() => <MobileCapture transport={rpc.transport} />} />
+      </LanguageProvider>
+    );
+    const events = await active.promise;
+    const open = mock.fn();
+
+    act(() => events.connected(open));
+    await userEvent.type(screen.getByRole('textbox', { name: copy.MobileCaptureText }), 'Conserva');
+    await userEvent.click(screen.getByRole('button', { name: copy.MobileCaptureSave }));
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    await act(async () => {
+      events.disconnected();
+      disconnect.resolve();
+    });
+    await waitFor(() =>
+      expect(screen.getAllByRole('status').map((element) => element.textContent)).toContain(
+        copy.MobileCaptureUncertain
+      )
+    );
+
+    act(() => events.connected(open));
+    expect(screen.getByRole('textbox', { name: copy.MobileCaptureText })).toHaveValue('Conserva');
+    expect(screen.getByRole('button', { name: copy.MobileCaptureAnother })).toBeVisible();
+    expect(save).toHaveBeenCalledOnce();
+  }
+);
+
+test.unit.stable(
+  'failed unlink disconnects the phone and allows retrying storage removal',
+  async ({ mock, expect, screen, render, userEvent, onTestFinished }) => {
+    const copy = catalogs.english;
+    const active = Promise.withResolvers<ConnectionEvents>();
+    const stop = mock.fn(async () => {});
+
+    onTestFinished(() => localStorage.clear());
+    localStorage.setItem(linkKey, JSON.stringify(invite()));
+    mock(phoneConnection, () => ({
+      connectPhone: (_invitation: unknown, _paired: boolean, events: ConnectionEvents) => {
+        active.resolve(events);
+
+        return stop;
+      }
+    }));
+    const { Phone } = await import('./phone');
+
+    render(
+      <LanguageProvider locale="english">
+        <Phone renderApp={() => null} />
+      </LanguageProvider>
+    );
+    await active.promise;
+    mock.spyOn(Storage.prototype, 'removeItem').mockImplementationOnce(() => {
+      throw new DOMException('Blocked', 'SecurityError');
+    });
+    await userEvent.click(screen.getByRole('button', { name: copy.MobileUnlink }));
+    expect(stop).toHaveBeenCalledOnce();
+    expect(screen.getByText(copy.MobileUnlinkError)).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: copy.MobileInvite })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: copy.Retry }));
+    expect(localStorage.getItem(linkKey)).toBeNull();
     expect(screen.getByRole('textbox', { name: copy.MobileInvite })).toBeVisible();
   }
 );
