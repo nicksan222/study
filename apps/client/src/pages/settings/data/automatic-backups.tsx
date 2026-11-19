@@ -1,4 +1,9 @@
-import { automaticBackupStatusSchema, MAX_AUTOMATIC_BACKUPS } from '@study/contracts';
+import {
+  automaticBackupStatusSchema,
+  DROPBOX_BACKUP_CALLBACK_PORT,
+  failureSchema,
+  MAX_AUTOMATIC_BACKUPS
+} from '@study/contracts';
 import type {
   automaticBackupConfigurationSchema,
   backupOAuthInputSchema,
@@ -41,7 +46,8 @@ type Configuration = typeof automaticBackupConfigurationSchema.Type;
 type Feedback =
   | 'DataAutoBackupSaveFailed'
   | 'DataAutoBackupRunFailed'
-  | 'DataAutoBackupSignInFailed';
+  | 'DataAutoBackupSignInFailed'
+  | 'DataBackupDropboxPortInUse';
 
 const labels = {
   off: 'DataAutoBackupOff',
@@ -56,6 +62,18 @@ const labels = {
 } as const;
 
 const isDestination = Schema.is(automaticBackupStatusSchema.fields.destination);
+
+const isFailure = Schema.is(failureSchema);
+
+function signInFailure(
+  kind: typeof backupOAuthInputSchema.Type.kind,
+  starting: boolean,
+  error: unknown
+): Feedback {
+  return starting && kind === 'dropbox' && isFailure(error) && error.kind === 'config'
+    ? 'DataBackupDropboxPortInUse'
+    : 'DataAutoBackupSignInFailed';
+}
 
 function useBackupActions() {
   const configure = rpc.system.configureAutomaticBackup.useMutation();
@@ -106,9 +124,9 @@ function useBackupActions() {
       await finish.mutateAsync({ id: result.id });
 
       return owned.current === attempt;
-    } catch {
+    } catch (error) {
       if (owned.current === attempt && !attempt.cancelling)
-        setFeedback('DataAutoBackupSignInFailed');
+        setFeedback(signInFailure(input.kind, attempt.id === undefined, error));
 
       if (attempt.id) await cancel.mutateAsync({ id: attempt.id }).catch(() => {});
 
@@ -424,9 +442,12 @@ function BackupFeedback({
 }) {
   const { t } = useI18n();
   const feedback =
-    failure === 'auth'
-      ? 'DataAutoBackupAuthExpired'
-      : (actions.feedback ?? (failure ? 'DataAutoBackupRunFailed' : undefined));
+    actions.feedback ??
+    (failure === 'auth' ? 'DataAutoBackupAuthExpired' : failure && 'DataAutoBackupRunFailed');
+  const message =
+    feedback === 'DataBackupDropboxPortInUse'
+      ? t(feedback, { port: String(DROPBOX_BACKUP_CALLBACK_PORT) })
+      : feedback && t(feedback);
 
   return (
     <>
@@ -441,7 +462,7 @@ function BackupFeedback({
           {t('DataAutoBackupSignInPending')}
         </Settings.Status>
       )}
-      {feedback && <Settings.Status>{t(feedback)}</Settings.Status>}
+      {message && <Settings.Status>{message}</Settings.Status>}
     </>
   );
 }

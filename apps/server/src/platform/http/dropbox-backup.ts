@@ -1,5 +1,7 @@
 /** @file Authorizes Dropbox and publishes backups in the app folder. */
 
+import { DROPBOX_BACKUP_CALLBACK_PORT } from '@study/contracts';
+
 import { oauthCodeFlow } from './backup-oauth.ts';
 import type { BackupHttp } from './backup-oauth.ts';
 
@@ -11,7 +13,7 @@ export function dropbox(call: BackupHttp) {
         tokenUrl: 'https://api.dropboxapi.com/oauth2/token',
         scope: 'files.content.write',
         authorizeFields: { token_access_type: 'offline' },
-        callbackPort: 42819
+        callbackPort: DROPBOX_BACKUP_CALLBACK_PORT
       },
       call
     ),

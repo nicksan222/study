@@ -4,6 +4,8 @@ import { errorKindSchema } from '../errors.ts';
 
 export const MAX_AUTOMATIC_BACKUPS = 7;
 
+export const DROPBOX_BACKUP_CALLBACK_PORT = 42819;
+
 const credential = Schema.String.check(Schema.isBetweenLength(1, 4096));
 
 const httpsAddress = Schema.String.check(

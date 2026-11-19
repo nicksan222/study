@@ -1,10 +1,38 @@
 import { test } from '@study/testing';
 
+import { oauthCodeFlow } from './backup-oauth.ts';
 import { backupOAuth } from './file-backup-providers.ts';
 
 const name = 'Study-installation-1.studybackup';
 
 const bytes = new Uint8Array([1, 2, 3]);
+
+test.server.stable(
+  'fixed-port backup sign-in reports an occupied callback port',
+  async ({ expect }) => {
+    const occupied = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response() });
+    const oauth = oauthCodeFlow(
+      {
+        authorizeUrl: 'https://login.example.test/authorize',
+        tokenUrl: 'https://login.example.test/token',
+        scope: 'backup.write',
+        callbackPort: occupied.port!
+      },
+      async () => new Response()
+    );
+
+    try {
+      expect(() => oauth.begin('backup-client')).toThrow(
+        expect.objectContaining({
+          kind: 'config',
+          message: `Backup sign-in port ${occupied.port} is in use`
+        })
+      );
+    } finally {
+      await occupied.stop(true);
+    }
+  }
+);
 
 test.server.stable(
   'Google Drive replaces the reserved object after an ambiguous resumable upload',

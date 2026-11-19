@@ -120,6 +120,17 @@ function withSecret(provider: OAuthProvider, secret: string | undefined): Record
   return { client_secret: secret };
 }
 
+function openCallbackServer(port: number | undefined, fetch: (request: Request) => Response) {
+  try {
+    return serve({ hostname: '127.0.0.1', port: port ?? 0, maxRequestBodySize: 4096, fetch });
+  } catch (cause) {
+    if (port && cause instanceof Error && 'code' in cause && cause.code === 'EADDRINUSE')
+      throw new StudyError('config', `Backup sign-in port ${port} is in use`);
+
+    throw cause;
+  }
+}
+
 export function oauthCodeFlow(provider: OAuthProvider, call: BackupHttp) {
   async function exchange(
     clientId: string,
@@ -153,19 +164,15 @@ export function oauthCodeFlow(provider: OAuthProvider, call: BackupHttp) {
       let accepted = false;
 
       void callback.promise.catch(() => {});
-      const server = serve({
-        hostname: '127.0.0.1',
-        port: provider.callbackPort ?? 0,
-        maxRequestBodySize: 4096,
-        fetch: (request) =>
-          acceptCallback(request, state, callback, () => {
-            if (accepted) return false;
+      const server = openCallbackServer(provider.callbackPort, (request) =>
+        acceptCallback(request, state, callback, () => {
+          if (accepted) return false;
 
-            accepted = true;
+          accepted = true;
 
-            return true;
-          })
-      });
+          return true;
+        })
+      );
       const redirect = `http://${provider.callbackHost ?? 'localhost'}:${server.port}${callbackPath}`;
       const url = new URL(provider.authorizeUrl);
 

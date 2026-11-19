@@ -70,9 +70,11 @@ export async function startS3() {
   const region = 'us-east-1';
   const accessKeyId = 'study-' + crypto.randomUUID().slice(0, 13);
   const secretAccessKey = crypto.randomUUID();
-  const log = Bun.file(path.join(directory.path, 'rustfs.log'));
+  const report = path.resolve('tooling/test-results/integrations');
+  const log = Bun.file(path.join(report, 'rustfs.log'));
   const volume = path.join(directory.path, 'objects');
 
+  await run(fs.makeDirectory(report, { recursive: true }));
   await run(fs.makeDirectory(volume));
   const rustfs = spawnScopedProcess([path.join(installed, 'rustfs'), 'server', volume], {
     env: {
@@ -80,6 +82,7 @@ export async function startS3() {
       RUSTFS_ADDRESS: address,
       RUSTFS_TLS_PATH: tls,
       RUSTFS_CONSOLE_ENABLE: 'false',
+      RUSTFS_OBS_LOGGER_LEVEL: 'info',
       RUSTFS_ACCESS_KEY: accessKeyId,
       RUSTFS_SECRET_KEY: secretAccessKey
     },
@@ -89,57 +92,46 @@ export async function startS3() {
 
   setup.defer(() => rustfs[Symbol.asyncDispose]());
 
-  try {
-    await runTestEffect(
-      pollUntil(
-        Effect.tryPromise({
-          try: async (signal) => {
-            if (rustfs.exitCode !== null) throw new Error('RustFS exited during startup');
+  await runTestEffect(
+    pollUntil(
+      Effect.tryPromise({
+        try: async (signal) => {
+          if (rustfs.exitCode !== null) throw new Error('RustFS exited during startup');
 
-            const response = await fetch(endpoint + '/health/ready', { signal }).catch(
-              () => undefined
-            );
+          const response = await fetch(endpoint + '/health/ready', { signal }).catch(
+            () => undefined
+          );
 
-            await response?.body?.cancel();
+          await response?.body?.cancel();
 
-            return response?.ok ?? false;
-          },
-          catch: (cause) => cause
-        }),
-        Boolean,
-        { attempts: 100, interval: '100 millis', message: 'RustFS did not become ready' }
-      ),
-      { timeout: testPolicy.processStartupTimeout }
-    );
-    await createBucket(
-      directory.path,
-      path.join(tls, 'ca.pem'),
-      endpoint,
-      accessKeyId,
-      secretAccessKey,
-      bucket
-    );
-    const configuration = {
-      kind: 's3',
-      endpoint,
-      bucket,
-      region,
-      accessKeyId,
-      secretAccessKey,
-      prefix: 'Study backups'
-    } as const;
-    const client = new S3Client({ endpoint, bucket, region, accessKeyId, secretAccessKey });
-    const resources = setup.move();
+          return response?.ok ?? false;
+        },
+        catch: (cause) => cause
+      }),
+      Boolean,
+      { attempts: 100, interval: '100 millis', message: 'RustFS did not become ready' }
+    ),
+    { timeout: testPolicy.processStartupTimeout }
+  );
+  await createBucket(
+    directory.path,
+    path.join(tls, 'ca.pem'),
+    endpoint,
+    accessKeyId,
+    secretAccessKey,
+    bucket
+  );
+  const configuration = {
+    kind: 's3',
+    endpoint,
+    bucket,
+    region,
+    accessKeyId,
+    secretAccessKey,
+    prefix: 'Study backups'
+  } as const;
+  const client = new S3Client({ endpoint, bucket, region, accessKeyId, secretAccessKey });
+  const resources = setup.move();
 
-    return { configuration, client, [Symbol.asyncDispose]: resources.close };
-  } catch (error) {
-    await rustfs[Symbol.asyncDispose]();
-    const report = path.resolve('tooling/test-results/integrations');
-
-    await run(fs.makeDirectory(report, { recursive: true }));
-
-    if (await log.exists()) await Bun.write(path.join(report, 'rustfs.log'), log);
-
-    throw error;
-  }
+  return { configuration, client, [Symbol.asyncDispose]: resources.close };
 }

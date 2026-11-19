@@ -819,6 +819,8 @@ export const italian = Object.freeze({
   DataAutoBackupRunFailed: 'Backup non riuscito. Controlla la destinazione e riprova.',
   DataAutoBackupSignInFailed:
     'Impossibile collegare il provider. Controlla la registrazione dell’app e riprova.',
+  DataBackupDropboxPortInUse:
+    'Per accedere a Dropbox serve la porta {port}. Chiudi l’app che la sta usando e riprova.',
   DataAutoBackupSignInPending: 'Completa l’accesso al provider di backup nel browser.',
   DataAutoBackupAuthExpired:
     'La destinazione del backup ha negato l’accesso. Ricollegala o aggiorna le credenziali.',

@@ -801,6 +801,8 @@ export const english = Object.freeze({
   DataAutoBackupRunFailed: 'The backup failed. Check the destination and try again.',
   DataAutoBackupSignInFailed:
     'Could not connect the provider. Check the app registration and try again.',
+  DataBackupDropboxPortInUse:
+    'Dropbox sign-in needs port {port}. Close the app using that port and try again.',
   DataAutoBackupSignInPending: 'Finish signing in to your backup provider in the browser.',
   DataAutoBackupAuthExpired:
     'The backup destination rejected access. Reconnect or update the credentials.',

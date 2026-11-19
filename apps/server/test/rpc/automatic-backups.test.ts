@@ -1,8 +1,7 @@
 import { MAX_AUTOMATIC_BACKUPS } from '@study/contracts';
 import { test } from '@study/testing';
-import { Effect, Fiber, Option, PlatformError, Result, Semaphore, Stream } from 'effect';
+import { Effect, Fiber, Option, PlatformError, Result, Stream } from 'effect';
 
-import { systemBackupOperations } from '#server/features/system/service/backups';
 import { BackupStorage } from '#server/platform/database/backups';
 import { fileSystem, nativePaths, runFileSystemPromise } from '#server/platform/filesystem/index';
 import { acceptance, backupFixture, createPage, packet } from '#testing/managed-backups';
@@ -136,7 +135,7 @@ test.server.stable(
 
 test.server.stable(
   'holds the backup permit until an interrupted restore finishes accepting',
-  async ({ expect }) => {
+  async ({ expect, vi }) => {
     const fixture = await backupFixture();
     const resume = Promise.withResolvers<void>();
 
@@ -146,10 +145,9 @@ test.server.stable(
       const backup = await runtime.runPromise(system.createBackup());
       const preview = await runtime.runPromise(system.previewRestore({ id: backup.id }));
       const { owner } = await runtime.runPromise(BackupStorage);
-      const lock = Semaphore.makeUnsafe(1);
-      const operations = await runtime.runPromise(Effect.gen(() => systemBackupOperations(lock)));
       const entered = Promise.withResolvers<void>();
       const accept = owner.accept.bind(owner);
+      const restorePending = vi.spyOn(owner, 'restorePending');
 
       owner.accept = async (input) => {
         entered.resolve();
@@ -158,17 +156,22 @@ test.server.stable(
         return accept(input);
       };
 
-      const fiber = runtime.runFork(operations.acceptRestore(acceptance(preview)));
+      const fiber = runtime.runFork(system.acceptRestore(acceptance(preview)));
 
       try {
         await entered.promise;
         fiber.interruptUnsafe();
-        const probe = lock.withPermitsIfAvailable(1)(Effect.succeed(true));
+        const configure = runtime.runFork(system.configureAutomaticBackup({ kind: 'local' }));
 
-        expect(Option.isNone(await runtime.runPromise(probe))).toBe(true);
+        await runtime.runPromise(Effect.yieldNow);
+        expect(restorePending).not.toHaveBeenCalled();
         resume.resolve();
         await runtime.runPromise(Fiber.await(fiber));
-        expect(Option.isSome(await runtime.runPromise(probe))).toBe(true);
+        await expect(runtime.runPromise(Fiber.join(configure))).rejects.toMatchObject({
+          kind: 'invalid_input',
+          message: 'Finish the pending restore first'
+        });
+        expect(restorePending).toHaveBeenCalled();
         expect((await runtime.runPromise(system.restoreStatus())).state).toBe('restart-required');
       } finally {
         resume.resolve();
