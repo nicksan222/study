@@ -1,5 +1,7 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
+import { defaultAppearancePreferences } from '@study/contracts';
 import type { NoteId, PageId, SourceId } from '@study/contracts';
+import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';
 
@@ -44,6 +46,8 @@ const workbenchState = Atom.family((_id: NoteId) =>
 export function useWorkbench(id: NoteId) {
   const cache = useContext(RegistryContext);
   const preferences = useWorkspacePreferences();
+  const appearance =
+    rpc.settings.appearancePreferences.useQuery({}).data ?? defaultAppearancePreferences;
   const phone = usePhoneLayout();
   const atom = workbenchState(id);
   const model = useAtomValue(atom);
@@ -95,9 +99,10 @@ export function useWorkbench(id: NoteId) {
 
   return {
     ...model,
+    appearance,
     expanded: model.expanded ?? preferences.expandPages,
     tabs,
-    dock: model.dock ?? 'side',
+    dock: model.dock ?? appearance.noteEditorDock,
     cardVisible: !model.visible && !(model.cardHidden ?? phone),
     toggleCard: () =>
       update((value) => ({

@@ -10,6 +10,7 @@ import {
   agentRulesSchema,
   appSettingsSchema,
   appearancePreferencesSchema,
+  appearancePreferencesPatchSchema,
   concurrencySettingsSchema,
   defaultAgentRules,
   defaultAppearancePreferences,
@@ -163,7 +164,7 @@ export function* settingsPreferenceOperations() {
         })
       ),
     saveAppearancePreferences: validatedMutation({
-      input: appearancePreferencesSchema,
+      input: appearancePreferencesPatchSchema,
       message: 'Invalid appearance preferences',
       write: (tx, input) => {
         tx.store(SettingsStore).saveAppearancePreferences(input);

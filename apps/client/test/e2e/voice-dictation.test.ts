@@ -497,6 +497,46 @@ test.browser.stable(
 );
 
 test.browser.stable(
+  'Changing note capture placement preserves pending dictation',
+  async ({ page, rpc, microphone, expect, expectScreenshot }) => {
+    await rpc.runPromise(rpc.client['voice.install']({}));
+    const note = await rpc.runPromise(rpc.client['notes.createUntitledNote']({}));
+
+    await page.goto('/notes/' + String(note.id));
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
+    const input = page.getByRole('textbox', { name: copy.NoteCompose });
+
+    await input.fill('Field observation.');
+    const recording = await microphone.start(page, {
+      segments: { final: 'The water reached the marker.' }
+    });
+
+    await recording.stop();
+    await recording.segments.final.requested;
+
+    await rpc.runPromise(
+      rpc.client['settings.saveAppearancePreferences']({
+        noteWidth: 'wide',
+        showNoteComposer: true
+      })
+    );
+    await expect(page.locator('.workspace-desk')).toHaveAttribute('data-content-width', 'wide');
+    await expect(page.getByRole('status', { name: copy.VoiceTranscribing })).toBeVisible();
+    await recording.segments.final.deliver();
+
+    const docked = page.locator('.workspace-desk-floating-composer');
+
+    await expectScreenshot('transcript-in-docked-capture', {
+      target: docked,
+      ready: () =>
+        expect(docked.getByRole('textbox', { name: copy.NoteCompose })).toHaveValue(
+          'Field observation. The water reached the marker.'
+        )
+    });
+  }
+);
+
+test.browser.stable(
   'A recognition result completed after cancellation cannot change the note',
   async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));

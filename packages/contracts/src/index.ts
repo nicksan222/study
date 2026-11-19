@@ -582,7 +582,7 @@ export {
 } from './settings/model-updates.ts';
 export type { ModelUpdate, ModelSuggestions } from './settings/model-updates.ts';
 export { settingsEndpoints, SettingsRpc } from './settings/rpc.ts';
-export type { AgentRuleKey, ModelTier } from './settings/schemas.ts';
+export type { AgentRuleKey, AppearancePreferencesPatch, ModelTier } from './settings/schemas.ts';
 export {
   AgentRule,
   agentRulesSchema,
@@ -590,6 +590,7 @@ export {
   aiProviderSchema,
   apiKeyInputSchema,
   appearancePreferencesSchema,
+  appearancePreferencesPatchSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   llmSettingsSchema,
