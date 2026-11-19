@@ -21,6 +21,8 @@ test.unit.beforeEach(async ({ mock }) => {
     hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
     desktopUpdateStatus: () => native.invoke('desktop_update_status'),
     checkDesktopUpdate: () => native.invoke('check_for_update'),
+    setDesktopUpdateMenu: async () => {},
+    listenForDesktopUpdateCheck: async () => () => {},
     installDesktopUpdate: (expectedVersion: string) =>
       native.invoke('install_update', { expectedVersion })
   }));

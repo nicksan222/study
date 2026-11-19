@@ -5,6 +5,7 @@ mod microphone;
 mod mobile;
 mod server;
 mod transport;
+mod update_menu;
 mod updater;
 use tauri::Manager as _;
 use transport::NativeError;
@@ -17,6 +18,11 @@ async fn server_connection(
     shell: tauri::State<'_, std::sync::Arc<Shell>>,
 ) -> Result<transport::Connection, NativeError> {
     Ok(shell.server.lock().await.client.connection())
+}
+/// Records that the rendered client received its first healthy live RPC snapshot.
+#[tauri::command]
+fn report_server_connected() {
+    tracing::info!("WebView received a healthy server snapshot");
 }
 /// Returns a bounded snapshot of the canonical desktop diagnostic log.
 #[tauri::command]
@@ -34,6 +40,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
 
     let result = builder
+        .on_menu_event(update_menu::on_menu_event)
         .on_permission_request(microphone::permission)
         .on_window_event(mobile::handle_close)
         .on_menu_event(mobile::handle_menu)
@@ -77,6 +84,7 @@ pub fn run() {
             let server =
                 tauri::async_runtime::block_on(server::Server::start(bun, entry, database))
                     .map_err(|e| std::io::Error::other(e.message))?;
+            tracing::info!("private server is ready");
             app.manage(std::sync::Arc::new(Shell {
                 server: tokio::sync::Mutex::new(server),
             }));
@@ -84,8 +92,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_connection,
+            report_server_connected,
             diagnostic_log,
             mobile::set_mobile_background,
+            update_menu::set_desktop_update_menu,
             updater::desktop_update_status,
             updater::check_for_update,
             updater::install_update

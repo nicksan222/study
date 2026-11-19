@@ -1,10 +1,15 @@
 [[permission]]
 identifier = "allow-server-connection"
-commands.allow = ["server_connection"]
+commands.allow = ["server_connection", "report_server_connected"]
 
 [[permission]]
 identifier = "allow-desktop-update"
-commands.allow = ["desktop_update_status", "check_for_update", "install_update"]
+commands.allow = [
+  "desktop_update_status",
+  "check_for_update",
+  "install_update",
+  "set_desktop_update_menu"
+]
 
 [[permission]]
 identifier = "allow-diagnostic-log"

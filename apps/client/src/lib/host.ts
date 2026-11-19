@@ -1,5 +1,6 @@
 import { StudyError } from '@study/contracts';
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 export type SignInBrowser = {
@@ -84,10 +85,20 @@ export const desktopUpdateStatus = () =>
 
 export const checkDesktopUpdate = () => invoke<string | null>('check_for_update');
 
+export const setDesktopUpdateMenu = (menuLabel: string, itemLabel: string) =>
+  invoke<void>('set_desktop_update_menu', { menuLabel, itemLabel });
+
+export const listenForDesktopUpdateCheck = (check: () => void) =>
+  listen('desktop-update-check', check);
+
 export const installDesktopUpdate = (expectedVersion: string) =>
   invoke<void>('install_update', { expectedVersion });
 
 export const diagnosticLog = () => invoke<string>('diagnostic_log');
+
+export function reportServerConnected() {
+  if (isTauri()) void invoke('report_server_connected').catch(() => {});
+}
 
 export { microphoneAvailable, captureMicrophone } from './effect/native.ts';
 export type { MicrophoneCapture } from './effect/native.ts';

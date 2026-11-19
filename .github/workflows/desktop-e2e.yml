@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2022]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, xcode-27, windows-2022]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
@@ -33,12 +33,14 @@ jobs:
       - if: runner.os == 'macOS'
         run: brew install sqlite
       - name: Build Study with the test-only WebDriver
+        if: matrix.runner != 'xcode-27'
         shell: bash
         run: |
           version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json | tr -d '\r')
           config=$(bash tooling/scripts/release/release.sh configure "$version" target/desktop-e2e.json --unsigned)
           bun run --cwd apps/desktop tauri build --no-bundle --features desktop-e2e --config "$config" -- --locked
       - name: Run the client journey in the native WebView
+        if: matrix.runner != 'xcode-27'
         shell: bash
         run: |
           app="$PWD/target/devcontainer/release/study"
@@ -48,3 +50,19 @@ jobs:
           else
             bun run --cwd apps/client e2e:desktop "$app"
           fi
+      - name: Build the macOS release candidate disk image
+        if: matrix.runner == 'xcode-27'
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
+        run: |
+          version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+          config=$(bash tooling/scripts/release/release.sh configure "$version" target/desktop-e2e.json --unsigned)
+          bun run --cwd apps/desktop tauri build --bundles dmg --config "$config" -- --locked
+      - name: Verify the packaged WebView reaches the server
+        if: matrix.runner == 'xcode-27'
+        shell: bash
+        run: |
+          sw_vers
+          python3 tooling/scripts/release/smoke_macos_webview.py target/devcontainer/release/bundle/dmg/*.dmg

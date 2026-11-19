@@ -37,18 +37,20 @@ export function Providers({
     <RpcProvider transport={transport}>
       <TooltipProvider>
         <LanguageProvider locale={locale}>
-          {renderApp(
-            <>
-              <SavedLanguage />
-              <Notifications transport={transport}>
+          <Notifications>
+            {renderApp(
+              <>
+                <SavedLanguage />
+                <BackupNotifications />
+                <ModelUpdateNotifications transport={transport} />
                 <AssistantProvider>
                   <ClientExtensions modules={modules}>
                     <OnboardingProvider>{children}</OnboardingProvider>
                   </ClientExtensions>
                 </AssistantProvider>
-              </Notifications>
-            </>
-          )}
+              </>
+            )}
+          </Notifications>
         </LanguageProvider>
       </TooltipProvider>
     </RpcProvider>
@@ -66,19 +68,11 @@ function SavedLanguage() {
   return null;
 }
 
-function Notifications({
-  children,
-  transport
-}: {
-  children: ReactNode;
-  transport: ProtocolTransport;
-}) {
+function Notifications({ children }: { children: ReactNode }) {
   const { t } = useI18n();
 
   return (
     <ToastProvider closeLabel={t('Close')} viewportLabel={t('NotificationsLabel')}>
-      <BackupNotifications />
-      <ModelUpdateNotifications transport={transport} />
       {children}
     </ToastProvider>
   );
