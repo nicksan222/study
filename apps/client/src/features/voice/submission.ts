@@ -33,7 +33,9 @@ export const DictationSubmissionScope = createContext<ReturnType<typeof submissi
 );
 
 export function useDictationSubmission() {
-  const [scope] = useState(submissionScope);
+  const shared = useContext(DictationSubmissionScope);
+  const [local] = useState(submissionScope);
+  const scope = shared ?? local;
   const blocked = useSyncExternalStore(scope.subscribe, scope.isBlocked);
 
   return { scope, blocked, isBlocked: scope.isBlocked };

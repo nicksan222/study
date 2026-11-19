@@ -74,6 +74,12 @@ export const appearancePreferencesSchema = Schema.Struct({
   noteEditorDock: Schema.Literals(['side', 'bottom'])
 });
 
+export const appearancePreferencesPatchSchema = appearancePreferencesSchema.mapFields(
+  Struct.map(Schema.optionalKey)
+);
+
+export type AppearancePreferencesPatch = typeof appearancePreferencesPatchSchema.Type;
+
 export const concurrencySettingsSchema = Schema.Struct({
   maxConcurrentAi: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 })),
   maxQueuedAi: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 64 }))

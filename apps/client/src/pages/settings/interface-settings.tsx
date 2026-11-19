@@ -34,7 +34,7 @@ export function InterfaceSettings({ model }: { model: AppearanceModel }) {
       defaults={{ ...defaultAppearancePreferences, zoom: 100 }}
       onCommit={(key, value) => {
         if (key === 'zoom') model.setZoom(value);
-        else model.setPreferences({ ...preferences, [key]: value });
+        else model.setPreferences({ [key]: value });
       }}
     />
   );
@@ -56,7 +56,7 @@ export function NoteAppearanceSettings({ model }: { model: AppearanceModel }) {
           onValueChange={(value) => {
             const width = noteWidths.find((option) => option.value === value);
 
-            if (width) model.setPreferences({ ...preferences, noteWidth: width.value });
+            if (width) model.setPreferences({ noteWidth: width.value });
           }}
         />
         <Settings.ToggleRow
@@ -64,9 +64,7 @@ export function NoteAppearanceSettings({ model }: { model: AppearanceModel }) {
           description={t('AppearanceNoteComposerDescription')}
           checked={preferences.showNoteComposer}
           disabled={model.pending}
-          onCheckedChange={(showNoteComposer) =>
-            model.setPreferences({ ...preferences, showNoteComposer })
-          }
+          onCheckedChange={(showNoteComposer) => model.setPreferences({ showNoteComposer })}
         />
         <Settings.SelectRow
           title={t('AppearanceNoteEditorDock')}
@@ -77,7 +75,7 @@ export function NoteAppearanceSettings({ model }: { model: AppearanceModel }) {
           onValueChange={(value) => {
             const dock = editorDocks.find((option) => option.value === value);
 
-            if (dock) model.setPreferences({ ...preferences, noteEditorDock: dock.value });
+            if (dock) model.setPreferences({ noteEditorDock: dock.value });
           }}
         />
       </Settings.Group>

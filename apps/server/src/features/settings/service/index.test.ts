@@ -211,6 +211,14 @@ test.server.stable(
           assert.ok(invalid.kind === 'invalid_input');
           assert.strictEqual((yield* settings.appearancePreferences()).contrast, 115);
           assert.strictEqual((yield* settings.appSettings()).zoomPercent, 100);
+
+          yield* settings.saveAppearancePreferences({ noteWidth: 'comfortable' });
+          yield* settings.saveAppearancePreferences({ showNoteComposer: true });
+          expect(yield* settings.appearancePreferences()).toStrictEqual({
+            ...appearance,
+            noteWidth: 'comfortable',
+            showNoteComposer: true
+          });
         }).pipe(Effect.provide(layer))
       );
     } finally {

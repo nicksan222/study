@@ -151,7 +151,6 @@ test.unit.stable(
     fireEvent.change(contrast, { target: { value: '105' } });
     fireEvent.keyUp(contrast, { key: 'ArrowRight' });
     expect(model.setPreferences).toHaveBeenCalledWith({
-      ...defaultAppearancePreferences,
       contrast: 105
     });
     expect(screen.getByRole('slider', { name: 'Glass opacity' })).toBeInTheDocument();

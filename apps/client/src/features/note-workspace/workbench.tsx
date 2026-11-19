@@ -1,12 +1,14 @@
 import type { NoteId, PageId, SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Loading, WorkspaceSurface, WorkspaceDeskSurface as Desk } from '@study/ui';
+import { useState } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { NoteAssistantPanel } from '../assistant';
 import { SourcePanel } from '../source-library';
+import { DictationSubmissionScope, useDictationSubmission } from '../voice';
 import { Composer } from './composer';
 import { NoteContextActions } from './context-actions';
 import { History } from './history';
@@ -51,6 +53,12 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
   const { t } = useI18n();
   const model = useWorkbench(id);
   const { noteWidth, showNoteComposer } = model.appearance;
+  const submission = useDictationSubmission();
+  const [docked, setDocked] = useState(showNoteComposer);
+
+  // Moving capture remounts its controls. Let the current microphone owner finish first.
+  if (!submission.blocked && docked !== showNoteComposer) setDocked(showNoteComposer);
+
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
   const creation = useNotePageCreation(id);
@@ -64,6 +72,11 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
       if (material) openPage(material);
     });
   };
+  const capture = (
+    <DictationSubmissionScope value={submission.scope}>
+      <Composer id={id} onPage={create} docked={docked} />
+    </DictationSubmissionScope>
+  );
 
   return (
     <Desk.Root
@@ -88,7 +101,7 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
                 <History
                   id={id}
                   state={thread}
-                  capture={!showNoteComposer && <Composer id={id} onPage={create} />}
+                  capture={!docked && capture}
                   pages={pages.data?.items}
                   onOpenPage={openPage}
                   onOpenSource={openSource}
@@ -135,11 +148,7 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
         </Desk.ScrollArea>
         <Desk.NavigationHost />
         <Desk.FloatingComposer>
-          {showNoteComposer && (
-            <WorkspaceSurface.Dock>
-              <Composer id={id} onPage={create} docked />
-            </WorkspaceSurface.Dock>
-          )}
+          {docked && <WorkspaceSurface.Dock>{capture}</WorkspaceSurface.Dock>}
         </Desk.FloatingComposer>
       </Desk.Notebook>
 
