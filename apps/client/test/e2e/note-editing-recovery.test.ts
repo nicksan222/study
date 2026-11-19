@@ -20,6 +20,8 @@ test.browser.stable(
     await page.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
     const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
     // Exercise the fallback layout in Chromium; this is not a native WebKit check.

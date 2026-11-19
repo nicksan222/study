@@ -125,6 +125,8 @@ test.browser.stable(
     await notebook.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
     const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
     await expect(editor).toHaveValue(original);

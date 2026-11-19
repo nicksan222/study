@@ -55,6 +55,21 @@ test.browser.stable(
 
     await page.reload();
     await expect(title).toBeVisible();
+    await entry.hover();
+    await entry.getByRole('button', { name: copy.NoteEditNote }).click();
+    const visualDialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+    const visualEditor = visualDialog.getByRole('textbox', { name: copy.NoteEditNote });
+
+    await expect(visualEditor).toHaveAttribute('contenteditable', 'true');
+    await expect(
+      visualEditor.getByRole('heading', { name: 'River systems lecture' })
+    ).toBeVisible();
+    await expect(visualEditor.getByRole('table')).toBeVisible();
+    await expect(visualEditor.locator('pre > code')).toHaveJSProperty('textContent', code);
+    await visualDialog.getByRole('button', { name: copy.NoteMarkdownSource }).click();
+    await expect(visualEditor).toHaveValue(original);
+    await visualDialog.getByRole('button', { name: copy.NoteDiscardEdits }).click();
+    await expect(visualDialog).toBeHidden();
     await expect(body.locator('strong')).toHaveText('calibrated gauge');
     await expect(body.locator('em')).toHaveText('independent reading');
     await expect(body.getByText('riverStage', { exact: true })).toHaveJSProperty('tagName', 'CODE');
@@ -188,6 +203,8 @@ test.browser.stable(
       await fullyVisible({ expect }, edit);
       await edit.click();
       const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+      await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
       const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
       const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
 
@@ -271,6 +288,8 @@ test.browser.stable(
     await notebook.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
     const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
     await expect(editor).toHaveValue(content);
@@ -322,7 +341,7 @@ test.browser.stable(
 
     const italian = catalogs.italian;
 
-    await study.settings({ language: Language.ITALIAN });
+    await study.settings({ language: Language.ITALIAN, appearance: Appearance.LIGHT });
     await page.setViewportSize({ width: 760, height: 900 });
     await page.reload();
     const italianNotebook = page.getByRole('region', { name: italian.NoteNotebook });
@@ -333,5 +352,38 @@ test.browser.stable(
     await expect(italianNotebook.getByRole('link', { name: 'Lecture reference' })).toBeVisible();
     await scrollHost.press('ArrowRight');
     await expect(scrollHost).toHaveJSProperty('scrollLeft', 0);
+
+    const arabic = 'ملاحظات المحاضرة 123.';
+    const italianEntry = italianNotebook.locator('[data-role="user"]');
+
+    await italianEntry.hover();
+    await italianEntry.getByRole('button', { name: italian.NoteEditNote }).click();
+    const italianDialog = page.getByRole('dialog', { name: italian.NoteEditNote });
+    const italianEditor = italianDialog.getByRole('textbox', { name: italian.NoteEditNote });
+
+    await expect(italianEditor).toBeFocused();
+    await expect(italianDialog).toHaveCSS('translate', '0px');
+    await italianEditor
+      .getByText('END-OF-LECTURE: retain every observation and its original order.')
+      .click();
+    await italianEditor.press('ControlOrMeta+End');
+    await italianEditor.press('Enter');
+    await expect(italianEditor.locator('p').last()).toBeEmpty();
+    await page.keyboard.insertText(arabic);
+    const paragraph = italianEditor.getByText(arabic, { exact: true });
+
+    await expect(paragraph).toHaveCSS('direction', 'rtl');
+    await expectScreenshot('visual-edit-arabic', {
+      target: italianDialog,
+      ready: () => expect(paragraph).toBeInViewport()
+    });
+    await italianDialog.getByRole('button', { name: italian.NoteSaveNote }).click();
+    await expect(italianDialog).toBeHidden();
+    await page.reload();
+    await expect(italianNotebook.getByText(arabic, { exact: true })).toBeVisible();
+    await expect(italianNotebook.getByRole('table').getByRole('cell').last()).toHaveText(
+      'TABLE-END'
+    );
+    await expect(italianNotebook.locator('pre > code')).toContainText('MIDDLE: checked twice');
   }
 );

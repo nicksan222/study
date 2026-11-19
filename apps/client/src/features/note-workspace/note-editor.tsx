@@ -18,6 +18,7 @@ export function NoteEditor({
   disabled,
   label,
   toolbarEnd,
+  variant,
   targetKey
 }: {
   ref?: Ref<RichNoteEditorHandle>;
@@ -26,6 +27,7 @@ export function NoteEditor({
   disabled?: boolean;
   label?: string;
   toolbarEnd?: ReactNode;
+  variant?: 'notebook';
   targetKey: string | number | bigint;
 }) {
   const { t } = useI18n();
@@ -55,6 +57,7 @@ export function NoteEditor({
       spellcheck={preferences.spellcheck}
       fontSize={preferences.editorFontSize}
       label={label ?? t('NotePageEditor')}
+      variant={variant}
       placeholder={t('NotePagePlaceholder')}
       labels={labels}
     />
