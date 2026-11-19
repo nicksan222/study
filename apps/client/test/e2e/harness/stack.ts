@@ -1,4 +1,4 @@
-import { StudyRpc, Appearance, Language } from '@study/contracts';
+import { StudyRpc, Appearance, Language, defaultAppearancePreferences } from '@study/contracts';
 import { makeStudyClient } from '@study/server/client';
 import { createChatGptReleasePeer, createServerFixture } from '@study/server/testing';
 import { testPolicy } from '@study/testing';
@@ -16,7 +16,10 @@ export async function openWebStack(
   options: Pick<
     NonNullable<Parameters<Awaited<ReturnType<typeof createServerFixture>>['openApp']>[0]>,
     'ai' | 'voice'
-  > & { chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0] } = {}
+  > & {
+    chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0];
+    useDefaultNoteAppearance?: boolean;
+  } = {}
 ) {
   const { ai, voice, chatGptReleases } = options;
   const chatGpt = chatGptReleases?.length ? createChatGptReleasePeer(chatGptReleases) : undefined;
@@ -62,6 +65,14 @@ export async function openWebStack(
         zoomPercent: 125,
         onboarded: true
       });
+
+      if (!options.useDefaultNoteAppearance) {
+        yield* client['settings.saveAppearancePreferences']({
+          ...defaultAppearancePreferences,
+          noteWidth: 'comfortable',
+          showNoteComposer: false
+        });
+      }
     })
   );
   const creation = creationResponse();

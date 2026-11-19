@@ -1,3 +1,4 @@
+import { defaultAppearancePreferences } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
@@ -17,7 +18,7 @@ test.unit.stable(
         model={{
           data: {
             settings: { appearance: 2, language: 1, zoomPercent: 100, onboarded: true },
-            preferences: { contrast: 100, glassOpacity: 80, animationDurationMs: 150 },
+            preferences: defaultAppearancePreferences,
             selected: 'ocean',
             themes: [{ version: 1, id: 'ocean', name: 'Ocean', builtin: true }]
           },
@@ -48,7 +49,7 @@ function appearanceModel({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     data: {
       settings: { appearance: 2 as const, language: 1 as const, zoomPercent: 100, onboarded: true },
-      preferences: { contrast: 100, glassOpacity: 80, animationDurationMs: 150 },
+      preferences: defaultAppearancePreferences,
       selected: 'ocean',
       themes: [{ version: 1 as const, id: 'ocean', name: 'Ocean', builtin: true }]
     },
@@ -150,9 +151,8 @@ test.unit.stable(
     fireEvent.change(contrast, { target: { value: '105' } });
     fireEvent.keyUp(contrast, { key: 'ArrowRight' });
     expect(model.setPreferences).toHaveBeenCalledWith({
-      contrast: 105,
-      glassOpacity: 80,
-      animationDurationMs: 150
+      ...defaultAppearancePreferences,
+      contrast: 105
     });
     expect(screen.getByRole('slider', { name: 'Glass opacity' })).toBeInTheDocument();
     expect(screen.getByRole('slider', { name: 'Interface animations' })).toBeInTheDocument();

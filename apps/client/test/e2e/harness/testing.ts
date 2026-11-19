@@ -40,6 +40,7 @@ type Fixtures = {
   journey: Journey;
   desktopPage: Page;
   captureWorkflow: string;
+  useDefaultNoteAppearance: boolean;
 };
 
 /** Playwright owns test/worker lifetimes, browser isolation, traces and failure artifacts. */
@@ -65,13 +66,18 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
-  webStack: async ({ ai, aiEnabled, chatGpt, microphoneEnabled }, provide) => {
+  useDefaultNoteAppearance: [false, { option: true }],
+  webStack: async (
+    { ai, aiEnabled, chatGpt, microphoneEnabled, useDefaultNoteAppearance },
+    provide
+  ) => {
     assertCapturePlatform();
     using voice = microphoneEnabled ? createVoiceMock() : undefined;
 
     await using stack = await openWebStack({
       ai: aiEnabled ? ai.runtime : undefined,
       voice: voice?.runtime,
+      useDefaultNoteAppearance,
       ...chatGpt
     });
 

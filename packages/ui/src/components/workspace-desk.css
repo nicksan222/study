@@ -6,6 +6,14 @@
   min-height: 0;
   min-width: 0;
 }
+.workspace-desk[data-content-width='wide'] {
+  --desk-content-width: 72rem;
+  --desk-reading-width: 105ch;
+}
+.workspace-desk[data-content-width='full'] {
+  --desk-content-width: 100%;
+  --desk-reading-width: 100%;
+}
 .workspace-desk-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -175,7 +183,7 @@
   scrollbar-gutter: stable;
 }
 .workspace-desk-editor .rich-note-content .tiptap {
-  width: min(100%, 72ch);
+  width: min(100%, var(--desk-content-width, 72ch));
   min-height: max(24rem, calc(100dvh - 12rem));
   margin-inline: auto;
   padding: clamp(1.5rem, 3cqi, 3rem);
@@ -774,7 +782,7 @@
   bottom: 1rem;
   pointer-events: none;
 }
-.workspace-desk-floating-composer::before {
+.workspace-desk-floating-composer:has(.ui-composer)::before {
   content: '';
   position: absolute;
   z-index: -1;
@@ -785,7 +793,7 @@
   pointer-events: none;
 }
 .workspace-desk-floating-composer > .ui-workspace-dock {
-  width: min(100%, 54rem);
+  width: min(100%, var(--desk-content-width, 54rem));
   max-height: calc(var(--notebook-viewport-height, 100dvh) * 0.45);
   padding: 0 clamp(0.75rem, 1.5cqi, 1.5rem);
   margin-inline: auto;

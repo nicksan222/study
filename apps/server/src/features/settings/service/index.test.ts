@@ -179,26 +179,32 @@ test.server.stable(
         Effect.gen(function* () {
           const settings = yield* Settings;
 
+          context.db.orm.run(
+            sql`INSERT INTO preferences (scope, key, value) VALUES ('appearance', 'contrast', '105')`
+          );
           expect(yield* settings.appearancePreferences()).toStrictEqual({
-            contrast: 100,
+            contrast: 105,
             glassOpacity: 80,
-            animationDurationMs: 150
+            animationDurationMs: 150,
+            noteWidth: 'full',
+            showNoteComposer: true,
+            noteEditorDock: 'side'
           });
-          yield* settings.saveAppearancePreferences({
+          const appearance = {
             contrast: 115,
             glassOpacity: 90,
-            animationDurationMs: 0
-          });
-          expect(yield* settings.appearancePreferences()).toStrictEqual({
-            contrast: 115,
-            glassOpacity: 90,
-            animationDurationMs: 0
-          });
+            animationDurationMs: 0,
+            noteWidth: 'wide' as const,
+            showNoteComposer: false,
+            noteEditorDock: 'bottom' as const
+          };
+
+          yield* settings.saveAppearancePreferences(appearance);
+          expect(yield* settings.appearancePreferences()).toStrictEqual(appearance);
           const invalid = yield* Effect.flip(
             settings.saveAppearancePreferences({
-              contrast: 999,
-              glassOpacity: 90,
-              animationDurationMs: 0
+              ...appearance,
+              contrast: 999
             })
           );
 
