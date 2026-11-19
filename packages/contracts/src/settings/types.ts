@@ -106,6 +106,7 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
   textConversionMode: 'manual',
   textConversionStrategy: 'chatgpt',
   sidebarDensity: 'comfortable',
+  sidebarCompactNavigation: false,
   sidebarShowPageCounts: true,
   sidebarTimeFormat: 'relative',
   editorFontSize: 16,

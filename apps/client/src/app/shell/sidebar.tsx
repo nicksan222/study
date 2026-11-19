@@ -6,6 +6,7 @@ import { PagesSidebar } from '#client/features/pages/index.ts';
 import { PracticeSidebarGenerations } from '#client/features/practice/index.ts';
 import type { SidebarContent } from '#client/lib/navigation/sidebar-config.ts';
 import { sidebarContent } from '#client/lib/navigation/sidebar-config.ts';
+import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { useSidebarCounts } from './sidebar-counts.queries';
 import { SidebarView } from './sidebar.view';
@@ -36,6 +37,7 @@ export function Sidebar({
   ...props
 }: SidebarProps & { toggleRef?: Ref<HTMLButtonElement>; primary?: boolean }) {
   const model = useSidebar(props);
+  const { sidebarCompactNavigation } = useWorkspacePreferences();
   const { noteId } = useParams({ strict: false });
   const Panel = panels[sidebarContent(model.metadata)];
   const ready =
@@ -54,6 +56,7 @@ export function Sidebar({
   return (
     <SidebarView
       counts={counts}
+      compactNavigation={sidebarCompactNavigation}
       {...model}
       hidden={props.hidden}
       primary={primary}

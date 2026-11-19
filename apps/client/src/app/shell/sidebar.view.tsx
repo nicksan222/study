@@ -52,6 +52,7 @@ type SidebarViewModel = SidebarModel & {
   toggleRef?: Ref<HTMLButtonElement>;
   selectedNote?: string | null;
   counts?: ReturnType<typeof useSidebarCounts>;
+  compactNavigation?: boolean;
 };
 
 export function SidebarView(model: SidebarViewModel) {
@@ -64,6 +65,7 @@ export function SidebarView(model: SidebarViewModel) {
       <SidebarContent {...model} />
       <SidebarNavigation
         counts={model.counts}
+        compact={model.compactNavigation && !model.collapsed}
         section={model.section}
         settings={model.metadata.title === 'Settings'}
         project={model.requestedProject}
