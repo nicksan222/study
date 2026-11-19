@@ -2,6 +2,7 @@ import {
   desktopLinkSchema,
   fromStorage,
   invitationUrl,
+  inviteDuration,
   scheduleRequest
 } from '@study/client/pairing';
 import type { DesktopLink } from '@study/client/pairing';
@@ -10,8 +11,6 @@ import type { MobileRoom } from '@study/client/pairing';
 import { servePairedRpc } from './desktop-rpc';
 
 const storageKey = 'study.mobile.desktop.v1';
-
-const inviteDuration = 5 * 60_000;
 
 type State = {
   link?: DesktopLink;

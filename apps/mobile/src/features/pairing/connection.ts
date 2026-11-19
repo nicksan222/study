@@ -1,3 +1,4 @@
+import { inviteDuration } from '@study/client/pairing';
 import type { Invitation, OpenPhoneRpc } from '@study/client/pairing';
 import { mobileRoom } from '@study/client/pairing/room';
 
@@ -74,7 +75,7 @@ export function connectPhone(
 
     const approved = await connection.requestPairing.request(null, {
       target: peer,
-      timeoutMs: paired ? 10_000 : 300_000,
+      timeoutMs: paired ? 10_000 : inviteDuration,
       signal
     });
 

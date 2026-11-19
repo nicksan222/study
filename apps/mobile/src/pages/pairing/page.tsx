@@ -1,5 +1,10 @@
 import { useI18n } from '@study/client/companion';
-import { invitationUrl, parseInvitation, scheduleRequest } from '@study/client/pairing';
+import {
+  invitationUrl,
+  inviteDuration,
+  parseInvitation,
+  scheduleRequest
+} from '@study/client/pairing';
 import type { Invitation, OpenPhoneRpc } from '@study/client/pairing';
 import {
   Button,
@@ -41,17 +46,30 @@ export function Phone({
   const installFirst = !!invitation && ios && !standalone && !paired && !browserApproved;
 
   useEffect(() => {
-    if (paired || invitation?.expiresAt === undefined) return;
+    if (!paired) return;
 
-    return scheduleRequest(
-      async () => {
-        removeStored(inviteKey);
+    function syncUnlink(event: StorageEvent) {
+      if (event.storageArea !== localStorage) return;
+
+      const linkRemoved = event.key === linkKey && event.newValue === null;
+
+      if (linkRemoved || event.key === null) {
         setLink({ invitation: undefined, paired: false });
-        setError('MobileInviteExpired');
-      },
-      Math.max(0, invitation.expiresAt - Date.now())
-    );
-  }, [invitation, paired]);
+        setBrowserApproved(false);
+        setError(undefined);
+      }
+    }
+
+    window.addEventListener('storage', syncUnlink);
+
+    return () => window.removeEventListener('storage', syncUnlink);
+  }, [paired]);
+
+  function expire() {
+    removeStored(inviteKey);
+    setLink({ invitation: undefined, paired: false });
+    setError('MobileInviteWaitEnded');
+  }
 
   function pair(url: string) {
     try {
@@ -88,6 +106,7 @@ export function Phone({
         showInstallHint={!standalone}
         notice={error && <ErrorState title={t(error)} />}
         approve={approve}
+        expire={expire}
         reset={reset}
         renderApp={renderApp}
       />
@@ -156,10 +175,21 @@ function PhoneInstall({
   return (
     <MobileStudy.Row>
       <Button
-        onClick={() => {
-          void navigator.clipboard
-            .writeText(invitationUrl(document.baseURI, invitation))
-            .then(() => setCopied(true), onError);
+        onClick={async () => {
+          const { clipboard } = navigator;
+
+          if (!clipboard) {
+            onError();
+
+            return;
+          }
+
+          try {
+            await clipboard.writeText(invitationUrl(document.baseURI, invitation));
+            setCopied(true);
+          } catch {
+            onError();
+          }
         }}
       >
         {t(copied ? 'MobileCopied' : 'MobileCopy')}
@@ -204,6 +234,7 @@ function PhoneSession({
   showInstallHint,
   notice,
   approve,
+  expire,
   reset,
   renderApp
 }: {
@@ -212,61 +243,17 @@ function PhoneSession({
   showInstallHint: boolean;
   notice?: ReactNode;
   approve: () => void;
+  expire: () => void;
   reset: () => void;
   renderApp: (open: OpenPhoneRpc) => ReactNode;
 }) {
-  const [app, setApp] = useState<ReactNode>();
-  const [connected, setConnected] = useState(false);
-  const [code, setCode] = useState<string>();
-  const [error, setError] = useState(false);
   const [status, setStatus] = useState<SaveStatus>('idle');
-  const [retry, setRetry] = useState(0);
-  const current = useRef({ paired, approve, renderApp });
-  const teardown = useRef<Promise<void>>(undefined);
-
-  useEffect(() => {
-    current.current = { paired, approve, renderApp };
-  }, [paired, approve, renderApp]);
-
-  useEffect(() => {
-    let stopped = false;
-    let opened = false;
-    let stop: (() => Promise<void>) | undefined;
-
-    function showApp(open: OpenPhoneRpc) {
-      if (opened) return;
-
-      setApp(current.current.renderApp(open));
-      opened = true;
-    }
-
-    void import('#mobile/features/pairing/connection.ts')
-      .then(async ({ connectPhone }) => {
-        await teardown.current;
-
-        if (stopped) return;
-
-        stop = connectPhone(invitation, current.current.paired, {
-          challenge: setCode,
-          paired: () => current.current.approve(),
-          connected: (open) => {
-            showApp(open);
-            setError(false);
-            setConnected(true);
-          },
-          disconnected: () => setConnected(false),
-          error: () => setError(true)
-        });
-      })
-      .catch(() => {
-        if (!stopped) setError(true);
-      });
-
-    return () => {
-      stopped = true;
-      teardown.current = stop?.().catch(() => undefined);
-    };
-  }, [invitation, retry]);
+  const { app, connected, code, error, retry } = usePhoneConnection(invitation, {
+    paired,
+    approve,
+    expire,
+    renderApp
+  });
 
   return (
     <>
@@ -284,14 +271,94 @@ function PhoneSession({
           uncertain={status === 'uncertain'}
           showInstallHint={showInstallHint}
           reset={reset}
-          retry={() => {
-            setError(false);
-            setRetry((value) => value + 1);
-          }}
+          retry={retry}
         />
       )}
     </>
   );
+}
+
+function usePhoneConnection(
+  invitation: Invitation,
+  actions: {
+    paired: boolean;
+    approve: () => void;
+    expire: () => void;
+    renderApp: (open: OpenPhoneRpc) => ReactNode;
+  }
+) {
+  const [app, setApp] = useState<ReactNode>();
+  const [connected, setConnected] = useState(false);
+  const [code, setCode] = useState<string>();
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const current = useRef(actions);
+  const teardown = useRef<Promise<void>>(undefined);
+
+  useEffect(() => {
+    current.current = actions;
+  }, [actions]);
+
+  useEffect(() => {
+    let stopped = false;
+    let opened = false;
+    let stop: (() => Promise<void>) | undefined;
+    const cancelWait = current.current.paired
+      ? undefined
+      : scheduleRequest(async () => current.current.expire(), inviteDuration);
+
+    function showApp(open: OpenPhoneRpc) {
+      if (opened) return;
+
+      setApp(current.current.renderApp(open));
+      opened = true;
+    }
+
+    void import('#mobile/features/pairing/connection.ts')
+      .then(async ({ connectPhone }) => {
+        await teardown.current;
+
+        if (stopped) return;
+
+        stop = connectPhone(invitation, current.current.paired, {
+          challenge: (value) => {
+            cancelWait?.();
+            setCode(value);
+          },
+          paired: () => current.current.approve(),
+          connected: (open) => {
+            showApp(open);
+            setError(false);
+            setConnected(true);
+          },
+          disconnected: () => {
+            setCode(undefined);
+            setConnected(false);
+          },
+          error: () => {
+            setCode(undefined);
+            setError(true);
+          }
+        });
+      })
+      .catch(() => {
+        if (!stopped) setError(true);
+      });
+
+    return () => {
+      stopped = true;
+      cancelWait?.();
+      teardown.current = stop?.().catch(() => undefined);
+    };
+  }, [invitation, retry]);
+
+  function retryConnection() {
+    setCode(undefined);
+    setError(false);
+    setRetry((value) => value + 1);
+  }
+
+  return { app, connected, code, error, retry: retryConnection };
 }
 
 function PhoneConnectionPanel({

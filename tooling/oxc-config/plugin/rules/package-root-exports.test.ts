@@ -113,3 +113,11 @@ test.unit.stable(
     assert.deepStrictEqual(diagnostics, []);
   }
 );
+
+test.unit.stable.for(['apps/desktop', 'apps/mobile'])(
+  'platform host %s exposes only its approved testing facet',
+  (path, { expect }) => {
+    expect(packageExportIssues(path, { './testing': './src/testing.ts' })).toEqual([]);
+    expect(packageExportIssues(path, { './internal': './src/internal.ts' })).toHaveLength(1);
+  }
+);

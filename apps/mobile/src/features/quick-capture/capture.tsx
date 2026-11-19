@@ -1,5 +1,4 @@
 import { startNote, useI18n, toStudyError } from '@study/client/companion';
-import { configureRpcTransport } from '@study/contracts/react';
 import type { ProtocolTransport } from '@study/contracts/react';
 import { Button, Field, MobileStudy, StatusMessage, Textarea } from '@study/ui';
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -15,7 +14,15 @@ export function MobileCapture({ transport }: { transport: ProtocolTransport }) {
   const { status, setStatus } = useContext(CaptureSaveState)!;
   const locked = status === 'sending' || status === 'uncertain';
 
-  useEffect(() => configureRpcTransport(transport), [transport]);
+  const session = useRef<AbortController>(undefined);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    session.current = controller;
+
+    return () => controller.abort();
+  }, [transport]);
 
   function clearCapture() {
     setText('');
@@ -23,12 +30,15 @@ export function MobileCapture({ transport }: { transport: ProtocolTransport }) {
   }
 
   async function save() {
-    if (locked || (!text.trim() && !photo)) return;
+    const signal = session.current?.signal;
+
+    if (!signal || signal.aborted || locked || (!text.trim() && !photo)) return;
 
     setStatus('sending');
 
     try {
-      await startNote({ text: text.trim(), files: photo ? [photo] : [] });
+      await startNote({ text: text.trim(), files: photo ? [photo] : [] }, { transport, signal });
+      signal.throwIfAborted();
       clearCapture();
       setStatus('saved');
     } catch (error) {

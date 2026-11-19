@@ -8,7 +8,7 @@ export const inviteKey = 'study.mobile.invite.v1';
 export type PairingError =
   | 'MobileAlreadyPaired'
   | 'MobileConnectionError'
-  | 'MobileInviteExpired'
+  | 'MobileInviteWaitEnded'
   | 'MobileUnlinkError';
 
 export function rememberInvitation(invitation: Invitation) {

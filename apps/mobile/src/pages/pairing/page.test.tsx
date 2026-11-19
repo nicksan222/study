@@ -42,6 +42,11 @@ test.unit.stable.for(['english', 'italian'] as const)(
         return stop;
       }
     }));
+    const cancelWait = mock.fn();
+
+    mock(new URL('../lib/study-client/repeat-request.ts', companion), () => ({
+      scheduleRequest: () => cancelWait
+    }));
     const { Phone } = await import('./page');
     const { UnlinkPhone } = await import('#mobile/features/pairing/session.ts');
 
@@ -68,7 +73,13 @@ test.unit.stable.for(['english', 'italian'] as const)(
 
     act(() => events.challenge('123456'));
     expect(screen.getByText('123456')).toBeVisible();
+    expect(cancelWait).toHaveBeenCalledOnce();
     expect(renderApp).not.toHaveBeenCalled();
+
+    act(() => events.disconnected());
+    expect(screen.queryByText('123456')).toBeNull();
+    act(() => events.challenge('654321'));
+    expect(screen.getByText('654321')).toBeVisible();
 
     act(() => {
       events.paired();
@@ -121,17 +132,17 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'an invitation still expires if storage removal throws',
+  'the local invitation wait ignores clock skew and ends even if storage removal throws',
   async ({ mock, expect, screen, render, act, onTestFinished }) => {
     const copy = catalogs.english;
-    const expiry = Promise.withResolvers<() => Promise<void>>();
+    const expiry = Promise.withResolvers<{ expire: () => Promise<void>; delay: number }>();
 
     onTestFinished(() => localStorage.clear());
-    localStorage.setItem(inviteKey, JSON.stringify(invite(Date.now() + 30_000)));
+    localStorage.setItem(inviteKey, JSON.stringify(invite(Date.now() - 60_000)));
     mock(phoneConnection, () => ({ connectPhone: mock.fn(() => async () => {}) }));
     mock(new URL('../lib/study-client/repeat-request.ts', companion), () => ({
-      scheduleRequest: (callback: () => Promise<void>) => {
-        expiry.resolve(callback);
+      scheduleRequest: (expire: () => Promise<void>, delay: number) => {
+        expiry.resolve({ expire, delay });
 
         return () => {};
       }
@@ -143,13 +154,15 @@ test.unit.stable(
         <Phone renderApp={() => null} />
       </LanguageProvider>
     );
-    const expire = await expiry.promise;
+    const { expire, delay } = await expiry.promise;
+
+    expect(delay).toBeGreaterThan(0);
 
     mock.spyOn(Storage.prototype, 'removeItem').mockImplementationOnce(() => {
       throw new DOMException('Blocked', 'SecurityError');
     });
     await act(expire);
-    expect(screen.getByText(copy.MobileInviteExpired)).toBeVisible();
+    expect(screen.getByText(copy.MobileInviteWaitEnded)).toBeVisible();
     expect(screen.getByRole('textbox', { name: copy.MobileInvite })).toBeVisible();
   }
 );
@@ -247,5 +260,66 @@ test.unit.stable(
     await userEvent.click(screen.getByRole('button', { name: copy.Retry }));
     expect(localStorage.getItem(linkKey)).toBeNull();
     expect(screen.getByRole('textbox', { name: copy.MobileInvite })).toBeVisible();
+  }
+);
+
+test.unit.stable(
+  'unlinking from another tab disconnects the active session',
+  async ({ mock, expect, screen, render, act, onTestFinished }) => {
+    const started = Promise.withResolvers<void>();
+    const stop = mock.fn(async () => {});
+
+    onTestFinished(() => localStorage.clear());
+    localStorage.setItem(linkKey, JSON.stringify(invite()));
+    mock(phoneConnection, () => ({
+      connectPhone: () => {
+        started.resolve();
+
+        return stop;
+      }
+    }));
+    const { Phone } = await import('./page');
+
+    render(
+      <LanguageProvider locale="english">
+        <Phone renderApp={() => null} />
+      </LanguageProvider>
+    );
+    await started.promise;
+
+    act(() => {
+      localStorage.removeItem(linkKey);
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: linkKey, storageArea: localStorage })
+      );
+    });
+
+    expect(stop).toHaveBeenCalledOnce();
+    expect(screen.getByRole('textbox', { name: catalogs.english.MobileInvite })).toBeVisible();
+  }
+);
+
+test.unit.stable(
+  'the iOS entry still offers browser pairing when clipboard access is unavailable',
+  async ({ mock, expect, screen, render, fireEvent, vi, onTestFinished }) => {
+    const copy = catalogs.english;
+    const connection = mock.fn(() => async () => {});
+
+    onTestFinished(() => localStorage.clear());
+    localStorage.setItem(inviteKey, JSON.stringify(invite()));
+    vi.stubGlobal('navigator', { userAgent: 'iPhone' });
+    mock(phoneConnection, () => ({ connectPhone: connection }));
+    const { Phone } = await import('./page');
+
+    render(
+      <LanguageProvider locale="english">
+        <Phone renderApp={() => null} />
+      </LanguageProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: copy.MobileCopy }));
+    expect(screen.getByText(copy.MobileConnectionError)).toBeVisible();
+    expect(screen.getByRole('button', { name: copy.MobileUseBrowser })).toBeEnabled();
+    expect(connection).not.toHaveBeenCalled();
   }
 );

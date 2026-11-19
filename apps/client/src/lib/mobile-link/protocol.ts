@@ -22,6 +22,8 @@ export type OpenPhoneRpc = (
   signal: AbortSignal
 ) => Promise<{ readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> }>;
 
+export const inviteDuration = 5 * 60_000;
+
 export const frameSize = 64 * 1024;
 
 export function invitationUrl(base: string, invitation: Invitation) {

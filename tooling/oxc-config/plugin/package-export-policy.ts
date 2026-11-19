@@ -72,7 +72,13 @@ type PackageScope = {
 
 function packageScope(path: string, exportsValue: unknown): PackageScope | undefined {
   const library = path.startsWith('packages/');
-  const application = path === 'apps/server' || path === 'apps/client' || path === 'tooling';
+  const application = [
+    'apps/server',
+    'apps/client',
+    'apps/desktop',
+    'apps/mobile',
+    'tooling'
+  ].includes(path);
 
   if ((!library && !application) || (application && exportsValue === undefined)) return undefined;
 

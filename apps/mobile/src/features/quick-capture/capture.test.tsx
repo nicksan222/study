@@ -80,3 +80,33 @@ test.unit.stable(
     expect(field).toHaveValue('');
   }
 );
+
+test.unit.stable(
+  'a photo read started on one desktop cannot write after the transport changes',
+  async ({ rpc, render, screen, userEvent, expect, mock, act }) => {
+    const bytes = Promise.withResolvers<ArrayBuffer>();
+    const read = Promise.withResolvers<void>();
+    const file = new File(['photo'], 'photo.png', { type: 'image/png' });
+    const execute = mock.fn(rpc.transport.execute);
+    const replacement = { ...rpc.transport, execute };
+
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: () => {
+        read.resolve();
+
+        return bytes.promise;
+      }
+    });
+
+    const view = render(<CaptureHarness transport={rpc.transport} />);
+
+    await userEvent.upload(view.container.querySelector('input[type=file]')!, file);
+    await userEvent.click(screen.getByRole('button', { name: copy.MobileCaptureSave }));
+    await read.promise;
+    view.rerender(<CaptureHarness transport={replacement} />);
+    await act(async () => bytes.resolve(new ArrayBuffer(1)));
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent(copy.MobileCaptureUncertain);
+  }
+);

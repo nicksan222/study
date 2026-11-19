@@ -5,6 +5,7 @@ export {
   desktopLinkSchema,
   frameSize,
   fromStorage,
+  inviteDuration,
   invitationSchema,
   invitationUrl,
   isSocketId,

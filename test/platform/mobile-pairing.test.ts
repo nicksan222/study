@@ -145,14 +145,25 @@ function network() {
 }
 
 async function setupPairing({ mock, vi }: Pick<test.unit.Context, 'mock' | 'vi'>) {
-  const join = network();
+  const rooms = new Map<string, ReturnType<typeof network>>();
+  const joinRoom = (userId: string, room: string, password: string) => {
+    const key = JSON.stringify([room, password]);
+    const join = rooms.get(key) ?? network();
+
+    rooms.set(key, join);
+
+    return join(userId);
+  };
   const identities = [desktopId, phoneId];
   const storage = new Map<string, string>();
 
-  let latest: ReturnType<typeof join>;
+  let latest: ReturnType<typeof joinRoom>;
   const removeItem = mock.fn((key: string) => storage.delete(key));
 
-  mock('trystero', () => ({ joinRoom: () => (latest = join(identities.shift()!)) }));
+  mock('trystero', () => ({
+    joinRoom: ({ password }: { password: string }, room: string) =>
+      (latest = joinRoom(identities.shift()!, room, password))
+  }));
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => storage.get(key) ?? null,
     setItem: (key: string, value: string) => storage.set(key, value),
@@ -196,7 +207,14 @@ async function setupPairing({ mock, vi }: Pick<test.unit.Context, 'mock' | 'vi'>
     };
   };
 
-  return { desktop, begin, join, identities, invitation, removeItem };
+  return {
+    desktop,
+    begin,
+    join: (id: string) => joinRoom(id, invitation.room, invitation.secret),
+    identities,
+    invitation,
+    removeItem
+  };
 }
 
 test.unit.stable(
@@ -457,7 +475,14 @@ test.server.stable(
               Effect.forkChild
             );
 
-            yield* Deferred.await(empty);
+            yield* Effect.raceFirst(
+              Deferred.await(empty),
+              Fiber.join(subscription).pipe(
+                Effect.andThen(
+                  Effect.fail(new Error('Subscription ended before its first snapshot'))
+                )
+              )
+            );
 
             const saved = yield* transport.execute(create.rpc, { name: 'Biologia' });
             const observed = yield* Fiber.join(subscription);

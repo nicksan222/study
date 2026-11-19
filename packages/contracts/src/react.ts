@@ -39,6 +39,11 @@ type Endpoint = {
   readonly liveRpc?: Rpc.AnyWithProps;
 };
 
+export type RpcCallOptions = {
+  readonly signal?: AbortSignal;
+  readonly transport?: ProtocolTransport;
+};
+
 type QueryOptions = { readonly enabled?: boolean };
 
 const defaultPolicy: LivePolicy<unknown> = {
@@ -199,8 +204,12 @@ function presentation<A, E>(result: AsyncResult.AsyncResult<A, E>) {
 }
 
 function bind(endpoint: Endpoint) {
-  const read = (input: unknown, options?: { readonly signal?: AbortSignal }) =>
-    Effect.runPromise(Effect.scoped(transportForRead().execute(endpoint.rpc, input)), options);
+  const read = (input: unknown, options?: RpcCallOptions) => {
+    options?.signal?.throwIfAborted();
+    const transport = options?.transport ?? transportForRead();
+
+    return Effect.runPromise(Effect.scoped(transport.execute(endpoint.rpc, input)), options);
+  };
 
   if (endpoint.kind === 'query')
     return {
@@ -313,7 +322,7 @@ type Bound<E extends Endpoint> = E['kind'] extends 'query'
     ? {
         readonly call: (
           input: Rpc.Payload<E['rpc']>,
-          options?: { readonly signal?: AbortSignal }
+          options?: RpcCallOptions
         ) => Promise<Rpc.Success<E['rpc']>>;
         readonly useMutation: () => MutationState<
           Rpc.Payload<E['rpc']>,
