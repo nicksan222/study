@@ -14,6 +14,25 @@ export function* systemBackupOperations(backupLock: Semaphore.Semaphore) {
   const backupOperation = <A>(tryOperation: () => Promise<A>) =>
     Effect.tryPromise({ try: tryOperation, catch: normalizeError });
 
+  function acceptRestore(input: typeof acceptRestoreSchema.Type) {
+    return backupLock.withPermit(
+      Effect.suspend(() => {
+        let acceptance: ReturnType<ManagedBackups['accept']> | undefined;
+
+        // Native acceptance owns the staged files until its promise settles.
+        return backupOperation(() => (acceptance = backups.accept(input))).pipe(
+          Effect.onInterrupt(() => {
+            const pending = acceptance;
+
+            return pending
+              ? backupOperation(() => pending).pipe(Effect.exit, Effect.asVoid)
+              : Effect.void;
+          })
+        );
+      })
+    );
+  }
+
   return {
     createBackup: () => backupOperation(() => backups.create()),
     backups: () => backupOperation(() => backups.list()),
@@ -22,8 +41,7 @@ export function* systemBackupOperations(backupLock: Semaphore.Semaphore) {
     deleteBackup: (input: { id: BackupId }) => backupOperation(() => backups.delete(input.id)),
     previewRestore: (input: { id: BackupId }) =>
       backupOperation(() => backups.previewRestore(input.id)),
-    acceptRestore: (input: typeof acceptRestoreSchema.Type) =>
-      backupLock.withPermit(backupOperation(() => backups.accept(input))),
+    acceptRestore,
     restoreStatus: () => backupOperation(() => backups.status()),
     discardRestoreRecovery: () => backupOperation(() => backups.discardRecovery())
   };

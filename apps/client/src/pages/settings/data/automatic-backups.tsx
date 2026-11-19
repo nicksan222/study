@@ -94,12 +94,13 @@ function useBackupActions() {
         return false;
       }
 
+      setSignIn(result.id);
+
       if (!(await attempt.browser.open(result.url)))
         throw new Error('Sign-in browser did not open');
 
       if (owned.current !== attempt) return false;
 
-      setSignIn(result.id);
       await finish.mutateAsync({ id: result.id });
 
       return owned.current === attempt;

@@ -7,6 +7,7 @@ test.server.stable(
   async ({ expect, resources: fixture }) => {
     const requests: string[] = [];
     let uploaded: string | undefined;
+    let codeChallenge: string | null;
     const app = await fixture.openApp({
       fetch: async (input, init) => {
         const request = new Request(input, init);
@@ -19,7 +20,12 @@ test.server.stable(
 
           if (form.get('grant_type') === 'authorization_code') {
             expect(form.get('code')).toBe('accepted');
-            expect(form.get('code_verifier')).toBeTruthy();
+            const verifier = form.get('code_verifier');
+
+            expect(verifier).toBeTruthy();
+            const digest = new Bun.CryptoHasher('sha256').update(verifier!).digest();
+
+            expect(digest.toString('base64url')).toBe(codeChallenge);
           } else {
             expect(form.get('refresh_token')).toBe('private-token');
           }
@@ -47,6 +53,8 @@ test.server.stable(
       );
       const authorization = new URL(url);
       const callback = new URL(authorization.searchParams.get('redirect_uri')!);
+
+      codeChallenge = authorization.searchParams.get('code_challenge');
 
       expect(authorization.searchParams.get('scope')).toBe(
         'Files.ReadWrite.AppFolder offline_access'

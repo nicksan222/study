@@ -96,7 +96,9 @@ export async function startS3() {
           try: async (signal) => {
             if (rustfs.exitCode !== null) throw new Error('RustFS exited during startup');
 
-            const response = await fetch(endpoint + '/health', { signal }).catch(() => undefined);
+            const response = await fetch(endpoint + '/health/ready', { signal }).catch(
+              () => undefined
+            );
 
             await response?.body?.cancel();
 
