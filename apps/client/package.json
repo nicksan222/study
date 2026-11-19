@@ -9,6 +9,9 @@
   "exports": {
     "./app": "./src/app/mount.tsx",
     "./companion": "./src/app/companion.ts",
+    "./extensions": "./src/lib/client-modules.tsx",
+    "./pairing": "./src/lib/mobile-link/index.ts",
+    "./pairing/room": "./src/lib/mobile-link/room.ts",
     "./styles.css": "./src/styles.css",
     "./transport": "./src/lib/effect/rpc.ts"
   },

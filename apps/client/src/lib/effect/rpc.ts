@@ -9,6 +9,8 @@ import { Socket } from 'effect/socket';
 
 import { rpcBaseUrl } from '../host.ts';
 
+export { openStudyRpcSocket } from '../host.ts';
+
 /** One identity per connection/security context; providers must replace it when that context changes. */
 export function createRpcTransport(
   connect?: (signal: AbortSignal) => Promise<Socket.InputTransformStream>

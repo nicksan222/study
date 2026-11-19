@@ -1,13 +1,14 @@
+import { useI18n } from '@study/client/companion';
+import { Button, ErrorState, MobileStudy, RetryButton, Settings } from '@study/ui';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+
 import {
   desktopState,
   disconnectDesktop,
   resumeDesktop,
   startInvitation,
-  subscribeDesktop,
-  useI18n
-} from '@study/client/companion';
-import { Button, ErrorState, MobileStudy, RetryButton, Settings } from '@study/ui';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+  subscribeDesktop
+} from './desktop';
 
 const pairingSteps = [
   ['MobileScanTitle', 'MobileScanDescription'],

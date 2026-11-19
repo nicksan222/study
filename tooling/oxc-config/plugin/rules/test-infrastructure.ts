@@ -619,6 +619,10 @@ export default defineRule({
     if (owner) return {};
 
     const edges = moduleEdges(context, (node, source, typeOnly) => {
+      const platformPairingFixture =
+        path.endsWith('/test/platform/mobile-pairing.test.ts') &&
+        (source === '@study/desktop/testing' || source === '@study/mobile/testing');
+
       if (appSourceFixtureFacet(path, test, source))
         context.report({ node, messageId: 'fixtureImport' });
 
@@ -634,7 +638,7 @@ export default defineRule({
       if (
         forbiddenTestFacetImport(
           actualTest,
-          testApiOwnerPath(path) || fixtureSubjectPath(path),
+          testApiOwnerPath(path) || fixtureSubjectPath(path) || platformPairingFixture,
           typeOnly,
           source
         )

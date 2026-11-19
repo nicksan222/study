@@ -1,9 +1,8 @@
+import type { OpenPhoneRpc } from '@study/client/pairing';
+import { frameSize, parseInvitation } from '@study/client/pairing';
 import { endpoints } from '@study/contracts';
 import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Result, Stream } from 'effect';
-
-import type { OpenPhoneRpc } from '#client/lib/mobile-link/phone-connection.ts';
-import { frameSize, parseInvitation } from '#client/lib/mobile-link/protocol.ts';
 
 const desktopId = 'desktop012345678901234';
 
@@ -160,8 +159,8 @@ async function setupPairing({ mock, vi }: Pick<test.unit.Context, 'mock' | 'vi'>
     removeItem
   });
 
-  const desktop = await import('#client/lib/mobile-link/desktop.ts');
-  const { connectPhone } = await import('#client/lib/mobile-link/phone-connection.ts');
+  const desktop = await import('@study/desktop/testing');
+  const { connectPhone } = await import('@study/mobile/testing');
 
   await desktop.startInvitation();
 
@@ -319,7 +318,7 @@ test.unit.stable(
 );
 
 test.unit.stable('a peer acquisition failure settles the unary call', async ({ expect }) => {
-  const { createRpcTransport } = await import('#client/lib/effect/rpc.ts');
+  const { createRpcTransport } = await import('@study/client/transport');
   const transport = createRpcTransport(async () => {
     throw new Error('Peer unavailable');
   });
@@ -375,7 +374,13 @@ test.unit.stable(
         return discovery.promise;
       });
 
-    mock(new URL('../../../src/lib/host.ts', import.meta.url), () => ({ openStudyRpcSocket }));
+    mock(
+      new URL(
+        '../host.ts',
+        Bun.pathToFileURL(Bun.resolveSync('@study/client/transport', process.cwd()))
+      ),
+      () => ({ openStudyRpcSocket })
+    );
     const { desktop, begin } = await setupPairing({ mock, vi });
     const phone = begin();
 
@@ -434,7 +439,7 @@ test.server.stable(
 
       try {
         const open = await returning.connected;
-        const { createRpcTransport } = await import('#client/lib/effect/rpc.ts');
+        const { createRpcTransport } = await import('@study/client/transport');
         const transport = createRpcTransport(open);
         const { create, list } = endpoints.projects;
 

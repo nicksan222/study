@@ -6,8 +6,8 @@ import { test } from '@study/testing';
 import { useState } from 'react';
 
 import { MobileCapture } from './capture';
-import { CaptureSaveState } from './session';
-import type { SaveStatus } from './session';
+import { CaptureSaveState } from './state';
+import type { SaveStatus } from './state';
 
 const copy = catalogs.italian;
 

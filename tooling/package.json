@@ -11,7 +11,7 @@
   },
   "scripts": {
     "test": "bun run test:vitest && bun run test:python",
-    "test:vitest": "bun --bun vp test run --config ../vite.config.ts --project tooling tooling apps/client/test/e2e/harness apps/desktop/src-tauri/tests",
+    "test:vitest": "bun --bun vp test run --config ../vite.config.ts --project tooling tooling test/platform apps/client/test/e2e/harness apps/desktop/src-tauri/tests",
     "test:python": "python3 -m unittest discover -s scripts/development -p \"test_*.py\" && python3 -m unittest discover -s scripts/release -p \"test_*.py\"",
     "typecheck": "bun --bun tsc --noEmit -p typescript/tooling.json && bun --bun tsc --noEmit -p typescript/browser-tests.json"
   },

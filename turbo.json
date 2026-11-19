@@ -199,6 +199,9 @@
       "dependsOn": ["^typecheck"],
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/test/platform/**",
+        "$TURBO_ROOT$/apps/desktop/src/**",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/apps/client/vite.config.ts",
         "$TURBO_ROOT$/apps/client/test/e2e/**",
         "$TURBO_ROOT$/packages/testing/**"
@@ -209,6 +212,9 @@
       "envMode": "loose",
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/test/platform/**",
+        "$TURBO_ROOT$/apps/desktop/src/**",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/permissions/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/capabilities/**",
@@ -220,6 +226,9 @@
       "envMode": "loose",
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/test/platform/**",
+        "$TURBO_ROOT$/apps/desktop/src/**",
+        "$TURBO_ROOT$/apps/mobile/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/src/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/permissions/**",
         "$TURBO_ROOT$/apps/desktop/src-tauri/capabilities/**",

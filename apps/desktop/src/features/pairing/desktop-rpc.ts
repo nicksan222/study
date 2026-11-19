@@ -1,11 +1,6 @@
-import { Schema } from 'effect';
-
-import { forwardAbort } from '#client/lib/abort.ts';
-import { openStudyRpcSocket } from '#client/lib/host.ts';
-
-import { sendFrames } from './frames';
-import { frameSize, socketIdSchema } from './protocol';
-import type { MobileRoom } from './room';
+import { forwardAbort, sendFrames, frameSize, isSocketId } from '@study/client/pairing';
+import type { MobileRoom } from '@study/client/pairing';
+import { openStudyRpcSocket } from '@study/client/transport';
 
 type Session = {
   write: (bytes: Uint8Array) => void;
@@ -17,8 +12,6 @@ type OpenAttempt = {
   cancel: AbortController;
   session?: Session;
 };
-
-const isSocketId = Schema.is(socketIdSchema);
 
 export function servePairedRpc(connection: MobileRoom, authorized: (userId: string) => boolean) {
   const sessions = new Map<string, OpenAttempt>();

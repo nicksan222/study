@@ -16,7 +16,11 @@ export type Invitation = typeof invitationSchema.Type;
 
 export type DesktopLink = typeof desktopLinkSchema.Type;
 
-export const socketIdSchema = Schema.String.check(Schema.isUUID());
+export const isSocketId = Schema.is(Schema.String.check(Schema.isUUID()));
+
+export type OpenPhoneRpc = (
+  signal: AbortSignal
+) => Promise<{ readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> }>;
 
 export const frameSize = 64 * 1024;
 

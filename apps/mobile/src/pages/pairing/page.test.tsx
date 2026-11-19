@@ -1,17 +1,17 @@
-import { LanguageProvider, invitationUrl } from '@study/client/companion';
-import type { loadPhoneConnection } from '@study/client/companion';
+import { LanguageProvider } from '@study/client/companion';
+import { invitationUrl } from '@study/client/pairing';
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { useContext } from 'react';
 
-type ConnectionEvents = Parameters<
-  Awaited<ReturnType<typeof loadPhoneConnection>>['connectPhone']
->[2];
+import type { connectPhone } from '#mobile/features/pairing/connection.ts';
+
+type ConnectionEvents = Parameters<typeof connectPhone>[2];
 
 const companion = Bun.pathToFileURL(Bun.resolveSync('@study/client/companion', process.cwd()));
 
-const phoneConnection = new URL('../lib/mobile-link/phone-connection.ts', companion);
+const phoneConnection = new URL('../../../mobile/src/features/pairing/connection.ts', companion);
 
 const inviteKey = 'study.mobile.invite.v1';
 
@@ -42,8 +42,8 @@ test.unit.stable.for(['english', 'italian'] as const)(
         return stop;
       }
     }));
-    const { Phone } = await import('./phone');
-    const { UnlinkPhone } = await import('./session');
+    const { Phone } = await import('./page');
+    const { UnlinkPhone } = await import('#mobile/features/pairing/session.ts');
 
     function SharedStudy() {
       const unlink = useContext(UnlinkPhone);
@@ -105,7 +105,8 @@ test.unit.stable(
     onTestFinished(() => localStorage.clear());
     localStorage.setItem(linkKey, JSON.stringify(saved));
     mock(phoneConnection, () => ({ connectPhone: mock.fn(() => async () => {}) }));
-    const { Phone, importInvitation } = await import('./phone');
+    const { Phone } = await import('./page');
+    const { importInvitation } = await import('#mobile/features/pairing/invitations.ts');
     const notice = importInvitation(invitationUrl('https://example.com/study/mobile/', invite()));
 
     render(
@@ -135,7 +136,7 @@ test.unit.stable(
         return () => {};
       }
     }));
-    const { Phone } = await import('./phone');
+    const { Phone } = await import('./page');
 
     render(
       <LanguageProvider locale="english">
@@ -180,8 +181,8 @@ test.unit.stable(
         return async () => {};
       }
     }));
-    const { Phone } = await import('./phone');
-    const { MobileCapture } = await import('./capture');
+    const { Phone } = await import('./page');
+    const { MobileCapture } = await import('#mobile/features/quick-capture/capture.tsx');
 
     render(
       <LanguageProvider locale="italian">
@@ -228,7 +229,7 @@ test.unit.stable(
         return stop;
       }
     }));
-    const { Phone } = await import('./phone');
+    const { Phone } = await import('./page');
 
     render(
       <LanguageProvider locale="english">

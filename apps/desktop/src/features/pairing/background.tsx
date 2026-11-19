@@ -1,12 +1,7 @@
-import {
-  desktopState,
-  reportBackgroundError,
-  resumeDesktop,
-  setMobileBackground,
-  subscribeDesktop,
-  useI18n
-} from '@study/client/companion';
+import { setMobileBackground, useI18n } from '@study/client/companion';
 import { useEffect, useSyncExternalStore } from 'react';
+
+import { desktopState, reportBackgroundError, resumeDesktop, subscribeDesktop } from './desktop';
 
 const linked = () => !!desktopState().link;
 

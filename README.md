@@ -61,9 +61,11 @@ Speech-to-text and search models download only when you choose to.
 Study is built in the open, and contributions are welcome. Start with
 [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
-The browser and Tauri desktop app use the React application in `apps/client`. Desktop
-adds its pairing controls and `apps/mobile` uses the shared client operations for pairing
-and capture. The desktop shell runs a private TypeScript server. Application services expose
+The browser and Tauri desktop app use the React application in `apps/client`. Study Mobile
+owns its pages and features in `apps/mobile` and uses the shared client operations. Each app
+registers its modules at startup. The client provides page boundaries, background components,
+settings sections and page actions for those modules. Desktop and Mobile each own their side
+of pairing and share its wire protocol. The desktop shell runs a private TypeScript server. Application services expose
 typed Effect RPC contracts and use Drizzle over one local SQLite database. Model calls
 use your ChatGPT provider sign-in. The accepted structure and tradeoffs are recorded in
 [Shared application client](doc/adr/shared-application-client.md).

@@ -66,7 +66,9 @@
           "packages/testing/**",
           "packages/db/src/testing.ts",
           "packages/contracts/src/testing.ts",
-          "packages/contracts/src/react-testing.ts"
+          "packages/contracts/src/react-testing.ts",
+          "apps/mobile/src/testing.ts",
+          "apps/desktop/src/testing.ts"
         ]
       },
       {

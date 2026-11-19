@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#mobile/*": "./src/*"
+  },
+  "exports": {
+    "./testing": "./src/testing.ts"
+  },
   "scripts": {
     "build": "bun --bun vp build && bun prepare.ts",
     "preview": "bun --bun vp preview --host 0.0.0.0 --port 4173 --strictPort",

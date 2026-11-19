@@ -6,7 +6,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useContext, useEffect, useMemo, useState } from 'react';
 
 import { applyAppearance } from '#client/lib/appearance.ts';
-import { ClientModules } from '#client/lib/client-modules.ts';
+import { ClientModules } from '#client/lib/client-modules.tsx';
 
 import type { AppearanceData } from './appearance.queries';
 import { useAppSettingsPatch } from './general/app-settings';

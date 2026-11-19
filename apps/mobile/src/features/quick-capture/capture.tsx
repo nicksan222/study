@@ -5,12 +5,11 @@ import { Button, Field, MobileStudy, StatusMessage, Textarea } from '@study/ui';
 import { useContext, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 
-import { CaptureSaveState, UnlinkPhone } from './session';
-import type { SaveStatus } from './session';
+import { CaptureSaveState } from './state';
+import type { SaveStatus } from './state';
 
 export function MobileCapture({ transport }: { transport: ProtocolTransport }) {
   const { t } = useI18n();
-  const unlink = useContext(UnlinkPhone);
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<File>();
   const { status, setStatus } = useContext(CaptureSaveState)!;
@@ -38,58 +37,48 @@ export function MobileCapture({ transport }: { transport: ProtocolTransport }) {
   }
 
   return (
-    <MobileStudy.Screen>
-      <MobileStudy.Header title={t('MobileCaptureTitle')}>
-        <p>{t('MobileCaptureIntro')}</p>
-      </MobileStudy.Header>
-      <MobileStudy.Form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <Field label={t('MobileCaptureText')}>
-          <Textarea
-            value={text}
-            disabled={locked}
-            onChange={(event) => {
-              setText(event.currentTarget.value);
-              setStatus('idle');
-            }}
-          />
-        </Field>
-        <CapturePhoto
-          photo={photo}
+    <MobileStudy.Form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      <Field label={t('MobileCaptureText')}>
+        <Textarea
+          value={text}
           disabled={locked}
-          onChange={(file) => {
-            setPhoto(file);
+          onChange={(event) => {
+            setText(event.currentTarget.value);
             setStatus('idle');
           }}
         />
-        <CaptureStatus status={status} />
-        {status === 'uncertain' ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              clearCapture();
-              setStatus('idle');
-            }}
-          >
-            {t('MobileCaptureAnother')}
-          </Button>
-        ) : (
-          <Button type="submit" disabled={locked || (!text.trim() && !photo)}>
-            {t('MobileCaptureSave')}
-          </Button>
-        )}
-      </MobileStudy.Form>
-      <div>
-        <Button variant="outline" disabled={status === 'sending'} onClick={unlink}>
-          {t('MobileUnlink')}
+      </Field>
+      <CapturePhoto
+        photo={photo}
+        disabled={locked}
+        onChange={(file) => {
+          setPhoto(file);
+          setStatus('idle');
+        }}
+      />
+      <CaptureStatus status={status} />
+      {status === 'uncertain' ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            clearCapture();
+            setStatus('idle');
+          }}
+        >
+          {t('MobileCaptureAnother')}
         </Button>
-      </div>
-    </MobileStudy.Screen>
+      ) : (
+        <Button type="submit" disabled={locked || (!text.trim() && !photo)}>
+          {t('MobileCaptureSave')}
+        </Button>
+      )}
+    </MobileStudy.Form>
   );
 }
 

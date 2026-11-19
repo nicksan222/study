@@ -1,9 +1,13 @@
-import { scheduleRequest } from '#client/lib/study-client/repeat-request.ts';
+import {
+  desktopLinkSchema,
+  fromStorage,
+  invitationUrl,
+  scheduleRequest
+} from '@study/client/pairing';
+import type { DesktopLink } from '@study/client/pairing';
+import type { MobileRoom } from '@study/client/pairing';
 
 import { servePairedRpc } from './desktop-rpc';
-import { desktopLinkSchema, fromStorage, invitationUrl } from './protocol';
-import type { DesktopLink } from './protocol';
-import type { MobileRoom } from './room';
 
 const storageKey = 'study.mobile.desktop.v1';
 
@@ -104,7 +108,7 @@ export async function resumeDesktop(restart = false) {
     active = undefined;
     closeRpc?.();
     await previous?.room.leave();
-    const { mobileRoom } = await import('./room');
+    const { mobileRoom } = await import('@study/client/pairing/room');
     const connection = mobileRoom(link);
 
     attach(connection);
@@ -135,7 +139,7 @@ export async function startInvitation() {
   set({ busy: true });
 
   try {
-    const { mobileRoom } = await import('./room');
+    const { mobileRoom } = await import('@study/client/pairing/room');
     const room = crypto.randomUUID();
     const secret = crypto.randomUUID();
     const connection = mobileRoom({ room, secret });

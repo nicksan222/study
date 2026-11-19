@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./testing": "./src/testing.ts"
+  },
   "scripts": {
     "dev": "bun --bun vp dev",
     "build": "bun --bun vp build",

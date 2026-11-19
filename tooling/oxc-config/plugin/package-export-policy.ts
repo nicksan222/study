@@ -21,9 +21,14 @@ const libraryExportFacets: Readonly<Record<string, readonly string[]>> = {
 
 const applicationExportFacets: Readonly<Record<string, readonly string[]>> = {
   server: ['.', 'client', 'runtime', 'runtime/ownership', 'runtime/database', 'testing'],
+  desktop: ['testing'],
+  mobile: ['testing'],
   client: [
     'app',
     'companion',
+    'extensions',
+    'pairing',
+    'pairing/room',
     'transport',
     'styles.css',
     'feature-previews',

@@ -30,7 +30,7 @@ import { Settings } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { ProjectSettings } from '#client/features/collections/index.ts';
-import type { ModuleSettings, ModuleSettingsId } from '#client/lib/client-modules.ts';
+import type { ModuleSettings, ModuleSettingsId } from '#client/lib/client-modules.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AiActivitySettings } from './activity';

@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 
 import { AssistantProvider } from '#client/features/assistant/index.ts';
 
-import { ClientModules } from '../lib/client-modules';
+import { ClientExtensions } from '../lib/client-modules';
 import type { ClientModule } from '../lib/client-modules';
 import { createRpcTransport } from '../lib/effect/rpc';
 import type { Locale } from '../lib/i18n';
@@ -42,12 +42,9 @@ export function Providers({
               <SavedLanguage />
               <Notifications transport={transport}>
                 <AssistantProvider>
-                  <ClientModules.Provider value={modules ?? []}>
-                    {modules?.map(({ id, Background }) =>
-                      Background ? <Background key={id} /> : null
-                    )}
+                  <ClientExtensions modules={modules}>
                     <OnboardingProvider>{children}</OnboardingProvider>
-                  </ClientModules.Provider>
+                  </ClientExtensions>
                 </AssistantProvider>
               </Notifications>
             </>

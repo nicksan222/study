@@ -97,7 +97,7 @@ const exportsByPackage = new Map<string, unknown>();
 for (const [directory, name] of Object.entries(directories)) {
   if (
     !directory.startsWith('packages/') &&
-    !['apps/server', 'apps/client', 'tooling'].includes(directory)
+    !['apps/server', 'apps/client', 'apps/desktop', 'apps/mobile', 'tooling'].includes(directory)
   )
     continue;
 
@@ -226,6 +226,9 @@ export default defineRule({
     }
 
     function permitsPackageLayer(name: string, subpath: string, nativeClient: boolean): boolean {
+      if (subpath === '/testing' && ['@study/desktop', '@study/mobile'].includes(name))
+        return false;
+
       const featurePreview =
         owner === 'study-landing' &&
         name === '@study/client' &&

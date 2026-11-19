@@ -1,10 +1,7 @@
-import { openPeerRpc } from './phone-rpc';
-import type { Invitation } from './protocol';
-import { mobileRoom } from './room';
+import type { Invitation, OpenPhoneRpc } from '@study/client/pairing';
+import { mobileRoom } from '@study/client/pairing/room';
 
-export type OpenPhoneRpc = (
-  signal: AbortSignal
-) => Promise<{ readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> }>;
+import { openPeerRpc } from './rpc';
 
 export function connectPhone(
   invitation: Invitation,

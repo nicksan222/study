@@ -1,13 +1,6 @@
-import {
-  fromStorage,
-  invitationSchema,
-  invitationUrl,
-  loadPhoneConnection,
-  parseInvitation,
-  scheduleRequest,
-  useI18n
-} from '@study/client/companion';
-import type { Invitation, OpenPhoneRpc } from '@study/client/companion';
+import { useI18n } from '@study/client/companion';
+import { invitationUrl, parseInvitation, scheduleRequest } from '@study/client/pairing';
+import type { Invitation, OpenPhoneRpc } from '@study/client/pairing';
 import {
   Button,
   ErrorState,
@@ -20,55 +13,17 @@ import {
 import { Activity, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { CaptureSaveState, UnlinkPhone } from './session';
-import type { SaveStatus } from './session';
-
-const linkKey = 'study.mobile.phone.v1';
-
-const inviteKey = 'study.mobile.invite.v1';
-
-type PairingError =
-  | 'MobileAlreadyPaired'
-  | 'MobileConnectionError'
-  | 'MobileInviteExpired'
-  | 'MobileUnlinkError';
-
-function rememberInvitation(invitation: Invitation) {
-  localStorage.setItem(inviteKey, JSON.stringify(invitation));
-
-  return invitation;
-}
-
-export function importInvitation(url: string): PairingError | undefined {
-  try {
-    const incoming = parseInvitation(url);
-    const paired = fromStorage(linkKey, invitationSchema);
-
-    if (paired) return paired.room === incoming.room ? undefined : 'MobileAlreadyPaired';
-
-    rememberInvitation(incoming);
-  } catch {
-    return 'MobileConnectionError';
-  }
-}
-
-function removeStored(key: string) {
-  try {
-    localStorage.removeItem(key);
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function initialLink() {
-  const paired = fromStorage(linkKey, invitationSchema);
-
-  if (paired) return { invitation: paired, paired: true };
-
-  return { invitation: fromStorage(inviteKey, invitationSchema), paired: false };
-}
+import {
+  initialLink,
+  rememberInvitation,
+  removeStored,
+  inviteKey,
+  linkKey
+} from '#mobile/features/pairing/invitations.ts';
+import type { PairingError } from '#mobile/features/pairing/invitations.ts';
+import { UnlinkPhone } from '#mobile/features/pairing/session.ts';
+import { CaptureSaveState } from '#mobile/features/quick-capture/state.ts';
+import type { SaveStatus } from '#mobile/features/quick-capture/state.ts';
 
 export function Phone({
   initialError,
@@ -285,7 +240,7 @@ function PhoneSession({
       opened = true;
     }
 
-    void loadPhoneConnection()
+    void import('#mobile/features/pairing/connection.ts')
       .then(async ({ connectPhone }) => {
         await teardown.current;
 

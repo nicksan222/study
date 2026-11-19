@@ -1,8 +1,5 @@
-import { forwardAbort } from '#client/lib/abort.ts';
-
-import { sendFrames } from './frames';
-import { frameSize } from './protocol';
-import type { MobileRoom } from './room';
+import { forwardAbort, sendFrames, frameSize } from '@study/client/pairing';
+import type { MobileRoom } from '@study/client/pairing';
 
 /** One scoped native RPC stream over the authenticated WebRTC peer. */
 export async function openPeerRpc(

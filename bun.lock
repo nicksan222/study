@@ -5,6 +5,10 @@
     "": {
       "name": "study-workspace",
       "devDependencies": {
+        "@study/client": "*",
+        "@study/contracts": "*",
+        "@study/desktop": "*",
+        "@study/mobile": "*",
         "@study/testing": "*",
         "@study/tooling": "*",
         "@stylistic/eslint-plugin": "5.10.0",
@@ -19,6 +23,7 @@
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
         "@vitejs/plugin-react": "^6.1.2",
+        "effect": "4.0.7",
         "fallow": "3.38.0",
         "jsdom": "^30.1.3",
         "playwright": "1.65.0",
