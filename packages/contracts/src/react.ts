@@ -204,7 +204,7 @@ function presentation<A, E>(result: AsyncResult.AsyncResult<A, E>) {
 }
 
 function bind(endpoint: Endpoint) {
-  const read = (input: unknown, options?: RpcCallOptions) => {
+  const read = async (input: unknown, options?: RpcCallOptions) => {
     options?.signal?.throwIfAborted();
     const transport = options?.transport ?? transportForRead();
 
@@ -302,7 +302,7 @@ type Bound<E extends Endpoint> = E['kind'] extends 'query'
   ? {
       readonly read: (
         input: Rpc.Payload<E['rpc']>,
-        options?: { readonly signal?: AbortSignal }
+        options?: RpcCallOptions
       ) => Promise<Rpc.Success<E['rpc']>>;
       readonly useQueries: (
         inputs: readonly (Rpc.Payload<E['rpc']> | undefined)[]

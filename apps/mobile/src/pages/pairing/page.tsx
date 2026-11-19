@@ -322,8 +322,10 @@ function usePhoneConnection(
 
         stop = connectPhone(invitation, current.current.paired, {
           challenge: (value) => {
+            // The approval request has its own timeout after the comparison code appears.
             cancelWait?.();
             setCode(value);
+            setError(false);
           },
           paired: () => current.current.approve(),
           connected: (open) => {
@@ -334,6 +336,8 @@ function usePhoneConnection(
           disconnected: () => {
             setCode(undefined);
             setConnected(false);
+
+            if (!current.current.paired) setError(true);
           },
           error: () => {
             setCode(undefined);

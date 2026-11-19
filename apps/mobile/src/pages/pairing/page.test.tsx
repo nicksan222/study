@@ -42,10 +42,17 @@ test.unit.stable.for(['english', 'italian'] as const)(
         return stop;
       }
     }));
+    let elapseLocalWait!: () => Promise<void>;
     const cancelWait = mock.fn();
 
     mock(new URL('../lib/study-client/repeat-request.ts', companion), () => ({
-      scheduleRequest: () => cancelWait
+      scheduleRequest: (expire: () => Promise<void>) => {
+        elapseLocalWait = async () => {
+          if (!cancelWait.mock.calls.length) await expire();
+        };
+
+        return cancelWait;
+      }
     }));
     const { Phone } = await import('./page');
     const { UnlinkPhone } = await import('#mobile/features/pairing/session.ts');
@@ -78,7 +85,10 @@ test.unit.stable.for(['english', 'italian'] as const)(
 
     act(() => events.disconnected());
     expect(screen.queryByText('123456')).toBeNull();
+    expect(screen.getByRole('button', { name: copy.Retry })).toBeVisible();
     act(() => events.challenge('654321'));
+    expect(screen.getByText('654321')).toBeVisible();
+    await act(elapseLocalWait);
     expect(screen.getByText('654321')).toBeVisible();
 
     act(() => {

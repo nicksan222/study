@@ -87,8 +87,10 @@ test.unit.stable(
     const bytes = Promise.withResolvers<ArrayBuffer>();
     const read = Promise.withResolvers<void>();
     const file = new File(['photo'], 'photo.png', { type: 'image/png' });
-    const execute = mock.fn(rpc.transport.execute);
-    const replacement = { ...rpc.transport, execute };
+    const originalExecute = mock.fn(rpc.transport.execute);
+    const original = { ...rpc.transport, execute: originalExecute };
+    const replacementExecute = mock.fn(rpc.transport.execute);
+    const replacement = { ...rpc.transport, execute: replacementExecute };
 
     Object.defineProperty(file, 'arrayBuffer', {
       value: () => {
@@ -98,7 +100,7 @@ test.unit.stable(
       }
     });
 
-    const view = render(<CaptureHarness transport={rpc.transport} />);
+    const view = render(<CaptureHarness transport={original} />);
 
     await userEvent.upload(view.container.querySelector('input[type=file]')!, file);
     await userEvent.click(screen.getByRole('button', { name: copy.MobileCaptureSave }));
@@ -106,7 +108,8 @@ test.unit.stable(
     view.rerender(<CaptureHarness transport={replacement} />);
     await act(async () => bytes.resolve(new ArrayBuffer(1)));
 
-    expect(execute).not.toHaveBeenCalled();
+    expect(originalExecute).not.toHaveBeenCalled();
+    expect(replacementExecute).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent(copy.MobileCaptureUncertain);
   }
 );

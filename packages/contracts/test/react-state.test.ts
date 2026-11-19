@@ -4,6 +4,8 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
 import type { LiveFrame } from '../src/protocol.ts';
 import { liveQueryAtom, SubscriptionDefect } from '../src/react-state.ts';
+import { rpcValuesTransport } from '../src/react-testing.ts';
+import { rpc } from '../src/react.ts';
 
 const policy = {
   livenessTimeoutMs: 1000,
@@ -325,3 +327,24 @@ test.unit.stable(
     registry.dispose();
   }
 );
+
+test.unit.stable(
+  'one-shot RPCs reject already-aborted signals without calling the transport',
+  async ({ expect, vi }) => {
+    const { transport } = rpcValuesTransport({});
+    const execute = vi.spyOn(transport, 'execute');
+    const reason = new DOMException('Cancelled', 'AbortError');
+    const options = { transport, signal: AbortSignal.abort(reason) };
+
+    await expect(rpc.projects.list.read({ limit: 10 }, options)).rejects.toBe(reason);
+    await expect(rpc.projects.create.call({ name: 'Test' }, options)).rejects.toBe(reason);
+    expect(execute).not.toHaveBeenCalled();
+  }
+);
+
+test.unit.stable('a one-shot query can use an explicit transport', async ({ expect }) => {
+  const page = { items: [], next: null };
+  const { transport } = rpcValuesTransport({ 'projects.projects': page });
+
+  await expect(rpc.projects.list.read({ limit: 10 }, { transport })).resolves.toEqual(page);
+});
