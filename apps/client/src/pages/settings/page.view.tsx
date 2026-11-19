@@ -53,7 +53,7 @@ import { VoiceSettings } from './voice';
 import {
   AiWritingSettings,
   ReadingSettings,
-  NoteDisplaySettings,
+  SidebarDisplaySettings,
   WritingSettings
 } from './workspace-settings';
 
@@ -108,6 +108,7 @@ const sections = [
       'WorkspaceDensity',
       'WorkspaceTimeFormat',
       'WorkspacePageCounts',
+      'SidebarCompactNavigation',
       'SidebarSettledThreshold'
     ]
   },
@@ -440,7 +441,7 @@ function SectionContent({
     updates: <UpdatesSettings />,
     sidebar: (
       <>
-        <NoteDisplaySettings />
+        <SidebarDisplaySettings />
         <SidebarSettings />
       </>
     ),

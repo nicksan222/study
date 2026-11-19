@@ -100,6 +100,7 @@ export const workspacePreferencesSchema = Schema.Struct({
   textConversionMode: Schema.Literals(['manual', 'automatic']),
   textConversionStrategy: conversionStrategyIdSchema,
   sidebarDensity: Schema.Literals(['comfortable', 'compact']),
+  sidebarCompactNavigation: Schema.Boolean,
   sidebarShowPageCounts: Schema.Boolean,
   sidebarTimeFormat: Schema.Literals(['relative', 'absolute']),
   editorFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
