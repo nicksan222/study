@@ -32,6 +32,8 @@ test.browser.stable(
     await page.getByRole('button', { name: copy.NoteEditNote }).focus();
     await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
     const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
     // Native caret scrolling depends on the popup's final geometry at fractional app zoom.
@@ -64,6 +66,7 @@ test.browser.stable(
     );
     await page.getByRole('button', { name: copy.NoteEditNote }).focus();
     await page.keyboard.press('Enter');
+    await dialog.getByRole('button', { name: copy.NoteMarkdownSource }).click();
     await expect(editor).toHaveValue(`${content}\n\nAn edited note`);
     await editor.fill('A second edit after reopening');
     await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();

@@ -883,6 +883,7 @@ export const italian = Object.freeze({
   NoteEditUnchanged: 'Nessuna modifica',
   NoteEditBackHelp: 'La bozza viene conservata mentre torni al quaderno.',
   NoteEditNote: 'Modifica nota',
+  NoteMarkdownSource: 'Sorgente Markdown',
   NoteReanswer: 'Rispondi di nuovo',
   NoteImprove: 'Migliora',
   NoteSummarize: 'Riassumi',

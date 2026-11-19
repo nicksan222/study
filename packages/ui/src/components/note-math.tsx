@@ -13,6 +13,7 @@ export const inlineNoteMath = Node.create({
   addAttributes: () => ({ latex: { default: '' } }),
   renderHTML: ({ node }) => ['span', { 'data-note-math': true }, node.attrs.latex],
   parseMarkdown: (token) => ({ type: 'inlineNoteMath', attrs: { latex: token.text } }),
+  renderMarkdown: (node) => `\\(${node.attrs?.latex ?? ''}\\)`,
   markdownTokenizer: {
     name: 'inlineNoteMath',
     level: 'inline',

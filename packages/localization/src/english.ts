@@ -862,6 +862,7 @@ export const english = Object.freeze({
   NoteEditUnchanged: 'No changes yet',
   NoteEditBackHelp: 'Your draft is kept while you return to the notebook.',
   NoteEditNote: 'Edit note',
+  NoteMarkdownSource: 'Markdown source',
   NoteReanswer: 'Answer again',
   NoteImprove: 'Improve',
   NoteSummarize: 'Summarize',

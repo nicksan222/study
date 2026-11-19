@@ -213,6 +213,7 @@ export function RichNoteEditor({
   placeholder,
   labels,
   toolbarEnd,
+  variant,
   disabled = false,
   spellcheck = true,
   fontSize = 16
@@ -223,6 +224,7 @@ export function RichNoteEditor({
   placeholder: string;
   labels: RichNoteLabels;
   toolbarEnd?: ReactNode;
+  variant?: 'notebook';
   ref?: Ref<RichNoteEditorHandle>;
   disabled?: boolean;
   spellcheck?: boolean;
@@ -230,9 +232,13 @@ export function RichNoteEditor({
 }) {
   const latest = useRef(value);
   const editor = useEditor({
-    extensions: [...extensions, Markdown.configure({ markedOptions: { breaks: true } })],
+    extensions: [
+      ...(variant === 'notebook' ? notebookReadingExtensions : extensions),
+      Markdown.configure({ markedOptions: { breaks: true } })
+    ],
     content: value,
     contentType: 'markdown',
+    textDirection: variant === 'notebook' ? 'auto' : undefined,
     editable: !disabled,
     shouldRerenderOnTransaction: false,
     editorProps: {
