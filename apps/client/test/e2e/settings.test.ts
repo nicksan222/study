@@ -532,6 +532,61 @@ test.browser.stable(
 );
 
 test.browser.stable(
+  'Compact sidebar navigation keeps all shortcuts in one row and survives reload',
+  async ({ page, expect, expectScreenshot }) => {
+    await page.goto('/notes');
+    const navigation = page.locator('#study-sidebar-navigation');
+    const settings = page.getByRole('button', { name: copy.Settings, exact: true });
+    const dialog = page.getByRole('dialog', { name: copy.Settings });
+    const toggle = dialog.getByRole('switch', { name: copy.SidebarCompactNavigation });
+    const close = dialog.getByRole('button', { name: copy.Close });
+    const openSidebarSettings = async () => {
+      await settings.press('Enter');
+      await dialog.getByRole('button', { name: copy.SettingsSidebar, exact: true }).click();
+    };
+    const bottom = navigation.locator('..');
+
+    await expect(navigation).toHaveCSS('flex-direction', 'column');
+    await expectScreenshot('vertical-navigation', {
+      target: bottom,
+      ready: () => expect(navigation).toHaveCSS('flex-direction', 'column')
+    });
+    await openSidebarSettings();
+    await expect(toggle).not.toBeChecked();
+    await toggle.press('Space');
+    await expect(toggle).toBeChecked();
+    await close.click();
+    await expect(navigation).toHaveCSS('flex-direction', 'row');
+    await expect(settings).toBeFocused();
+
+    const shortcuts = await Promise.all(
+      [copy.Notes, copy.SourcePage, copy.Practice, copy.Assistant].map((name) =>
+        navigation.getByRole('link', { name, exact: true }).boundingBox()
+      )
+    );
+    const settingsBox = await settings.boundingBox();
+
+    expect(shortcuts.map((box) => box?.y)).toEqual(Array(4).fill(settingsBox?.y));
+    await expectScreenshot('compact-navigation', {
+      target: bottom,
+      ready: () => expect(navigation).toHaveCSS('flex-direction', 'row')
+    });
+    await page.reload();
+    await expect(navigation).toHaveCSS('flex-direction', 'row');
+    await navigation.getByRole('link', { name: copy.SourcePage, exact: true }).press('Enter');
+    await expect(page).toHaveURL(/\/pages$/);
+
+    await openSidebarSettings();
+    await expect(toggle).toBeChecked();
+    await toggle.press('Space');
+    await expect(toggle).not.toBeChecked();
+    await close.click();
+    await page.reload();
+    await expect(navigation).toHaveCSS('flex-direction', 'column');
+  }
+);
+
+test.browser.stable(
   'Reading settings reject invalid font sizes and persist every export format',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');

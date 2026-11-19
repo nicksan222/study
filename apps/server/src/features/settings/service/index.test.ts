@@ -302,6 +302,7 @@ test.server.stable(
             autosaveIntervalSeconds: 8,
             defaultAiDetail: 'detailed' as const,
             spellcheck: false,
+            sidebarCompactNavigation: true,
             autoTitleNotes: true
           };
 
@@ -322,11 +323,12 @@ test.server.stable(
 
           expect(yield* settings.workspacePreferences()).toStrictEqual(saved);
           context.db.orm.run(
-            sql`DELETE FROM preferences WHERE scope = 'workspace' AND key = 'spellcheck'`
+            sql`DELETE FROM preferences WHERE scope = 'workspace' AND key IN ('spellcheck', 'sidebarCompactNavigation')`
           );
           expect(yield* settings.workspacePreferences()).toStrictEqual({
             ...saved,
-            spellcheck: true
+            spellcheck: true,
+            sidebarCompactNavigation: false
           });
           context.db.orm.run(
             sql`UPDATE preferences SET value = '999' WHERE scope = 'workspace' AND key = 'editorFontSize'`

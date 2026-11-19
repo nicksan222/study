@@ -22,9 +22,11 @@ export function SidebarNavigation({
   project,
   workspaceProject,
   onNavigate,
-  counts
+  counts,
+  compact = false
 }: {
   counts?: ReturnType<typeof useSidebarCounts>;
+  compact?: boolean;
   section: Section;
   settings: boolean;
   project: string | null;
@@ -34,7 +36,7 @@ export function SidebarNavigation({
   const { t } = useI18n();
 
   return (
-    <>
+    <Sidebar.NavigationGroup compact={compact}>
       <Sidebar.Navigation id="study-sidebar-navigation" aria-label={t('SidebarNavigation')}>
         {sections.map(([to, currentSection, Icon, label]) => (
           <Sidebar.NavigationItem
@@ -71,6 +73,6 @@ export function SidebarNavigation({
       <Sidebar.Footer aria-label={t('Settings')}>
         <SettingsMenu active={settings} onOpen={onNavigate} workspaceProject={workspaceProject} />
       </Sidebar.Footer>
-    </>
+    </Sidebar.NavigationGroup>
   );
 }

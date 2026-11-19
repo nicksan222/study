@@ -71,6 +71,7 @@ type BooleanField =
   | 'autoTitleNotes'
   | 'autoAnswerQuestions'
   | 'sidebarShowPageCounts'
+  | 'sidebarCompactNavigation'
   | 'expandPages';
 
 /** Saves one switch while preserving unrelated preferences from other windows. */
@@ -214,7 +215,7 @@ export function WritingSettings() {
   );
 }
 
-export function NoteDisplaySettings() {
+export function SidebarDisplaySettings() {
   return (
     <PreferenceSection title="WorkspaceSidebarTitle" description="WorkspaceSidebarDescription">
       <PreferenceSelect
@@ -239,6 +240,11 @@ export function NoteDisplaySettings() {
         field="sidebarShowPageCounts"
         title="WorkspacePageCounts"
         description="WorkspacePageCountsHelp"
+      />
+      <PreferenceToggle
+        field="sidebarCompactNavigation"
+        title="SidebarCompactNavigation"
+        description="SidebarCompactNavigationHelp"
       />
     </PreferenceSection>
   );
