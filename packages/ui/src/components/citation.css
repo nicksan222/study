@@ -122,7 +122,7 @@
   gap: 0.375rem;
   max-width: 100%;
 }
-.chat-question-answer > .chat-message-text {
+.chat-question-answer > :is(.chat-message-text, .rich-note-content:first-child) {
   font-weight: 600;
   margin-block: 0 1rem;
 }

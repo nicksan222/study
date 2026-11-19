@@ -12,7 +12,9 @@ import {
   UndoIcon,
   RedoIcon
 } from '@study/icons';
-import { generateText } from '@tiptap/core';
+import { generateText, Node } from '@tiptap/core';
+import type { JSONContent } from '@tiptap/core';
+import { Table, TableKit } from '@tiptap/extension-table';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
@@ -114,6 +116,50 @@ const readingMarkdown = new MarkdownManager({
   extensions: readingExtensions,
   markedOptions: { breaks: true }
 });
+
+// The default lexer already emits GFM tables. Keep the extension's optional
+// tokenizer from registering on the shared MarkdownManager lexer.
+const readingTable = Node.create({ ...Table.config, markdownTokenizer: undefined }).configure({
+  renderWrapper: true
+});
+
+const notebookReadingExtensions = [
+  ...readingExtensions,
+  TableKit.configure({ table: false }),
+  readingTable
+];
+
+const notebookMarkdown = new MarkdownManager({
+  extensions: notebookReadingExtensions,
+  markedOptions: { breaks: true }
+});
+
+function isPlainText(document: JSONContent, value: string) {
+  const paragraphs: string[] = [];
+
+  for (const block of document.content ?? []) {
+    if (block.type !== 'paragraph') return false;
+
+    const inlines = (block.content ?? []).map(plainInlineText);
+
+    if (inlines.includes(undefined)) return false;
+
+    paragraphs.push(inlines.join(''));
+  }
+
+  const normalize = (text: string) => text.trim().replace(/\s+/g, ' ');
+
+  // Escapes and entities also count as Markdown when parsing changes the visible text.
+  return normalize(paragraphs.join('\n')) === normalize(value);
+}
+
+function plainInlineText(node: JSONContent) {
+  if (node.type === 'hardBreak') return '\n';
+
+  if (node.type === 'text' && !node.marks?.length) return node.text;
+
+  return undefined;
+}
 
 /** Uses the same Markdown parser to label a note without formatting syntax. */
 export function RichNoteSummary({ value, fallback }: { value: string; fallback?: ReactNode }) {
@@ -411,28 +457,39 @@ function stableReadingKeys(content: ReactNode): ReactNode {
 export function RichNoteContent({
   value,
   renderText,
+  renderPlainText,
+  variant,
   streaming = false
 }: {
   value: string;
   renderText?: (value: string) => ReactNode;
+  renderPlainText?: () => ReactNode;
+  variant?: 'notebook';
   streaming?: boolean;
 }) {
   const context = useMemo(() => ({ renderText, streaming }), [renderText, streaming]);
-  const content = useMemo(
-    () =>
-      stableReadingKeys(
-        renderToReactElement({
-          extensions: readingExtensions,
-          content: readingMarkdown.parse(value),
-          options: { nodeMapping: readingNodeMapping, markMapping: readingMarkMapping }
-        })
-      ),
-    [value]
-  );
+  const preservePlainText = !!renderPlainText;
+  const content = useMemo(() => {
+    const document = (variant === 'notebook' ? notebookMarkdown : readingMarkdown).parse(value);
+
+    if (preservePlainText && isPlainText(document, value)) return undefined;
+
+    return stableReadingKeys(
+      renderToReactElement({
+        extensions: variant === 'notebook' ? notebookReadingExtensions : readingExtensions,
+        content: document,
+        options: { nodeMapping: readingNodeMapping, markMapping: readingMarkMapping }
+      })
+    );
+  }, [value, preservePlainText, variant]);
+
+  if (content === undefined && renderPlainText) return renderPlainText();
 
   return (
     <ReadingContext value={context}>
-      <div className="rich-note-content">{content}</div>
+      <div className="rich-note-content" data-variant={variant}>
+        {content}
+      </div>
     </ReadingContext>
   );
 }
