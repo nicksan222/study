@@ -363,11 +363,15 @@ test.browser.stable(
 
     await expect(italianEditor).toBeFocused();
     await expect(italianDialog).toHaveCSS('translate', '0px');
-    await italianEditor
-      .getByText('END-OF-LECTURE: retain every observation and its original order.')
-      .click();
-    await italianEditor.press('ControlOrMeta+End');
-    await italianEditor.press('Enter');
+    const closing = italianEditor.getByText(
+      'END-OF-LECTURE: retain every observation and its original order.',
+      { exact: true }
+    );
+
+    await closing.click();
+    await page.keyboard.press('ControlOrMeta+End');
+    await page.keyboard.press('Enter');
+    await expect(closing).toBeVisible();
     await expect(italianEditor.locator('p').last()).toBeEmpty();
     await page.keyboard.insertText(arabic);
     const paragraph = italianEditor.getByText(arabic, { exact: true });

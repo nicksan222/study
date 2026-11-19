@@ -12,12 +12,12 @@ import {
   UndoIcon,
   RedoIcon
 } from '@study/icons';
-import { generateText, Node } from '@tiptap/core';
+import { Extension, generateText, Node } from '@tiptap/core';
 import type { JSONContent } from '@tiptap/core';
 import { Table, TableKit } from '@tiptap/extension-table';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
-import { TextSelection } from '@tiptap/pm/state';
+import { Selection, TextSelection } from '@tiptap/pm/state';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -129,6 +129,23 @@ const notebookReadingExtensions = [
   readingTable
 ];
 
+// Commit keyboard navigation before the next edit uses ProseMirror’s selection.
+const notebookNavigation = Extension.create({
+  name: 'notebookNavigation',
+  addKeyboardShortcuts() {
+    return {
+      'Mod-End': () =>
+        this.editor.commands.command(({ tr }) => {
+          tr.setSelection(Selection.atEnd(tr.doc)).scrollIntoView();
+
+          return true;
+        })
+    };
+  }
+});
+
+const notebookEditorExtensions = [...notebookReadingExtensions, notebookNavigation];
+
 const notebookMarkdown = new MarkdownManager({
   extensions: notebookReadingExtensions,
   markedOptions: { breaks: true }
@@ -233,7 +250,7 @@ export function RichNoteEditor({
   const latest = useRef(value);
   const editor = useEditor({
     extensions: [
-      ...(variant === 'notebook' ? notebookReadingExtensions : extensions),
+      ...(variant === 'notebook' ? notebookEditorExtensions : extensions),
       Markdown.configure({ markedOptions: { breaks: true } })
     ],
     content: value,
