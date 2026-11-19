@@ -49,7 +49,7 @@ test.browser.stable(
     await expectAccessibility('s3-destination');
     await destination.click();
     await page.getByRole('option', { name: copy.DataAutoBackupLocal, exact: true }).click();
-    await save.click();
+    await dialog.getByRole('button', { name: copy.DataAutoBackupEnable }).click();
     const run = dialog.getByRole('button', { name: copy.DataAutoBackupRun, exact: true });
 
     await expect(run).toBeEnabled();
@@ -57,13 +57,16 @@ test.browser.stable(
     await expect(dialog.getByText(copy.DataAutoBackupWaiting, { exact: true })).toHaveCount(0);
     await expect(dialog.getByText(copy.DataAutoBackupRunFailed, { exact: true })).toHaveCount(0);
     await expect(run).toBeEnabled();
-    await destination.click();
+    await expect(destination).toHaveCount(0);
+    await dialog.getByRole('button', { name: copy.DataAutoBackupChange }).click();
+    await destination.press('Enter');
     await page.getByRole('option', { name: copy.DataAutoBackupOff, exact: true }).click();
-    await save.click();
+    await dialog.getByRole('button', { name: copy.DataAutoBackupTurnOff }).click();
     await expect(run).toHaveCount(0);
     await dialog.getByRole('button', { name: copy.GeneralSettingsTitle, exact: true }).click();
     await dialog.getByRole('combobox', { name: copy.GeneralSettingsLanguage }).click();
     await page.getByRole('option', { name: copy.ItalianOwnName, exact: true }).click();
+    await page.setViewportSize({ width: 480, height: 845 });
     const italian = catalogs.italian;
     const localized = page.getByRole('dialog', { name: italian.Settings });
 

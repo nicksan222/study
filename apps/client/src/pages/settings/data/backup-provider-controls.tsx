@@ -1,8 +1,8 @@
 import { backupOAuthInputSchema, storageBackupDestinationSchema } from '@study/contracts';
 import type { StaticMessageKey } from '@study/localization';
-import { Button, Input, Settings } from '@study/ui';
+import { Button, DataManagement, Field as ControlField, Input, Settings } from '@study/ui';
 import { Schema } from 'effect';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -83,6 +83,7 @@ function ProviderForm({
 }) {
   const { t } = useI18n();
   const [invalid, setInvalid] = useState(false);
+  const inputId = useId();
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,33 +100,40 @@ function ProviderForm({
   }
 
   return (
-    <form onSubmit={submit} onChange={() => setInvalid(false)}>
-      {fields.map((field) => (
-        <Settings.Row
-          key={field.name}
-          title={t(field.label)}
-          description={field.hint && t(field.hint)}
-        >
-          <Input
-            name={field.name}
-            type={field.type ?? 'text'}
-            aria-label={t(field.label)}
-            autoComplete={field.type === 'password' ? 'new-password' : 'off'}
-            spellCheck={false}
-            required={!field.optional}
-            defaultValue={field.defaultValue}
-            maxLength={4096}
-            disabled={disabled}
-          />
-        </Settings.Row>
-      ))}
-      <Settings.Row title={t('DataBackupConnection')}>
-        <Button type="submit" variant="outline" disabled={disabled}>
+    <DataManagement.ProviderForm onSubmit={submit} onChange={() => setInvalid(false)}>
+      <DataManagement.ProviderFields>
+        {fields.map((field) => {
+          const id = `${inputId}-${field.name}`;
+          const hint = field.hint ? `${id}-hint` : undefined;
+
+          return (
+            <ControlField key={field.name} htmlFor={id} label={t(field.label)}>
+              <Input
+                id={id}
+                name={field.name}
+                type={field.type ?? 'text'}
+                aria-describedby={hint}
+                autoComplete={field.type === 'password' ? 'new-password' : 'off'}
+                spellCheck={false}
+                required={!field.optional}
+                defaultValue={field.defaultValue}
+                maxLength={4096}
+                disabled={disabled}
+              />
+              {field.hint && (
+                <DataManagement.ProviderHint id={hint}>{t(field.hint)}</DataManagement.ProviderHint>
+              )}
+            </ControlField>
+          );
+        })}
+      </DataManagement.ProviderFields>
+      {invalid && <Settings.Status>{t('DataBackupInvalidConfig')}</Settings.Status>}
+      <Settings.Actions>
+        <Button type="submit" disabled={disabled}>
           {t(action)}
         </Button>
-      </Settings.Row>
-      {invalid && <Settings.Status>{t('DataBackupInvalidConfig')}</Settings.Status>}
-    </form>
+      </Settings.Actions>
+    </DataManagement.ProviderForm>
   );
 }
 

@@ -785,14 +785,16 @@ export const italian = Object.freeze({
   DataBackupDropboxKey: 'Chiave app Dropbox',
   DataBackupDropboxHelp:
     'Registra un’app con accesso alla cartella dell’app, il permesso files.content.write e il reindirizzamento http://localhost:42819/study-backup.',
-  DataBackupConnection: 'Credenziali della destinazione',
   DataBackupInvalidConfig: 'Controlla i campi della destinazione e riprova.',
-  DataBackupCloudRestore: 'Scarica un file .studybackup da questo provider e importalo qui.',
   DataBackupConnect: 'Collega account',
   DataBackupReconnect: 'Ricollega account',
   DataAutoBackupTitle: 'Backup automatici',
   DataAutoBackupHelp:
-    'Study salva un backup al giorno mentre è in esecuzione e conserva fino a {count} copie per questa installazione. Per ripristinare una copia, importa il suo file .studybackup qui sopra.',
+    'Study esegue un backup al giorno mentre è aperto e alterna {count} file di backup.',
+  DataAutoBackupChange: 'Cambia destinazione',
+  DataAutoBackupEnable: 'Attiva backup',
+  DataAutoBackupTurnOff: 'Disattiva backup',
+  DataAutoBackupLastRun: 'Ultimo backup {date}',
   DataAutoBackupDestination: 'Destinazione del backup',
   DataAutoBackupOff: 'Disattivato',
   DataAutoBackupLocal: 'Questo dispositivo',
@@ -807,7 +809,6 @@ export const italian = Object.freeze({
   DataAutoBackupActive: 'Destinazione attiva · {destination}',
   DataAutoBackupConnect: 'Collega OneDrive',
   DataAutoBackupReconnect: 'Ricollega OneDrive',
-  DataAutoBackupLatest: 'Ultimo backup riuscito',
   DataAutoBackupWaiting: 'In attesa del primo backup.',
   DataAutoBackupRun: 'Esegui backup ora',
   DataAutoBackupSaveFailed:
@@ -818,13 +819,13 @@ export const italian = Object.freeze({
   DataAutoBackupSignInPending: 'Completa l’accesso al provider di backup nel browser.',
   DataAutoBackupAuthExpired:
     'La destinazione del backup ha negato l’accesso. Ricollegala o aggiorna le credenziali.',
-  DataLocalBackups: 'Backup su questo dispositivo',
+  DataLocalBackups: 'Backup manuale',
   DataBackupCapacity: '{count} di {limit} spazi di backup utilizzati',
   DataImportHelp:
-    'Scegli un file .studybackup. Study ne verifica integrità e compatibilità prima di importarlo.',
+    'Importa un file .studybackup da questo dispositivo o dal cloud per esaminare il ripristino.',
   DataChooseFile: 'Scegli file',
-  DataSavedBackups: 'Backup salvati',
-  DataEmptyTitle: 'Nessun backup',
+  DataSavedBackups: 'File di backup',
+  DataEmptyTitle: 'Nessun backup manuale o importato',
   DataRestoreIdleHelp: 'Nessun ripristino è in attesa del prossimo riavvio.',
   DataBackupCreated: 'Backup creato.',
   DataBackupImported: 'Backup importato.',
@@ -847,14 +848,11 @@ export const italian = Object.freeze({
   DataRestoreConfirmationInstruction:
     'Digita {word} per sostituire tutto il materiale con questo backup.',
   DataSettingsTitle: 'Dati e backup',
-  DataSettingsDescription:
-    'Conserva un backup locale del materiale di studio. Scarica una copia e tienila in un posto sicuro.',
   DataCreate: 'Crea backup',
   DataImport: 'Importa file di backup',
   DataDownload: 'Scarica',
   DataDelete: 'Elimina backup',
   DataPreview: 'Esamina ripristino',
-  DataEmpty: 'Crea o importa il tuo primo backup.',
   DataReadError:
     'Impossibile leggere i dati dei backup. Aggiorna per verificare lo stato prima di continuare.',
   DataFileError:

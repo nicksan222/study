@@ -5,7 +5,15 @@ import type {
   backupSignInIdSchema
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button, Input, Loading, RetryButton, SelectControl, Settings } from '@study/ui';
+import {
+  Button,
+  DataManagement,
+  Input,
+  Loading,
+  RetryButton,
+  SelectControl,
+  Settings
+} from '@study/ui';
 import { Schema } from 'effect';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
@@ -206,55 +214,84 @@ function BackupControls({
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState<Destination>();
+  const [editing, setEditing] = useState(false);
   const selected = draft ?? status.destination;
 
+  const configuring = status.destination === 'off' || editing;
+
+  function closeEditor() {
+    setEditing(false);
+    setDraft(undefined);
+  }
+
+  async function finish(result: Promise<boolean>) {
+    const saved = await result;
+
+    if (saved) closeEditor();
+
+    return saved;
+  }
+
   return (
-    <Settings.Group>
-      <Settings.Row title={t('DataAutoBackupDestination')}>
-        <Settings.Actions>
-          <SelectControl
-            label={t('DataAutoBackupDestination')}
-            value={selected}
-            options={Object.entries(labels).map(([value, label]) => ({ value, label: t(label) }))}
-            disabled={disabled}
-            onValueChange={(value) => {
-              if (isDestination(value)) setDraft(value);
-            }}
-          />
-          <SaveDeviceDestination
-            selected={selected}
-            current={status.destination}
-            disabled={disabled}
-            save={actions.save}
-          />
-        </Settings.Actions>
-      </Settings.Row>
-      {selected === 'folder' && (
-        <FolderControls
-          currentPath={status.destination === 'folder' ? status.path : null}
-          disabled={disabled}
-          save={actions.save}
-        />
+    <DataManagement.Groups>
+      <BackupReceipt
+        status={status}
+        disabled={disabled}
+        runNow={actions.runNow}
+        editing={editing}
+        onEdit={editing ? closeEditor : () => setEditing(true)}
+      />
+      {configuring && (
+        <Settings.Group>
+          <Settings.Row title={t('DataAutoBackupDestination')}>
+            <Settings.Actions>
+              <SelectControl
+                label={t('DataAutoBackupDestination')}
+                value={selected}
+                options={Object.entries(labels).map(([value, label]) => ({
+                  value,
+                  label: t(label)
+                }))}
+                disabled={disabled}
+                onValueChange={(value) => {
+                  if (isDestination(value)) setDraft(value);
+                }}
+              />
+              <SaveDeviceDestination
+                selected={selected}
+                current={status.destination}
+                disabled={disabled}
+                save={(input) => finish(actions.save(input))}
+              />
+            </Settings.Actions>
+          </Settings.Row>
+          {selected === 'folder' && (
+            <FolderControls
+              currentPath={status.destination === 'folder' ? status.path : null}
+              disabled={disabled}
+              save={(input) => finish(actions.save(input))}
+            />
+          )}
+          {isOAuthProvider(selected) && (
+            <OAuthBackupControls
+              key={selected}
+              kind={selected}
+              disabled={disabled}
+              connected={status.destination === selected}
+              connect={(input) => finish(actions.connect(input))}
+            />
+          )}
+          {isStorageProvider(selected) && (
+            <StorageBackupControls
+              key={selected}
+              kind={selected}
+              disabled={disabled}
+              save={(input) => finish(actions.save(input))}
+            />
+          )}
+        </Settings.Group>
       )}
-      {isOAuthProvider(selected) && (
-        <OAuthBackupControls
-          key={selected}
-          kind={selected}
-          disabled={disabled}
-          connected={status.destination === selected}
-          connect={actions.connect}
-        />
-      )}
-      {isStorageProvider(selected) && (
-        <StorageBackupControls
-          key={selected}
-          kind={selected}
-          disabled={disabled}
-          save={actions.save}
-        />
-      )}
-      <BackupReceipt status={status} disabled={disabled} runNow={actions.runNow} />
-    </Settings.Group>
+    </DataManagement.Groups>
   );
 }
 
@@ -271,15 +308,11 @@ function SaveDeviceDestination({
 }) {
   const { t } = useI18n();
 
-  if (selected !== 'off' && selected !== 'local') return null;
+  if (selected === current || (selected !== 'off' && selected !== 'local')) return null;
 
   return (
-    <Button
-      variant="outline"
-      disabled={disabled || selected === current}
-      onClick={() => void save({ kind: selected })}
-    >
-      {t('Save')}
+    <Button variant="outline" disabled={disabled} onClick={() => void save({ kind: selected })}>
+      {t(selected === 'off' ? 'DataAutoBackupTurnOff' : 'DataAutoBackupEnable')}
     </Button>
   );
 }
@@ -326,37 +359,51 @@ function FolderControls({
 function BackupReceipt({
   status,
   disabled,
-  runNow
+  runNow,
+  editing,
+  onEdit
 }: {
   status: Status;
   disabled: boolean;
   runNow: () => void;
+  editing: boolean;
+  onEdit: () => void;
 }) {
   const { t, date } = useI18n();
 
   if (status.destination === 'off') return null;
 
+  const result =
+    status.lastSuccessAtMs === null
+      ? t('DataAutoBackupWaiting')
+      : t('DataAutoBackupLastRun', {
+          date: date(status.lastSuccessAtMs / 1000, { dateStyle: 'medium', timeStyle: 'short' })
+        });
+
   return (
-    <>
+    <Settings.Group>
       <Settings.Row
         title={t('DataAutoBackupActive', { destination: t(labels[status.destination]) })}
-        description={status.path ?? t('DataBackupCloudRestore')}
+        description={status.path ? `${result} · ${status.path}` : result}
       >
-        {null}
+        <Settings.Actions>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={onEdit}
+            aria-expanded={editing}
+          >
+            {t(editing ? 'Cancel' : 'DataAutoBackupChange')}
+          </Button>
+          {!editing && (
+            <Button size="sm" variant="default" disabled={disabled} onClick={runNow}>
+              {t('DataAutoBackupRun')}
+            </Button>
+          )}
+        </Settings.Actions>
       </Settings.Row>
-      <Settings.Row
-        title={t('DataAutoBackupLatest')}
-        description={
-          status.lastSuccessAtMs === null
-            ? t('DataAutoBackupWaiting')
-            : date(status.lastSuccessAtMs / 1000, { dateStyle: 'medium', timeStyle: 'short' })
-        }
-      >
-        <Button variant="outline" disabled={disabled} onClick={runNow}>
-          {t('DataAutoBackupRun')}
-        </Button>
-      </Settings.Row>
-    </>
+    </Settings.Group>
   );
 }
 
