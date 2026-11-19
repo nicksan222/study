@@ -4,8 +4,9 @@ import type { BackupId, acceptRestoreSchema } from '@study/contracts';
 import { BackupStorage, normalizeError } from '@study/server';
 import type { ManagedBackups } from '@study/server';
 import { Effect } from 'effect';
+import type { Semaphore } from 'effect';
 
-export function* systemBackupOperations() {
+export function* systemBackupOperations(backupLock: Semaphore.Semaphore) {
   const storage = yield* BackupStorage;
 
   const backups: ManagedBackups = storage.owner;
@@ -22,7 +23,7 @@ export function* systemBackupOperations() {
     previewRestore: (input: { id: BackupId }) =>
       backupOperation(() => backups.previewRestore(input.id)),
     acceptRestore: (input: typeof acceptRestoreSchema.Type) =>
-      backupOperation(() => backups.accept(input)),
+      backupLock.withPermit(backupOperation(() => backups.accept(input))),
     restoreStatus: () => backupOperation(() => backups.status()),
     discardRestoreRecovery: () => backupOperation(() => backups.discardRecovery())
   };

@@ -336,6 +336,10 @@ Provider software and its pinned install remain in the shared
 verify checksums. The test environment has no network and mounts no host vault,
 credentials, dependencies or profile.
 
+The S3 backup test starts the digest-pinned RustFS server on HTTPS loopback with an
+ephemeral certificate, writes backups through Study RPC, and reads the objects back
+with Bun's S3 client to verify rotation and import. No cloud credentials are required.
+
 The Bun launcher uses the Docker CLI directly. It collects native JUnit reports and
 failure logs, stops and removes the container and removes its image on success, failure
 and handled interruption. Setup output stays in

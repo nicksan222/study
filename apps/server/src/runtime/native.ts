@@ -95,7 +95,7 @@ export function nativeLayers(
 
   const backupOwner = new ManagedBackups(store.db, backupPolicy, store.timestampClock);
 
-  const backups = Layer.succeed(BackupStorage, { owner: backupOwner });
+  const backups = Layer.succeed(BackupStorage, { owner: backupOwner, request });
 
   const lifecycleLayer = Layer.succeed(WorkerLifecycle, lifecycle);
 
@@ -125,7 +125,7 @@ export function nativeLayers(
     Projects.layer,
     Settings.layer,
     Themes.layer,
-    System.layer
+    System.layer.pipe(Layer.provide(Settings.layer))
   ).pipe(
     Layer.provideMerge(
       Layer.mergeAll(

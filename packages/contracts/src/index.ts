@@ -719,6 +719,16 @@ export {
 } from './sources/sniff.ts';
 export type { NewSource } from './sources/types.ts';
 export { newSourceSchema } from './sources/types.ts';
+export {
+  automaticBackupConfigurationSchema,
+  automaticBackupFileDestinationSchema,
+  automaticBackupStatusSchema,
+  MAX_AUTOMATIC_BACKUPS,
+  backupOAuthConnectionSchema,
+  backupOAuthInputSchema,
+  backupSignInIdSchema,
+  storageBackupDestinationSchema
+} from './system/automatic-backups.ts';
 export type { BackupId, BackupManifest, RestorePreview } from './system/backups.ts';
 export {
   acceptRestoreSchema,

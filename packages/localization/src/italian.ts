@@ -755,6 +755,69 @@ export const italian = Object.freeze({
   NoteAbandonAttemptHelp:
     'Una domanda o un risultato precedente potrebbe già esistere. Ricominciare crea una richiesta distinta.',
   PageRetryProposal: 'Recupera l’azione inviata sulla proposta',
+  DataBackupGoogle: 'Google Drive',
+  DataBackupDropbox: 'Dropbox',
+  DataBackupS3: 'Archiviazione compatibile con S3',
+  DataBackupWebDav: 'WebDAV',
+  DataBackupAzure: 'Archiviazione BLOB di Azure',
+  DataBackupBucket: 'Nome del bucket',
+  DataBackupBucketHelp:
+    'Usa un bucket esistente e credenziali autorizzate a scrivere gli oggetti di backup.',
+  DataBackupRegion: 'Regione di firma',
+  DataBackupEndpoint: 'Endpoint HTTPS',
+  DataBackupS3EndpointHelp:
+    'Lascia vuoto per AWS. Per altri servizi, inserisci l’endpoint dell’account o del servizio senza il nome del bucket.',
+  DataBackupPrefix: 'Prefisso degli oggetti (facoltativo)',
+  DataBackupAccessKey: 'ID chiave di accesso',
+  DataBackupSecretKey: 'Chiave di accesso segreta',
+  DataBackupFolderUrl: 'URL HTTPS della cartella',
+  DataBackupWebDavHelp:
+    'Inserisci l’URL completo di una cartella WebDAV esistente, ad esempio su Nextcloud.',
+  DataBackupUsername: 'Nome utente',
+  DataBackupAppPassword: 'Password per l’app',
+  DataBackupContainerUrl: 'URL HTTPS del contenitore',
+  DataBackupAzureHelp:
+    'Inserisci l’URL di un contenitore Azure Blob esistente. Incolla il token SAS separatamente.',
+  DataBackupSas: 'Token SAS',
+  DataBackupGoogleHelp:
+    'Usa l’ID e il segreto di un client OAuth desktop di Google con l’API Drive abilitata.',
+  DataBackupClientSecret: 'Segreto del client desktop',
+  DataBackupDropboxKey: 'Chiave app Dropbox',
+  DataBackupDropboxHelp:
+    'Registra un’app con accesso alla cartella dell’app, il permesso files.content.write e il reindirizzamento http://localhost:42819/study-backup.',
+  DataBackupConnection: 'Credenziali della destinazione',
+  DataBackupInvalidConfig: 'Controlla i campi della destinazione e riprova.',
+  DataBackupCloudRestore: 'Scarica un file .studybackup da questo provider e importalo qui.',
+  DataBackupConnect: 'Collega account',
+  DataBackupReconnect: 'Ricollega account',
+  DataAutoBackupTitle: 'Backup automatici',
+  DataAutoBackupHelp:
+    'Study salva un backup al giorno mentre è in esecuzione e conserva fino a {count} copie per questa installazione. Per ripristinare una copia, importa il suo file .studybackup qui sopra.',
+  DataAutoBackupDestination: 'Destinazione del backup',
+  DataAutoBackupOff: 'Disattivato',
+  DataAutoBackupLocal: 'Questo dispositivo',
+  DataAutoBackupFolder: 'Cartella sincronizzata',
+  DataAutoBackupOneDrive: 'OneDrive personale',
+  DataAutoBackupPath: 'Percorso della cartella',
+  DataAutoBackupPathHelp:
+    'Inserisci il percorso completo di una cartella esistente su questo computer. L’app di sincronizzazione caricherà le copie.',
+  DataAutoBackupClientId: 'ID applicazione (client)',
+  DataAutoBackupClientIdHelp:
+    'Usa una registrazione app in Microsoft Entra per account personali con il reindirizzamento per dispositivi mobili e desktop http://localhost/study-backup e l’autorizzazione delegata Files.ReadWrite.AppFolder.',
+  DataAutoBackupActive: 'Destinazione attiva · {destination}',
+  DataAutoBackupConnect: 'Collega OneDrive',
+  DataAutoBackupReconnect: 'Ricollega OneDrive',
+  DataAutoBackupLatest: 'Ultimo backup riuscito',
+  DataAutoBackupWaiting: 'In attesa del primo backup.',
+  DataAutoBackupRun: 'Esegui backup ora',
+  DataAutoBackupSaveFailed:
+    'Impossibile salvare la destinazione. Controlla la cartella o le impostazioni di connessione.',
+  DataAutoBackupRunFailed: 'Backup non riuscito. Controlla la destinazione e riprova.',
+  DataAutoBackupSignInFailed:
+    'Impossibile collegare il provider. Controlla la registrazione dell’app e riprova.',
+  DataAutoBackupSignInPending: 'Completa l’accesso al provider di backup nel browser.',
+  DataAutoBackupAuthExpired:
+    'La destinazione del backup ha negato l’accesso. Ricollegala o aggiorna le credenziali.',
   DataLocalBackups: 'Backup su questo dispositivo',
   DataBackupCapacity: '{count} di {limit} spazi di backup utilizzati',
   DataImportHelp:

@@ -17,6 +17,7 @@ import { useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
+import { AutomaticBackups } from './automatic-backups.tsx';
 import { useDataSettings } from './use-data';
 
 type BackupDeletion = { id: BackupId } | 'recovery';
@@ -57,6 +58,7 @@ export function DataSettings() {
   return (
     <>
       <BackupControls {...view} />
+      <AutomaticBackups mutable={mutable} />
       <SavedBackups {...view} setDeletion={setDeletion} />
       <RestoreStatus {...view} setDeletion={setDeletion} />
       <RestoreDialog {...view} />

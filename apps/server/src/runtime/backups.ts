@@ -23,6 +23,7 @@ import { Auth } from '#server/features/auth/index';
 import { Materials } from '#server/features/materials/index';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { System } from '#server/features/system/index';
 import { Themes } from '#server/features/themes/index';
@@ -52,6 +53,7 @@ export const backupPolicy: SnapshotPolicy = {
         validateContent(tx);
         // Retain all admitted work and its execution persistence in the same snapshot.
         Auth.sanitizeBackup(tx);
+        Settings.sanitizeAutomaticBackup(tx);
       })
     ),
   validate: (db) =>
@@ -60,7 +62,7 @@ export const backupPolicy: SnapshotPolicy = {
       transaction((tx) => {
         validateContent(tx);
 
-        if (!Auth.validateBackup(tx))
+        if (!Auth.validateBackup(tx) || !Settings.validateAutomaticBackup(tx))
           throw new StudyError('invalid_input', 'Backup contains live authority');
       })
     ),

@@ -328,8 +328,12 @@ export class ManagedBackups {
     await this.active;
   }
 
+  async restorePending() {
+    return (await this.journal())?.state === 'restart-required';
+  }
+
   private async assertMutable() {
-    if ((await this.journal())?.state === 'restart-required') throw conflict();
+    if (await this.restorePending()) throw conflict();
   }
 
   private async capacity() {
@@ -392,53 +396,124 @@ export class ManagedBackups {
     }
   }
 
+  private snapshot() {
+    return this.scratch(async (path) => {
+      await this.db.snapshot(path, MAX_BACKUP_BYTES);
+
+      if (
+        Number((await runFileSystemPromise((await fileSystem).lstat(path))).size) > MAX_BACKUP_BYTES
+      )
+        throw invalid();
+
+      if (process.platform !== 'win32') await chmod(path, 0o600);
+
+      const snapshot = await Db.openSnapshot(path);
+
+      try {
+        await this.policy.prepare(snapshot);
+        // Rebuild exported pages after credential deletion: no freelist/WAL credential residue.
+        snapshot.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode = DELETE; VACUUM;');
+      } finally {
+        snapshot.close();
+      }
+
+      const { schema, scope } = await this.validateFile(path);
+
+      const bytes = await boundedRead(path, MAX_BACKUP_BYTES);
+
+      const manifest = Schema.decodeUnknownSync(backupManifestSchema)({
+        format: 'study-managed-backup',
+        version: 2,
+        id: crypto.randomUUID(),
+        createdAtMs: this.clock.currentTimeMillisUnsafe(),
+        schema,
+        sha256: digest(bytes),
+        bytes: bytes.length,
+        scope,
+        credentials: 'excluded',
+        nativeWork: 'preserved',
+        compatibility: 'exact-schema'
+      });
+
+      return { manifest, bytes: encode(manifest, bytes) };
+    });
+  }
+
   create(): Promise<BackupManifest> {
-    return this.exclusive(() =>
-      this.scratch(async (path) => {
-        await this.assertMutable();
-        await this.capacity();
-        await this.db.snapshot(path, MAX_BACKUP_BYTES);
+    return this.exclusive(async () => {
+      await this.assertMutable();
+      await this.capacity();
+      const snapshot = await this.snapshot();
 
-        if (
-          Number((await runFileSystemPromise((await fileSystem).lstat(path))).size) >
-          MAX_BACKUP_BYTES
-        )
-          throw invalid();
+      await durableWrite(this.artifact(snapshot.manifest.id), snapshot.bytes);
 
-        if (process.platform !== 'win32') await chmod(path, 0o600);
+      return snapshot.manifest;
+    });
+  }
 
-        const snapshot = await Db.openSnapshot(path);
+  get automaticFolderPath() {
+    return join(this.root, 'automatic');
+  }
 
-        try {
-          await this.policy.prepare(snapshot);
-          // Rebuild exported pages after credential deletion: no freelist/WAL credential residue.
-          snapshot.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode = DELETE; VACUUM;');
-        } finally {
-          snapshot.close();
-        }
+  async automaticFolder(path: string) {
+    if (!paths.isAbsolute(path) || path.includes('\0')) throw invalid();
 
-        const { schema, scope } = await this.validateFile(path);
+    const fs = await fileSystem;
+    const directory = await runFileSystemPromise(fs.realPath(path));
+    const parent = await runFileSystemPromise(fs.realPath(dirname(this.root)));
+    const relative = paths.relative(join(parent, paths.basename(this.root)), directory);
 
-        const bytes = await boundedRead(path, MAX_BACKUP_BYTES);
+    if (
+      relative === '' ||
+      (!paths.isAbsolute(relative) &&
+        relative !== '..' &&
+        !relative.startsWith('..' + paths.sep)) ||
+      (await runFileSystemPromise(fs.stat(directory))).type !== 'Directory'
+    )
+      throw invalid();
 
-        const manifest = Schema.decodeUnknownSync(backupManifestSchema)({
-          format: 'study-managed-backup',
-          version: 2,
-          id: crypto.randomUUID(),
-          createdAtMs: this.clock.currentTimeMillisUnsafe(),
-          schema,
-          sha256: digest(bytes),
-          bytes: bytes.length,
-          scope,
-          credentials: 'excluded',
-          nativeWork: 'preserved',
-          compatibility: 'exact-schema'
-        });
+    return directory;
+  }
 
-        await durableWrite(this.artifact(manifest.id), encode(manifest, bytes));
+  automaticSnapshot(): Promise<Uint8Array<ArrayBuffer>> {
+    return this.exclusive(async () => {
+      await this.assertMutable();
 
-        return manifest;
-      })
+      return (await this.snapshot()).bytes;
+    });
+  }
+
+  async writeAutomaticFolder(name: string, bytes: Uint8Array, path?: string) {
+    const folder = path === undefined ? this.automaticFolderPath : await this.automaticFolder(path);
+
+    if (path === undefined) {
+      await privateDirectory(folder);
+      await durableWrite(join(folder, name), bytes);
+
+      return;
+    }
+
+    if (folder !== path) throw invalid();
+
+    const fs = await fileSystem;
+
+    await runFileSystemPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const stage = yield* fs.makeTempDirectoryScoped({
+            directory: folder,
+            prefix: '.study-backup-'
+          });
+          const temporary = join(stage, name);
+
+          yield* Effect.tryPromise({
+            try: () => writeExclusive(temporary, bytes),
+            catch: () => invalid()
+          });
+          yield* fs.rename(temporary, join(folder, name));
+          yield* Effect.tryPromise({ try: () => syncDirectory(folder), catch: () => invalid() });
+        })
+      )
     );
   }
 
@@ -770,5 +845,8 @@ async function openActivationTarget(path: string, journal: Journal): Promise<Db 
 
 export class BackupStorage extends Context.Service<
   BackupStorage,
-  { readonly owner: ManagedBackups }
+  {
+    readonly owner: ManagedBackups;
+    readonly request?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+  }
 >()('study/capabilities/BackupStorage') {}
