@@ -269,8 +269,9 @@ dependencies, the macOS SQLite library and Drizzle migrations under `target/desk
 ship in both installers and updates. Every platform smoke-tests Tauri’s copied runtime
 from `target/devcontainer/<target>/release` in an isolated directory with a fresh database,
 then restarts against that database without depending on a system Bun installation.
-Before publishing, a macOS 27 runner also launches Study from the built disk image with
-an isolated database and requires the WebView to receive a healthy live RPC snapshot.
+Before publishing, a macOS 27 runner installs Study from the built disk image into a
+temporary directory and requires the WebView to receive a healthy live RPC snapshot
+with an isolated database.
 On macOS, even read-only startup validation selects the bundled SQLite library before
 opening a connection. Release size reports use the same Cargo output directory. Run
 `bun run desktop:runtime` to stage it independently. macOS development also requires

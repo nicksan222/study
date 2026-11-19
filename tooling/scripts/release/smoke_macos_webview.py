@@ -13,6 +13,8 @@ HEALTHY = b"WebView received a healthy server snapshot"
 
 
 def check_webview(executable, timeout=90):
+    # Tauri rejects macOS executable paths with symlinked ancestors (such as /var).
+    executable = executable.resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix="study-macos-webview-") as temporary:
         environment = dict(os.environ, STUDY_DATABASE=str(Path(temporary) / "study.sqlite"),
                            STUDY_LOG="info", NO_COLOR="1")
@@ -50,12 +52,17 @@ def wait_for_snapshot(output, timeout):
 
 if __name__ == "__main__":
     image = Path(sys.argv[1]).resolve(strict=True)
-    with tempfile.TemporaryDirectory(prefix="study-macos-image-") as mount:
+    with tempfile.TemporaryDirectory(prefix="study-macos-image-") as temporary:
+        install = Path(temporary)
+        mount = install / "mount"
+        mount.mkdir()
+        app = install / "Study.app"
         subprocess.run(
-            ["hdiutil", "attach", str(image), "-readonly", "-nobrowse", "-mountpoint", mount, "-quiet"],
+            ["hdiutil", "attach", image, "-readonly", "-nobrowse", "-mountpoint", mount, "-quiet"],
             check=True,
         )
         try:
-            check_webview(Path(mount) / "Study.app/Contents/MacOS/study")
+            subprocess.run(["ditto", mount / "Study.app", app], check=True)
         finally:
             subprocess.run(["hdiutil", "detach", mount, "-quiet"], check=True)
+        check_webview(app / "Contents/MacOS/study")

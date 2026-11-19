@@ -82,6 +82,7 @@ pub fn run() {
             let server =
                 tauri::async_runtime::block_on(server::Server::start(bun, entry, database))
                     .map_err(|e| std::io::Error::other(e.message))?;
+            tracing::info!("private server is ready");
             app.manage(std::sync::Arc::new(Shell {
                 server: tokio::sync::Mutex::new(server),
             }));
