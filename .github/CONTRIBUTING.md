@@ -261,7 +261,8 @@ pair across releases. GitHub selects Latest using its semantic-version policy so
 
 Signed desktop builds check at startup and hourly, and offer a persistent notification
 with an **Install and restart** action. Downloads require that action; Tauri verifies
-the signature before installing. Failures offer retry. The private server shuts down
+the signature before installing. The native menu and the connection error screen can
+check for updates while the private server is unavailable. Failures offer retry. The private server shuts down
 before restart (and before the Windows installer exits). Browser, debug and unsigned
 builds skip the updater. Linux in-app updates require the AppImage distribution.
 Tauri’s pre-build hook stages Bun, the private server’s source, locked production

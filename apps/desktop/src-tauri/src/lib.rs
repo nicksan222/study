@@ -4,6 +4,7 @@ mod logging;
 mod microphone;
 mod server;
 mod transport;
+mod update_menu;
 mod updater;
 use tauri::Manager as _;
 use transport::NativeError;
@@ -38,6 +39,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
 
     let result = builder
+        .on_menu_event(update_menu::on_menu_event)
         .on_permission_request(microphone::permission)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
@@ -92,6 +94,7 @@ pub fn run() {
             server_connection,
             report_server_connected,
             diagnostic_log,
+            update_menu::set_desktop_update_menu,
             updater::desktop_update_status,
             updater::check_for_update,
             updater::install_update

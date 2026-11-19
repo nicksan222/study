@@ -6,6 +6,8 @@
   "permissions": [
     "allow-server-connection",
     "allow-desktop-update",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "allow-diagnostic-log",
     {
       "identifier": "opener:allow-open-url",

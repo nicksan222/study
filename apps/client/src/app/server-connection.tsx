@@ -9,10 +9,12 @@ import { useI18n } from '#client/lib/i18n.tsx';
 /** One endpoint outage screen preserves the mounted application and never replays writes. */
 export function ServerConnection({
   children,
-  onReconnect
+  onReconnect,
+  updateAction
 }: {
   children: ReactNode;
   onReconnect: () => void;
+  updateAction?: ReactNode;
 }) {
   const { t } = useI18n();
   const health = rpc.system.health.useQuery({});
@@ -43,11 +45,14 @@ export function ServerConnection({
           title={t('ServerConnectionTitle')}
           description={t('ServerConnectionDescription')}
           action={
-            <RetryButton
-              label={t('ServerConnectionRetry')}
-              aria-busy={health.isFetching}
-              onClick={() => void health.refetch()}
-            />
+            <>
+              <RetryButton
+                label={t('ServerConnectionRetry')}
+                aria-busy={health.isFetching}
+                onClick={() => void health.refetch()}
+              />
+              {updateAction}
+            </>
           }
         />
       )}

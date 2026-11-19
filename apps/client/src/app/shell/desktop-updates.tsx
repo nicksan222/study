@@ -1,11 +1,75 @@
-import { toastManager } from '@study/ui';
-import { useCallback, useEffect, useRef } from 'react';
+import { Button, toastManager } from '@study/ui';
+import { useCallback, useEffect, useEffectEvent, useRef } from 'react';
+import type { ReactNode } from 'react';
 
-import { useDesktopUpdate, useDesktopInstallation } from '#client/lib/desktop-updates.ts';
+import { useDesktopInstallation } from '#client/lib/desktop-updates.ts';
+import { useNativeAsync } from '#client/lib/effect/native.ts';
+import {
+  checkDesktopUpdate,
+  desktopUpdateStatus,
+  hostCapabilities,
+  listenForDesktopUpdateCheck,
+  setDesktopUpdateMenu
+} from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 /** Checks signed desktop builds quietly and downloads only after explicit consent. */
-export function DesktopUpdates() {
+export function DesktopUpdates({
+  renderRecovery
+}: {
+  renderRecovery?: (action: ReactNode) => ReactNode;
+} = {}) {
+  const { t } = useI18n();
+  const { announce, announced, installing } = useDesktopUpdateNotices();
+  const status = useNativeAsync(desktopUpdateStatus, hostCapabilities().updates);
+  const supported = status.data?.supported === true;
+  const update = useNativeAsync(checkDesktopUpdate, supported);
+  const manualCheck = useRef(false);
+
+  useEffect(() => {
+    const version = update.data ?? null;
+
+    if (announced.current !== version && !manualCheck.current) announce(version);
+  }, [update.data, announce, announced]);
+
+  async function check() {
+    if (manualCheck.current || installing) return;
+
+    manualCheck.current = true;
+    const checking = toastManager.add({ title: t('UpdateChecking'), timeout: 0 });
+    const version = await update.refetch();
+
+    manualCheck.current = false;
+    toastManager.close(checking);
+
+    if (version === undefined) {
+      toastManager.add({ title: t('DesktopUpdateCheckFailed'), type: 'error' });
+    } else {
+      announce(version);
+
+      if (version === null) toastManager.add({ title: t('UpdateCurrent') });
+    }
+  }
+
+  useDesktopUpdateMenu(supported, t('Updates'), t('UpdateCheck'), check);
+
+  return (
+    renderRecovery?.(
+      supported ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={update.isFetching || installing}
+          onClick={() => void check()}
+        >
+          {t(update.isFetching ? 'UpdateChecking' : 'UpdateCheck')}
+        </Button>
+      ) : null
+    ) ?? null
+  );
+}
+
+function useDesktopUpdateNotices() {
   const { t } = useI18n();
   const installation = useDesktopInstallation();
   const installing = installation.isPending;
@@ -18,7 +82,6 @@ export function DesktopUpdates() {
     toastManager.close(notice.current);
     notice.current = null;
   }, []);
-  const update = useDesktopUpdate();
   const runInstall = installation.mutateAsync;
   const install = useCallback(
     function install(version: string) {
@@ -54,31 +117,57 @@ export function DesktopUpdates() {
     if (installing) closeNotice();
   }, [installing, closeNotice]);
 
-  useEffect(() => {
-    const version = update.data ?? null;
+  const announce = useCallback(
+    (version: string | null) => {
+      closeNotice();
+      announced.current = version;
 
-    if (announced.current === version) return;
+      if (!version) return;
 
-    closeNotice();
-    announced.current = version;
+      notice.current = toastManager.add({
+        title: t('DesktopUpdateAvailable', { version }),
+        description: t('DesktopUpdateConsent'),
+        timeout: 0,
+        actionProps: {
+          children: t('DesktopUpdateInstall'),
+          onClick: () => {
+            if (announced.current !== version || installing) return;
 
-    if (!version) return;
-
-    notice.current = toastManager.add({
-      title: t('DesktopUpdateAvailable', { version }),
-      description: t('DesktopUpdateConsent'),
-      timeout: 0,
-      actionProps: {
-        children: t('DesktopUpdateInstall'),
-        onClick: () => {
-          if (announced.current !== version || installing) return;
-
-          closeNotice();
-          install(version);
+            closeNotice();
+            install(version);
+          }
         }
-      }
-    });
-  }, [update.data, install, t, closeNotice, installing]);
+      });
+    },
+    [closeNotice, install, installing, t]
+  );
 
-  return null;
+  return { announce, announced, installing };
+}
+
+function useDesktopUpdateMenu(
+  supported: boolean,
+  menuLabel: string,
+  itemLabel: string,
+  check: () => Promise<void>
+) {
+  const onMenuCheck = useEffectEvent(() => void check());
+
+  useEffect(() => {
+    if (!supported) return;
+
+    const subscription = listenForDesktopUpdateCheck(() => onMenuCheck());
+    let active = true;
+
+    void subscription
+      .then(() => {
+        if (active) return setDesktopUpdateMenu(menuLabel, itemLabel);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+      void subscription.then((unlisten) => unlisten()).catch(() => {});
+    };
+  }, [supported, menuLabel, itemLabel]);
 }

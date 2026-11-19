@@ -393,6 +393,8 @@ export const italian = Object.freeze({
   DesktopUpdateInstall: 'Installa e riavvia',
   DesktopUpdateInstalling: 'Download e installazione dell’aggiornamento…',
   DesktopUpdateFailed: 'Impossibile installare l’aggiornamento',
+  DesktopUpdateCheckFailed:
+    'Impossibile verificare gli aggiornamenti. Controlla la connessione e riprova.',
   DesktopUpdateRetryHelp: 'Controlla la connessione e riprova. Puoi continuare a usare Study.',
   WorkspaceAutoAnswerQuestions: 'Rispondi automaticamente alle domande',
   WorkspaceAutoAnswerQuestionsHelp:

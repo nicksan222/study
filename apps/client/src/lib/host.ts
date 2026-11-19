@@ -1,5 +1,6 @@
 import { StudyError } from '@study/contracts';
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 export type SignInBrowser = {
@@ -83,6 +84,12 @@ export const desktopUpdateStatus = () =>
   invoke<{ version: string; supported: boolean }>('desktop_update_status');
 
 export const checkDesktopUpdate = () => invoke<string | null>('check_for_update');
+
+export const setDesktopUpdateMenu = (menuLabel: string, itemLabel: string) =>
+  invoke<void>('set_desktop_update_menu', { menuLabel, itemLabel });
+
+export const listenForDesktopUpdateCheck = (check: () => void) =>
+  listen('desktop-update-check', check);
 
 export const installDesktopUpdate = (expectedVersion: string) =>
   invoke<void>('install_update', { expectedVersion });
