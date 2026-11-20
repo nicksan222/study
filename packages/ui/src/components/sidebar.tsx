@@ -819,15 +819,21 @@ function Item({
             context={context}
             timestamp={timestamp}
           />
-          {announcement !== undefined && (
-            <span aria-live="polite" aria-atomic="true" className="sr-only">
-              {announcement}
-            </span>
-          )}
+          <ItemAnnouncement message={announcement} />
         </>
       )
     }
   });
+}
+
+function ItemAnnouncement({ message }: { message?: string }) {
+  if (message === undefined) return null;
+
+  return (
+    <span aria-live="polite" aria-atomic="true" className="sr-only">
+      {message}
+    </span>
+  );
 }
 
 function ItemContent({
