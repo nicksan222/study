@@ -10,7 +10,6 @@ export const PageOverview = {
   NoteChoices: semanticPart('ul', 'page-note-choices'),
   NoteChoice: semanticPart(Button, 'page-note-choice'),
   Root: semanticPart('div', 'page-overview'),
-  Work: semanticPart('section', 'page-overview page-overview-work'),
   Job: semanticPart('li', 'page-overview-job'),
   Heading: semanticPart('header', 'page-overview-heading'),
   Intro: semanticPart('div', 'page-overview-intro'),

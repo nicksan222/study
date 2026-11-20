@@ -18,18 +18,11 @@ import type * as __MockType1 from './composer';
 import type * as __MockType2 from './composer.queries';
 import type * as NoteQueries from './note-workspace.queries';
 import type * as __MockType3 from './note-workspace.queries';
-import type * as __MockType4 from './transformation';
 import type * as __MockType5 from './unavailable-attempt';
 
 let ask: typeof __MockType3.ask;
 
-let captureContext: typeof __MockType3.captureContext;
-
-let transformPage: typeof __MockType3.transformPage;
-
 let saveNote: typeof __MockType3.saveNote;
-
-let Transformation: typeof __MockType4.Transformation;
 
 let UnavailableAttempt: typeof __MockType5.UnavailableAttempt;
 
@@ -129,13 +122,10 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, locale: 'english' })
   }));
-  mock('#client/features/note-workspace/history', () => ({ CapturedContext: () => null }));
   mock('#client/features/note-workspace/note-workspace.queries', async (load) => ({
     ...(await load<typeof NoteQueries>()),
     ask: mock.fn(),
-    saveNote: mock.fn(),
-    captureContext: mock.fn(),
-    transformPage: mock.fn()
+    saveNote: mock.fn()
   }));
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
   const __mockModule0 = await import('#client/lib/ai-readiness.ts');
@@ -150,12 +140,8 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule3 = await import('./note-workspace.queries');
 
   ask = __mockModule3.ask;
-  captureContext = __mockModule3.captureContext;
-  transformPage = __mockModule3.transformPage;
   saveNote = __mockModule3.saveNote;
-  const __mockModule4 = await import('./transformation');
 
-  Transformation = __mockModule4.Transformation;
   const __mockModule5 = await import('./unavailable-attempt');
 
   UnavailableAttempt = __mockModule5.UnavailableAttempt;
@@ -213,7 +199,6 @@ test.unit.stable.for(['selection', 'thread', 'runs'] as const)(
     fireEvent.click(screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
     expect(abandon).toHaveBeenCalledTimes(1);
     expect(ask).not.toHaveBeenCalled();
-    expect(captureContext).not.toHaveBeenCalled();
   }
 );
 
@@ -253,115 +238,6 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'retains transform pending ownership and immutable retry inputs across remount and edited fields',
-  async ({ vi, fireEvent, screen, waitFor, expect, act, render, rpcTestTransport }) => {
-    const capture = deferred<Awaited<ReturnType<typeof captureContext>>>();
-    const onStarted = vi.fn();
-
-    vi.mocked(captureContext)
-      .mockReturnValueOnce(capture.promise)
-      .mockRejectedValueOnce(new StudyError('not_found', 'Retired capture'));
-    vi.mocked(transformPage).mockRejectedValueOnce(new StudyError('transient', 'Lost receipt'));
-    const first = mount(
-      { render, rpcTestTransport },
-      <Transformation id={id} onStarted={onStarted} />
-    );
-
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
-      target: { value: 'Original title' }
-    });
-    fireEvent.change(screen.getByLabelText('NoteInstructions'), {
-      target: { value: 'Original instruction' }
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    expect(onStarted).toHaveBeenCalledExactlyOnceWith();
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(1));
-    const submitted = vi.mocked(captureContext).mock.calls[0]![0];
-
-    first.unmount();
-    const second = mount({ render, rpcTestTransport }, <Transformation id={id} />, first.client);
-
-    expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
-    expect(captureContext).toHaveBeenCalledTimes(1);
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
-      target: { value: 'Later title' }
-    });
-    fireEvent.change(screen.getByLabelText('NoteInstructions'), {
-      target: { value: 'Later instruction' }
-    });
-    fireEvent.click(screen.getByText('PageAdvancedOptions'));
-    fireEvent.click(screen.getByRole('button', { name: 'NoteOpGrammar' }));
-    await act(async () => {
-      capture.resolve({ requestId: 'capture-1', selectionRevision: 8n } as Awaited<
-        ReturnType<typeof captureContext>
-      >);
-      await capture.promise;
-    });
-    await screen.findByRole('button', { name: 'Retry' });
-    expect(transformPage).toHaveBeenCalledWith({
-      contextRequestId: 'capture-1',
-      title: 'Original title',
-      operations: ['clarity']
-    });
-    second.unmount();
-    vi.mocked(useAiReadiness).mockReturnValue('setup');
-    const unavailable = mount(
-      { render, rpcTestTransport },
-      <Transformation id={id} />,
-      first.client
-    );
-
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    expect(captureContext).toHaveBeenCalledTimes(1);
-    unavailable.unmount();
-    vi.mocked(useAiReadiness).mockReturnValue('ready');
-    const third = mount({ render, rpcTestTransport }, <Transformation id={id} />, first.client);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await screen.findByRole('button', { name: 'NoteReviewUnavailableAttempt' });
-    expect(vi.mocked(captureContext).mock.calls[1]![0]).toEqual(submitted);
-    expect(transformPage).toHaveBeenCalledTimes(1);
-    third.unmount();
-    mount({ render, rpcTestTransport }, <Transformation id={id} />, first.client);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteAbandonAttempt' }));
-    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('Later title');
-    expect(screen.getByLabelText('NoteInstructions')).toHaveValue('Later instruction');
-    expect(screen.getByRole('button', { name: 'NoteOpGrammar' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
-    expect(captureContext).toHaveBeenCalledTimes(2);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-    vi.mocked(captureContext).mockResolvedValueOnce({
-      requestId: 'capture-2',
-      selectionRevision: 8n
-    } as Awaited<ReturnType<typeof captureContext>>);
-    vi.mocked(transformPage).mockRejectedValueOnce(
-      new StudyError('transient', 'Unconfirmed new result')
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await waitFor(() => expect(transformPage).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(captureContext).mock.calls[2]![0]).toMatchObject({
-      instruction: 'Later instruction'
-    });
-    expect(vi.mocked(captureContext).mock.calls[2]![0].intentKey).not.toBe(submitted.intentKey);
-    expect(vi.mocked(transformPage).mock.calls[1]![0]).toEqual({
-      contextRequestId: 'capture-2',
-      title: 'Later title',
-      operations: ['clarity', 'grammar']
-    });
-    await screen.findByRole('alert', { name: 'NoteActionErrorTitle' });
-  }
-);
-
-test.unit.stable(
   'does not authorize abandonment until all reconciliation reads have completed',
   async ({ vi, fireEvent, screen, waitFor, expect, act, render, rpcTestTransport }) => {
     const runs = deferred<{ items: never[]; next: null }>();
@@ -383,126 +259,5 @@ test.unit.stable(
     });
     await screen.findByRole('button', { name: 'NoteAbandonAttempt' });
     expect(abandon).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'combines externally selected notes into one immutable document attempt with optional instructions',
-  async ({ vi, fireEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
-    vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
-    const view = mount(
-      { render, rpcTestTransport },
-      <Transformation
-        id={id}
-        notes={[
-          { id, title: 'First' },
-          { id: Schema.decodeUnknownSync(noteIdSchema)(502n), title: 'Second lecture' }
-        ]}
-      />
-    );
-
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
-      target: { value: 'Course notes' }
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalled());
-    expect(vi.mocked(captureContext).mock.calls[0]![0]).toMatchObject({
-      noteId: id,
-      additionalNoteIds: [502n],
-      instruction: '',
-      preferences: { language: 'english' }
-    });
-    view.rerender(
-      <RecoveryProvider registry={view.client} rpcTestTransport={rpcTestTransport}>
-        <Transformation
-          id={id}
-          notes={[
-            { id, title: 'First renamed' },
-            {
-              id: Schema.decodeUnknownSync(noteIdSchema)(502n),
-              title: 'Second lecture renamed'
-            }
-          ]}
-        />
-      </RecoveryProvider>
-    );
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(captureContext).mock.calls[1]![0]).toEqual(
-      vi.mocked(captureContext).mock.calls[0]![0]
-    );
-  }
-);
-
-test.unit.stable(
-  'keeps document recovery separate for different selected groups with the same first note',
-  async ({ vi, fireEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
-    vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
-    const other = Schema.decodeUnknownSync(noteIdSchema)(502n);
-    const third = Schema.decodeUnknownSync(noteIdSchema)(503n);
-    const first = mount(
-      { render, rpcTestTransport },
-      <Transformation
-        id={id}
-        notes={[
-          { id, title: 'First' },
-          { id: other, title: 'Second' }
-        ]}
-      />
-    );
-
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
-      target: { value: 'First group' }
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await screen.findByRole('button', { name: 'Retry' });
-    first.unmount();
-    const second = mount(
-      { render, rpcTestTransport },
-      <Transformation
-        id={id}
-        notes={[
-          { id, title: 'First' },
-          { id: third, title: 'Third' }
-        ]}
-      />,
-      first.client
-    );
-
-    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
-      target: { value: 'Second group' }
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(captureContext).mock.calls[1]![0].additionalNoteIds).toEqual([third]);
-    second.unmount();
-    mount(
-      { render, rpcTestTransport },
-      <Transformation
-        id={id}
-        notes={[
-          { id, title: 'First' },
-          { id: other, title: 'Second' }
-        ]}
-      />,
-      first.client
-    );
-    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('First group');
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(3));
-    expect(vi.mocked(captureContext).mock.calls[2]![0]).toEqual(
-      vi.mocked(captureContext).mock.calls[0]![0]
-    );
   }
 );

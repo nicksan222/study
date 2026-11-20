@@ -20,7 +20,7 @@ async function openAppearance(page: Page) {
 
 test.browser.stable(
   'Note appearance controls persist across reload',
-  async ({ page, expectScreenshot, expect }) => {
+  async ({ page, rpc, expectScreenshot, expect }) => {
     const choose = async (control: Locator, label: string) => {
       await control.click();
       await page.getByRole('option', { name: label, exact: true }).click();
@@ -45,10 +45,23 @@ test.browser.stable(
     });
     const fullWidth = (await timeline.boundingBox())!.width;
 
-    const writePage = page.getByRole('button', { name: copy.NoteWritePage, exact: true });
+    const notes = await rpc.runPromise(rpc.client['notes.notes']({ limit: 10 }));
+
+    expect(notes.items).toHaveLength(1);
+    const pageText = 'River survey field notes';
+
+    await rpc.runPromise(
+      rpc.client['notes.postMessage']({
+        noteId: notes.items[0]!.id,
+        format: 'document',
+        requestReply: false,
+        text: pageText
+      })
+    );
+    const openPage = page.locator('.workspace-desk-page').filter({ hasText: pageText });
     const editor = page.getByRole('textbox', { name: copy.NotePageEditor });
 
-    await writePage.click();
+    await openPage.click();
     await expect(editor).toBeEditable();
     await expect(notebook).toHaveAttribute('data-dock', 'side');
     await expect(input).toBeInViewport();
@@ -125,7 +138,7 @@ test.browser.stable(
     await expect(timeline).toContainText('Compare these readings with last week’s survey.');
 
     await showInput.click();
-    await writePage.click();
+    await openPage.click();
 
     await expect(editor).toBeEditable();
     await expect(notebook).toHaveAttribute('data-open');

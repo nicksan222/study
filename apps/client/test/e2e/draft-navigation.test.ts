@@ -75,8 +75,8 @@ test.browser.stable(
     }
 
     async function visitOtherRoutes({ expect }: Pick<test.browser.Context, 'expect'>) {
-      await navigation.getByRole('link', { name: copy.SourcePage }).click();
-      await expect(page).toHaveURL(/\/pages$/);
+      await navigation.getByRole('link', { name: copy.Practice }).click();
+      await expect(page).toHaveURL(/\/practice$/);
       await page.getByRole('button', { name: copy.Settings, exact: true }).click();
       const dialog = page.getByRole('dialog', { name: copy.Settings });
 

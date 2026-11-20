@@ -152,6 +152,9 @@ test.browser.stable(
     await dialog.getByText(copy.PracticeCustomize, { exact: true }).click();
     const instruction = 'Organize the observations for revision. Preserve the original claims.';
 
+    const title = 'Study notes for the cell division exam';
+
+    await dialog.getByRole('textbox', { name: copy.PracticeStudyNotesCustomTitle }).fill(title);
     await dialog.getByRole('textbox', { name: copy.PracticeGeneratePrompt }).fill(instruction);
     await expectScreenshot('transform-context-and-instructions', {
       target: dialog,
@@ -166,7 +169,7 @@ test.browser.stable(
     const transform = await study.notes.studyNotes(
       fixture.note.id,
       fixture.project.id,
-      copy.PracticeStudyNotesTitle,
+      title,
       instruction
     );
     const failure = transform.fail(
@@ -233,7 +236,7 @@ test.browser.stable(
         expect(page.getByRole('link', { name: copy.PracticeOpenStudyNotes })).toBeVisible()
     });
     await page.getByRole('link', { name: copy.PracticeOpenStudyNotes }).click();
-    await expect(page).toHaveURL(/\/pages\//);
+    await expect(page).toHaveURL(/\/practice\/study-notes\//);
     const pageEditor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
     await expectScreenshot('generated-study-page', {

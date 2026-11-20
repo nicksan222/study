@@ -193,6 +193,7 @@ test.unit.stable(
       'AI activity',
       'AI usage',
       'Performance',
+      'Study notes',
       'Flashcards',
       'Quizzes',
       'Fill in the blank',

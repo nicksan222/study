@@ -217,7 +217,7 @@ export function mountLibraryRoute(
     rpcHandlersTransport,
     vi
   }: Pick<test.unit.Context, 'render' | 'rpcHandlersTransport' | 'vi'>,
-  initial = '/pages',
+  initial = '/practice',
   rpc = materialRpc({ vi })
 ) {
   const harness = rpcHandlersTransport(rpc);

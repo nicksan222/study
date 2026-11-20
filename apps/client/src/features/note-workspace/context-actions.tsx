@@ -1,5 +1,5 @@
 import type { NoteId } from '@study/contracts';
-import { OpenIcon, ArchiveIcon, CreatePageIcon, DeleteIcon } from '@study/icons';
+import { OpenIcon, ArchiveIcon, DeleteIcon } from '@study/icons';
 import {
   Dialog,
   DialogTrigger,
@@ -41,25 +41,11 @@ function ContextAction({
   );
 }
 
-export function NoteContextActions({
-  id,
-  onDelete,
-  onCreate,
-  pending
-}: {
-  id: NoteId;
-  onDelete: () => void;
-  onCreate: () => void;
-  pending: boolean;
-}) {
+export function NoteContextActions({ id, onDelete }: { id: NoteId; onDelete: () => void }) {
   const { t } = useI18n();
 
   return (
     <WorkspaceChanges.Actions>
-      <WorkspaceCard.Item onClick={onCreate} disabled={pending}>
-        <CreatePageIcon aria-hidden="true" />
-        <span>{t('NoteNewPage')}</span>
-      </WorkspaceCard.Item>
       <ContextAction title={t('NoteArchived')} icon={<ArchiveIcon aria-hidden="true" />}>
         <ArchivePanel id={id} />
       </ContextAction>

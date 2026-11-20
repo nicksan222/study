@@ -7,8 +7,8 @@ import {
   ClosePanelIcon,
   MaximizeIcon,
   MinimizeIcon,
-  AddIcon,
   BackIcon,
+  AddIcon,
   DisclosureIcon,
   OpenIcon
 } from '@study/icons';
@@ -203,8 +203,6 @@ function Panel({
   expanded,
   onExpand,
   onHide,
-  onCreate,
-  createLabel,
   children
 }: {
   tabs: { id: string; label: ReactNode; closeLabel: string }[];
@@ -212,8 +210,6 @@ function Panel({
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onHide: () => void;
-  onCreate: () => void;
-  createLabel: string;
   closeLabel: string;
   hideLabel: string;
   expandLabel: string;
@@ -272,15 +268,6 @@ function Panel({
             </div>
           ))}
         </Tabs.List>
-        <Button
-          variant="ghost-muted"
-          size="icon-sm"
-          aria-label={createLabel}
-          title={createLabel}
-          onClick={onCreate}
-        >
-          <AddIcon size={16} aria-hidden="true" />
-        </Button>
         <div className="workspace-desk-panel-controls">
           <Button
             variant="ghost-muted"

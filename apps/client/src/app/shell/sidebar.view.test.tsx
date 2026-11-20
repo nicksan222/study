@@ -136,28 +136,6 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'offers page creation instead of note creation in Pages',
-  async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
-    renderSidebar(
-      { rpcTestTransport, renderInRouter },
-      <SidebarView
-        {...sidebarModel()}
-        metadata={{ title: 'SourcePage', section: 'pages', scope: 'project' }}
-        section="pages"
-        collection={null}
-      />
-    );
-
-    expect(
-      await screen.findByRole('button', { name: catalogs.english.NoteCreatePage })
-    ).toBeEnabled();
-    expect(
-      screen.queryByRole('button', { name: catalogs.english.NewNote })
-    ).not.toBeInTheDocument();
-  }
-);
-
-test.unit.stable(
   'does not offer note creation on unrelated pages',
   async ({ screen, expect, rpcTestTransport, renderInRouter }) => {
     renderSidebar(

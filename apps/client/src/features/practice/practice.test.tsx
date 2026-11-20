@@ -536,7 +536,7 @@ test.unit.stable(
         'link',
         { name: 'Material 41' }
       )
-    ).toHaveAttribute('href', '/pages/41?pageVersion=8');
+    ).toHaveAttribute('href', '/practice/study-notes/41?pageVersion=8');
     expect(
       within(screen.getByRole('complementary', { name: en.PracticeActions })).queryByRole(
         'button',

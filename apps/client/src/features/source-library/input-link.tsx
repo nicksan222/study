@@ -54,7 +54,7 @@ function AuthoredInputLink({
       name={name}
       link={
         <Link
-          to="/pages/$pageId"
+          to="/practice/study-notes/$pageId"
           params={{ pageId: String(state.data.pageId) }}
           search={{ pageVersion: String(versionId) }}
         >

@@ -34,7 +34,7 @@ test.server.stable(
 
       const imported = db.orm.select().from(sources).all();
 
-      expect(imported).toHaveLength(27);
+      expect(imported).toHaveLength(28);
       expect([...new Set(imported.map((source) => source.kind))].sort()).toEqual([
         'archive',
         'audio',
@@ -62,15 +62,15 @@ test.server.stable(
           .all()
           .every((row) => row.status === 'published')
       ).toBe(true);
-      expect(db.orm.get(sql`SELECT count(*) n FROM pages`)?.n).toBe(10n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM pages`)?.n).toBe(11n);
       expect(db.orm.get(sql`SELECT count(*) n FROM material_flashcard_entries`)?.n).toBe(20n);
       expect(db.orm.get(sql`SELECT count(*) n FROM material_quiz_questions`)?.n).toBe(15n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(100n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(102n);
       expect(
         db.orm
           .all(sql`SELECT project_id, count(*) n FROM project_notes GROUP BY project_id`)
           .map((row) => row.n)
-      ).toEqual([10n, 10n, 10n, 10n, 10n]);
+      ).toEqual([11n, 10n, 10n, 10n, 10n]);
       expect(
         db.orm
           .all(sql`SELECT DISTINCT kind FROM material_quiz_questions`)

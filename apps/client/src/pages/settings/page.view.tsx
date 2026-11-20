@@ -3,6 +3,7 @@ import {
   AppearanceIcon,
   GeneralSettingsIcon,
   FlashcardsIcon,
+  PageIcon,
   DataStorageIcon,
   ProjectIcon,
   WritingIcon,
@@ -197,6 +198,12 @@ const sections = [
     ]
   },
   {
+    id: 'study_notes',
+    label: 'PracticeStudyNotesTitle',
+    Icon: PageIcon,
+    keywords: ['AgentRulesPages', 'AgentRulesPagesHelp']
+  },
+  {
     id: 'flashcards',
     label: 'Flashcards',
     Icon: FlashcardsIcon,
@@ -282,7 +289,15 @@ const navigationGroups = [
   },
   {
     label: 'Practice',
-    ids: ['flashcards', 'quizzes', 'fill_blank', 'ordering', 'matching', 'true_false']
+    ids: [
+      'study_notes',
+      'flashcards',
+      'quizzes',
+      'fill_blank',
+      'ordering',
+      'matching',
+      'true_false'
+    ]
   },
   { label: 'SettingsGroupLibrary', ids: ['projects', 'data', 'integrations'] }
 ] as const satisfies readonly { label: StaticMessageKey; ids: readonly SettingsSectionId[] }[];
@@ -456,6 +471,7 @@ function SectionContent({
     analytics: <AnalyticsSettings />,
     usage: <UsageSettings />,
     activity: <AiActivitySettings />,
+    study_notes: <AgentRulesSettings studyNotes />,
     flashcards: <StudySettings />,
     quizzes: <QuizSettings />,
     fill_blank: <QuizSettings kind="fill_blank" />,

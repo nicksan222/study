@@ -69,8 +69,8 @@ test.browser.stable(
     await composer.press('ControlOrMeta+Enter');
 
     // In-app navigation retains the volatile draft and uncertainty fence.
-    await page.getByRole('link', { name: copy.SourcePage }).click();
-    await expect(page).toHaveURL(/\/pages\/?$/);
+    await page.getByRole('link', { name: copy.Practice }).click();
+    await expect(page).toHaveURL(/\/practice\/?$/);
     await expect(composer).toBeHidden();
     await page.goBack();
     await expect(page).toHaveURL(/\/notes$/);

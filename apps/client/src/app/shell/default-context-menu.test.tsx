@@ -7,10 +7,7 @@ import type * as __StudyMockType0 from '#client/app/shell/default-context-menu.t
 
 let DefaultContextMenu: typeof __StudyMockType0.DefaultContextMenu;
 
-test.unit.beforeEach(async ({ mock }) => {
-  mock('#client/features/pages/index.ts', () => ({
-    useNewBlankPage: () => ({ pending: false, create: async () => true })
-  }));
+test.unit.beforeEach(async () => {
   const __studyMockModule0 = await import('./default-context-menu');
 
   DefaultContextMenu = __studyMockModule0.DefaultContextMenu;
@@ -29,10 +26,10 @@ test.unit.stable(
 
     fireEvent.contextMenu(await screen.findByText('Workspace'));
     expect(await screen.findByRole('menuitem', { name: en.NewNote })).toBeEnabled();
-    expect(screen.getByRole('menuitem', { name: en.PageNew })).toBeEnabled();
-    expect(screen.getByRole('menuitem', { name: en.SourcePage })).toHaveAttribute(
+    expect(screen.queryByRole('menuitem', { name: en.PageNew })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: en.Practice })).toHaveAttribute(
       'href',
-      '/pages?project=2'
+      '/practice?project=2'
     );
     expect(screen.getByRole('menuitem', { name: en.Projects })).toHaveAttribute(
       'href',

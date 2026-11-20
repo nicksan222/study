@@ -1,6 +1,5 @@
 import { StudyError } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
-import { ComposeIcon } from '@study/icons';
 import {
   Button,
   Loading,
@@ -26,15 +25,7 @@ import { UnavailableAttempt } from './unavailable-attempt';
 type ComposerModel = ReturnType<typeof useComposer>;
 
 /** Composes notes, and questions. */
-export function Composer({
-  id,
-  onPage,
-  docked = false
-}: {
-  id: NoteId;
-  onPage?: () => void;
-  docked?: boolean;
-}) {
+export function Composer({ id, docked = false }: { id: NoteId; docked?: boolean }) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();
   const { t, draft, blocked, setDraft, submitNote } = model;
@@ -70,28 +61,13 @@ export function Composer({
         }
       }}
       tools={
-        <>
-          <DictationSubmissionScope value={submission.scope}>
-            <DictationButton
-              targetKey={id}
-              {...dictation}
-              disabled={blocked || !(docked || capture.open)}
-            />
-          </DictationSubmissionScope>
-          {onPage && (
-            <Button
-              variant="ghost-muted"
-              size="sm"
-              disabled={blocked || submission.blocked}
-              onClick={() => {
-                if (!submission.isBlocked()) onPage();
-              }}
-            >
-              <ComposeIcon size={16} aria-hidden="true" />
-              {t('NoteWritePage')}
-            </Button>
-          )}
-        </>
+        <DictationSubmissionScope value={submission.scope}>
+          <DictationButton
+            targetKey={id}
+            {...dictation}
+            disabled={blocked || !(docked || capture.open)}
+          />
+        </DictationSubmissionScope>
       }
       recovery={<ComposerRecovery model={model} />}
     />

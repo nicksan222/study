@@ -45,9 +45,11 @@ export function useSidebarCounts({
       count: ready && notesReady && count.isSuccess ? Number(count.data) : undefined,
       unresolved
     },
-    pages: { count: ready && pages.isSuccess ? Number(pages.data) : undefined },
     practice: {
-      count: ready && practice.isSuccess ? Number(practice.data) : undefined
+      count:
+        ready && practice.isSuccess && pages.isSuccess
+          ? Number(practice.data) + Number(pages.data)
+          : undefined
     }
   };
 }

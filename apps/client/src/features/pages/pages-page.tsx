@@ -1,36 +1,23 @@
-import { projectIdSchema } from '@study/contracts';
 import type { ProjectId, PageSummary } from '@study/contracts';
 import { OpenIcon, PageIcon, RefreshIcon } from '@study/icons';
 import { IconButton, PageOverview } from '@study/ui';
-import { Link, useSearch } from '@tanstack/react-router';
-import { Schema } from 'effect';
+import { Link } from '@tanstack/react-router';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { ContentReadError } from '../document-presentation';
 import { PagesArchive } from './archive';
-import { NewBlankPage } from './creation-actions';
 import { PageMerges } from './merge';
 import { PageContextMenu } from './page-context-menu';
 import { usePageBrowse } from './use-page-browse';
 
-/** A dedicated destination for completed pages, independent from sources and materials. */
-export function PagesPage() {
-  const search = useSearch({ from: '__root__' });
-  const project = search.project
-    ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(search.project))
-    : undefined;
-
-  return <PagesOverviewPage key={String(project)} project={project} />;
-}
-
-function PagesOverviewPage({ project }: { project?: ProjectId }) {
+/** Shows generated and saved study notes within the Practice workspace. */
+export function PracticeStudyNotes({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
-  const archived = false;
-  const { query: state, navigation: window } = usePageBrowse(project, archived);
+  const { query: state, navigation: window } = usePageBrowse(project);
 
-  const items = displayedPages(state.isError, state.data ? [state.data] : undefined).filter(
+  const items = (state.isError ? [] : (state.data?.items ?? [])).filter(
     (item) => item.headVersionId !== null
   );
 
@@ -43,7 +30,6 @@ function PagesOverviewPage({ project }: { project?: ProjectId }) {
         </PageOverview.Intro>
         <PageOverview.Actions>
           <PagesArchive project={project} />
-          <NewBlankPage key={String(project)} project={project} />
           <IconButton
             variant="ghost-muted"
             size="icon"
@@ -56,9 +42,9 @@ function PagesOverviewPage({ project }: { project?: ProjectId }) {
           </IconButton>
         </PageOverview.Actions>
       </PageOverview.Heading>
-      <PageMerges project={project} />
+      {project && <PageMerges project={project} />}
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
-      <SavedPages items={items} project={project} archived={archived} />
+      <SavedPages items={items} project={project} />
 
       <CursorWindowActions
         {...window}
@@ -66,7 +52,7 @@ function PagesOverviewPage({ project }: { project?: ProjectId }) {
         pending={state.isFetching}
         more={() => window.more(state.data?.nextCursor)}
       />
-      <PagesEmpty ready={state.isSuccess} empty={!items.length} archived={archived} />
+      <PagesEmpty ready={state.isSuccess} empty={!items.length} />
     </PageOverview.Root>
   );
 }
@@ -99,7 +85,7 @@ function PageRow({ item, project }: { item: PageSummary; project?: ProjectId }) 
     <li>
       <PageContextMenu page={item} project={project}>
         <Link
-          to="/pages/$pageId"
+          to="/practice/study-notes/$pageId"
           params={{ pageId: String(item.id) }}
           search={project ? { project: String(project) } : {}}
         >
@@ -111,28 +97,14 @@ function PageRow({ item, project }: { item: PageSummary; project?: ProjectId }) 
   );
 }
 
-function displayedPages(failed: boolean, pages?: readonly { items: readonly PageSummary[] }[]) {
-  return failed ? [] : (pages?.flatMap((page) => page.items) ?? []);
-}
-
-function SavedPages({
-  items,
-  project,
-  archived
-}: {
-  items: PageSummary[];
-  project?: ProjectId;
-  archived: boolean;
-}) {
+function SavedPages({ items, project }: { items: PageSummary[]; project?: ProjectId }) {
   const { t } = useI18n();
 
   return (
     <>
       {items.length > 0 && (
         <PageOverview.Section aria-label={t('PagesSaved')}>
-          <PageOverview.SectionHeading>
-            {t(archived ? 'PagesArchived' : 'PagesSaved')}
-          </PageOverview.SectionHeading>
+          <PageOverview.SectionHeading>{t('PagesSaved')}</PageOverview.SectionHeading>
           <PageOverview.Rows>
             {items.map((item) => (
               <PageRow key={String(item.id)} item={item} project={project} />
@@ -144,15 +116,7 @@ function SavedPages({
   );
 }
 
-function PagesEmpty({
-  ready,
-  empty,
-  archived
-}: {
-  ready: boolean;
-  empty: boolean;
-  archived: boolean;
-}) {
+function PagesEmpty({ ready, empty }: { ready: boolean; empty: boolean }) {
   const { t } = useI18n();
 
   return (
@@ -161,7 +125,7 @@ function PagesEmpty({
         <PageOverview.Empty>
           <PageIcon aria-hidden="true" />
           <h3>{t('PagesEmptyTitle')}</h3>
-          <p>{t(archived ? 'PagesArchivedEmpty' : 'PagesOverviewEmpty')}</p>
+          <p>{t('PagesOverviewEmpty')}</p>
         </PageOverview.Empty>
       )}
     </>

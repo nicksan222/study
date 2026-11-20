@@ -117,7 +117,7 @@ test.browser.stable(
 
 test.browser.stable(
   'Writing settings validate every number and apply capture and page preferences',
-  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
+  async ({ page, rpc, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const draft = 'An unsent field observation survives opening and closing settings.';
@@ -279,8 +279,23 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(entries).toHaveCount(2)
     });
+    const notes = await rpc.runPromise(rpc.client['notes.notes']({ limit: 10 }));
+
+    expect(notes.items).toHaveLength(1);
+    const pageText = 'Field observation report';
+
+    await rpc.runPromise(
+      rpc.client['notes.postMessage']({
+        noteId: notes.items[0]!.id,
+        format: 'document',
+        requestReply: false,
+        text: pageText
+      })
+    );
+    const openPage = page.locator('.workspace-desk-page').filter({ hasText: pageText });
+
     await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    await page.getByRole('button', { name: copy.NoteWritePage, exact: true }).click();
+    await openPage.click();
     const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
     await expect(editor).toBeVisible();
@@ -336,7 +351,7 @@ test.browser.stable(
     await expect(entries).toHaveCount(3);
     await expect(composer).toBeHidden();
     await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    await page.getByRole('button', { name: copy.NoteWritePage, exact: true }).click();
+    await openPage.click();
     await expect(editor).toBeVisible();
     await expect(editor).toHaveCSS('font-size', '24px');
     await expect(
@@ -559,7 +574,7 @@ test.browser.stable(
     await expect(navigation).toHaveCSS('flex-direction', 'row');
     await expect(settings).toBeFocused();
 
-    const shortcuts = [copy.Notes, copy.SourcePage, copy.Practice, copy.Assistant].map((name) =>
+    const shortcuts = [copy.Notes, copy.Practice, copy.Assistant].map((name) =>
       navigation.getByRole('link', { name, exact: true })
     );
 
@@ -579,8 +594,8 @@ test.browser.stable(
     });
     await page.reload();
     await expect(navigation).toHaveCSS('flex-direction', 'row');
-    await navigation.getByRole('link', { name: copy.SourcePage, exact: true }).press('Enter');
-    await expect(page).toHaveURL(/\/pages$/);
+    await navigation.getByRole('link', { name: copy.Practice, exact: true }).press('Enter');
+    await expect(page).toHaveURL(/\/practice$/);
 
     await openSidebarSettings();
     await expect(toggle).toBeChecked();
@@ -1081,6 +1096,17 @@ test.browser.stable(
     });
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
+    await navigation
+      .getByRole('button', { name: copy.PracticeStudyNotesTitle, exact: true })
+      .click();
+    await expect(task).toHaveCount(0);
+    await expectScreenshot('study-notes-instructions', {
+      target: dialog,
+      ready: () =>
+        expect(pages).toHaveValue(
+          `Prefer concise examples for ${copy.AgentRulesPages}.\nKeep this task-specific instruction 0.`
+        )
+    });
     await navigation.getByRole('button', { name: copy.AgentRulesTitle, exact: true }).click();
 
     for (const [index, title] of tasks.entries()) {

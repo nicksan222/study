@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 
 import { practiceLoaderDeps, loadPracticeSidebar } from '../app/shell/sidebar-loaders';
+import { pagesRouteLoader } from '../features/pages';
 import { Page } from '../pages/practice/page';
 
 export const Route = createFileRoute('/practice/')({
-  staticData: { header: 'workspace', title: 'Practice', section: 'practice', scope: 'project' },
+  staticData: { title: 'Practice', section: 'practice', scope: 'project' },
   loaderDeps: practiceLoaderDeps,
-  loader: loadPracticeSidebar,
+  loader: (context) => Promise.all([loadPracticeSidebar(context), pagesRouteLoader(context)]),
   component: Page
 });

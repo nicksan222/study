@@ -270,9 +270,8 @@ export const english = Object.freeze({
   AgentRulesIntro:
     'Choose a task and describe how Study should work. Changes apply to future runs. Leave a field empty to use the defaults. Your preferences supplement the task instructions; required formats and source accuracy still apply.',
   AgentRulesTask: 'Task',
-  AgentRulesPages: 'Pages',
-  AgentRulesPagesHelp:
-    'Guide page generation and rewrites: structure, headings, tone and level of detail. For example: start with an overview and keep worked examples.',
+  AgentRulesPages: 'Study notes and revisions',
+  AgentRulesPagesHelp: 'Set default instructions for generated study notes and AI revisions.',
   AgentRulesTitles: 'Titles',
   AgentRulesTitlesHelp:
     'Guide automatically generated note and study material titles. For example: use concise, descriptive titles without emojis.',
@@ -352,14 +351,17 @@ export const english = Object.freeze({
   PracticeStudyNotesGenerating: 'Generating study notes…',
   PracticeStudyNotesFailed:
     'Study notes could not be generated. You can retry using the same sources.',
+  PracticeStudyNotesActivity: 'Generation activity',
+  PracticeStudyNotesCustomTitle: 'Study notes title',
   PracticeStudyNotesTitle: 'Study notes',
-  PracticeStudyNotesHelp: 'Turn your selected notes and materials into a study document.',
+  PracticeStudyNotesHelp: 'Turn your selected sources into editable study notes.',
   PracticeOpenStudyNotes: 'Open study notes',
   PracticeMaterialNeedsExtraction: 'Extracted text is required',
   QuizChooseInputs: 'Sources',
-  QuizChooseInputsHelp: 'Choose up to 20 notes, materials, or pages.',
+  QuizChooseInputsHelp:
+    'Choose up to 20 sources from your notes, materials, and saved study notes.',
   QuizInputsError: 'Could not load source material. Try again.',
-  QuizNoProjectInputs: 'This subject has no pages yet. Add one from Pages first.',
+  QuizNoProjectInputs: 'This subject has no saved study notes yet.',
   QuizInputUnavailable:
     'This source is not ready to use. Wait for processing to finish and try again.',
   QuizGenerateName: 'Title (optional)',
@@ -573,10 +575,9 @@ export const english = Object.freeze({
   SidebarSelectedCount: '{count} selected',
   SidebarDeleteSelected: 'Delete selected',
   SidebarShowMore: 'Show {count} more',
-  PagesOverviewTitle: 'Your pages',
-  PagesOverviewDescription:
-    'A place for your finished notes, worked examples and study guides. Pick up where you left off, or start a new page.',
-  PagesSaved: 'Saved pages',
+  PagesOverviewTitle: 'Study notes',
+  PagesOverviewDescription: 'Review and edit study notes generated from your sources.',
+  PagesSaved: 'Saved study notes',
   PagesSelect: 'Select pages',
   PagesSelectionHelp: 'Select 2 to 20 pages to merge.',
   PagesSelected: '{count} selected',
@@ -602,9 +603,9 @@ export const english = Object.freeze({
   PagesMergeCancel: 'Cancel merge',
   PagesSelectAll: 'Select loaded pages',
   PagesCancelSelection: 'Cancel selection',
-  PagesEmptyTitle: 'Make room for your next idea',
+  PagesEmptyTitle: 'No study notes yet',
   PagesOverviewEmpty:
-    'Create a page or turn a note into one. Your writing will be collected here, ready to read and refine.',
+    'Choose Generate in Practice and select the notes and materials you want to study.',
   PagesFromNotes: 'From notes',
   PagesSelectNotesHelp:
     'Choose one or more notes to turn into a page. You can set instructions and options next.',
@@ -617,7 +618,7 @@ export const english = Object.freeze({
     'Choose a note for questions, summaries or rewrites. This page version will be added to its context; your other selected context stays in place.',
   PageOpenAI: 'Open note',
   PageDeleteAction: 'Delete page…',
-  PagesEmpty: 'Your finished pages will appear here.',
+  PagesEmpty: 'Generated study notes will appear here.',
   PagesLoadError: 'Could not load your pages.',
   SidebarSettled: 'Settled',
   SidebarReady: 'Ready',
@@ -2595,7 +2596,7 @@ export const english = Object.freeze({
   SourcePdf: 'PDFs',
   SourceText: 'Text files',
   SourceCode: 'Code and web files',
-  SourcePage: 'Pages',
+  SourcePage: 'Study notes',
   SourceDocument: 'Documents',
   SourceSpreadsheet: 'Spreadsheets',
   SourceSlides: 'Slides',

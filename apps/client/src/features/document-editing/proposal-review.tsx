@@ -53,7 +53,7 @@ function ProposalResult({ versionId }: { versionId: NonNullable<Outcome['resultV
 
   return version.isSuccess && version.data ? (
     <Link
-      to="/pages/$pageId"
+      to="/practice/study-notes/$pageId"
       params={{ pageId: String(version.data.pageId) }}
       search={{ pageVersion: String(versionId) }}
     >

@@ -28,7 +28,7 @@ test.server.stable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const sources = yield* client['sources.sources']({ limit: 100 });
 
-            expect(sources.items).toHaveLength(27);
+            expect(sources.items).toHaveLength(28);
 
             for (const source of sources.items) {
               const exported = yield* client['sources.sourceExport']({ id: source.id });
@@ -53,13 +53,15 @@ test.server.stable(
                 project: project.id
               });
 
-              expect(notes.items).toHaveLength(10);
-              expect(new Set(notes.items.map((note) => note.title)).size).toBe(10);
+              const expected = project.name === 'Cell Biology' ? 11 : 10;
+
+              expect(notes.items).toHaveLength(expected);
+              expect(new Set(notes.items.map((note) => note.title)).size).toBe(expected);
             }
 
             const pages = yield* client['pages.pages']({ limit: 100, archived: false });
 
-            expect(pages.items).toHaveLength(10);
+            expect(pages.items).toHaveLength(11);
 
             for (const note of pages.items) {
               const detail = yield* client['pages.page']({ id: note.id });

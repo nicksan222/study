@@ -6,7 +6,7 @@ import { Schema } from 'effect';
 import { AuthoredPageReader } from './reader';
 
 export function PageReaderPage() {
-  const { pageId } = useParams({ from: '/pages/$pageId' });
+  const { pageId } = useParams({ from: '/practice/study-notes/$pageId' });
   const search = useSearch({ from: '__root__' });
   const id = Schema.decodeUnknownSync(pageIdSchema)(BigInt(pageId));
 

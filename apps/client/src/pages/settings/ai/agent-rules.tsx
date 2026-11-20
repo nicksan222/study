@@ -27,10 +27,17 @@ const tasks = {
   }
 } as const satisfies Record<AgentRuleKey, { title: StaticMessageKey; help: StaticMessageKey }>;
 
-/** Keeps task instructions editable while their changes are persisted. */
-export function AgentRulesSettings() {
+function AgentRulesIntro({ studyNotes }: { studyNotes: boolean }) {
   const { t } = useI18n();
-  const model = useAgentRules();
+
+  return studyNotes ? null : <Settings.Intro>{t('AgentRulesIntro')}</Settings.Intro>;
+}
+
+/** Keeps task instructions editable while their changes are persisted. */
+export function AgentRulesSettings({ studyNotes = false }: { studyNotes?: boolean }) {
+  const { t } = useI18n();
+  const locked = studyNotes ? AgentRule.Pages : undefined;
+  const model = useAgentRules(locked);
   const { query, mutation, rules, selected } = model;
   const task = tasks[selected.key];
   const input = useRef<HTMLTextAreaElement>(null);
@@ -46,8 +53,11 @@ export function AgentRulesSettings() {
   }));
 
   return (
-    <Settings.Section title={t('AgentRulesTitle')} busy={mutation.isPending}>
-      <Settings.Intro>{t('AgentRulesIntro')}</Settings.Intro>
+    <Settings.Section
+      title={t(studyNotes ? 'PracticeStudyNotesTitle' : 'AgentRulesTitle')}
+      busy={mutation.isPending}
+    >
+      <AgentRulesIntro studyNotes={studyNotes} />
       {query.isPending && <Loading label={t('LoadingSettings')} layout="panel" />}
       {query.isError && (
         <Settings.Status
@@ -71,12 +81,14 @@ export function AgentRulesSettings() {
       {rules && (
         <>
           <Settings.Group>
-            <Settings.SelectRow
-              title={t('AgentRulesTask')}
-              value={selected.key}
-              options={options}
-              onValueChange={model.select}
-            />
+            {!studyNotes && (
+              <Settings.SelectRow
+                title={t('AgentRulesTask')}
+                value={selected.key}
+                options={options}
+                onValueChange={model.select}
+              />
+            )}
             <Settings.TextareaRow
               ref={input}
               action={<DictationButton targetKey={selected.key} {...dictation} />}

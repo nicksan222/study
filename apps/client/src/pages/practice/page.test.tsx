@@ -37,7 +37,7 @@ test.unit.stable.for(['english', 'italian'] as const)(
     expect(
       await screen.findByRole('heading', { name: copy.PracticeStudyNotesTitle })
     ).toBeVisible();
-    expect(screen.getByText('Field observations')).toBeVisible();
+    expect(await screen.findByText('Field observations')).toBeVisible();
     expect(screen.getByText(copy.PracticeStudyNotesGenerating)).toBeVisible();
     expect(router.state.location.search.project).toBe('9007199254740993');
   }

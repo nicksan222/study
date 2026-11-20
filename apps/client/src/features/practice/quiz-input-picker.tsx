@@ -86,7 +86,6 @@ function PageInput({
   onChange: Dispatch<SetStateAction<ContentInput[]>>;
   disabled: boolean;
 }) {
-  const { t } = useI18n();
   const selected = inputs.some(
     (input) => input.kind === 'page' && input.versionId === page.headVersionId
   );
@@ -94,7 +93,7 @@ function PageInput({
   return (
     <Settings.ToggleRow
       title={page.title}
-      description={t('NoteEntryPage')}
+      description={page.description ?? undefined}
       checked={selected}
       disabled={disabled || (!selected && inputs.length >= 20)}
       onCheckedChange={(checked) => {

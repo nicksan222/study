@@ -6,11 +6,9 @@ import {
   noteDeletionSchema,
   chatMessageSchema,
   noteSchema,
-  transformSnapshotSchema,
   projectSchema,
   endpoints,
-  blockIdSchema,
-  executionSchema
+  blockIdSchema
 } from '@study/contracts';
 import { test } from '@study/testing';
 import { toastManager } from '@study/ui';
@@ -31,8 +29,6 @@ import type * as __MockType6 from './deletion';
 import type * as __MockType7 from './history';
 import type * as __MockType2 from './start-drafts.queries';
 import type * as __MockType3 from './start.queries';
-import type * as __MockType9 from './transformation';
-import type * as __MockType4 from './transformation.queries';
 import type * as __MockType10 from './workspace';
 
 let authoredPage: typeof __MockType0.authoredPage;
@@ -44,8 +40,6 @@ let startDraft: typeof __MockType2.startDraft;
 let startDraftKey: typeof __MockType2.startDraftKey;
 
 let creationFlow: typeof __MockType3.creationFlow;
-
-let transformDraft: typeof __MockType4.transformDraft;
 
 function initializePickerPage() {
   return (versionId = 102n) => {
@@ -77,8 +71,6 @@ let History: typeof __MockType7.History;
 
 let CapturedContext: typeof __MockType7.CapturedContext;
 
-let Transformation: typeof __MockType9.Transformation;
-
 let NoteWorkspace: typeof __MockType10.NoteWorkspace;
 
 let rpc: ReturnType<typeof createMockState>['rpc'];
@@ -106,7 +98,6 @@ function testFixture(
 
         return value;
       },
-      'notes.noteGenerations': rpc.generations,
       'notes.messageVersionCitations': async (input) => ({
         ...Schema.decodeUnknownSync(
           Schema.toType(endpoints.notes.messageVersionCitations.rpc.payloadSchema)
@@ -136,9 +127,6 @@ function testFixture(
       'notes.updateNoteSelection': rpc.updateSelection,
       'notes.inspectNoteContext': rpc.context,
       'notes.thread': rpc.thread,
-      'pages.transform': rpc.generation,
-      'pages.retryTransform': rpc.retryGeneration,
-      'pages.cancelTransform': rpc.cancel,
       'pages.pages': rpc.materials,
       'pages.version': rpc.version,
       'pages.versions': () => Effect.succeed({ items: [], nextCursor: null }),
@@ -154,36 +142,6 @@ const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
 const selection = (revision = 8n, targets: readonly unknown[] = []) =>
   Schema.decodeUnknownSync(noteSelectionSchema)({ revision, targets });
-
-const generation = (patch = {}) =>
-  Schema.decodeUnknownSync(transformSnapshotSchema)({
-    id: 'transform-1',
-    title: 'Derivative',
-    instruction: 'Clarify',
-    contextRequestId: 'capture-1',
-    operations: ['clarity'],
-    noteId: id,
-    eventId: 'transform-1',
-    errorKind: null,
-    cancelled: false,
-    report: null,
-    resultVersionId: null,
-    ...patch
-  });
-
-const execution = (name: string) =>
-  Schema.decodeUnknownSync(executionSchema)({
-    id: name,
-    workflow: 'MaterialGeneration',
-    correlationId: 'transform-1',
-    status: 'completed',
-    outcome: 'failure',
-    failureKind: 'transient',
-    configurationWaitReason: null,
-    canCancel: false,
-    createdAtMs: 1n,
-    updatedAtMs: 2n
-  });
 
 const caches: AtomRegistry.AtomRegistry[] = [];
 
@@ -233,37 +191,12 @@ function mount(
   };
 }
 
-function seedTransform(client: AtomRegistry.AtomRegistry) {
-  rpc.generations.mockResolvedValue({
-    items: [
-      {
-        requestId: 'transform-1',
-        contextRequestId: 'capture-1',
-        state: 'available',
-        cancelled: false,
-        resultVersionId: null,
-        proposedVersionId: null,
-        baseVersionId: null
-      }
-    ],
-    next: null
-  });
-  client.set(transformDraft(id), {
-    title: 'Derivative',
-    instruction: 'Clarify',
-    operations: ['clarity'],
-    requestId: 'transform-1',
-    runs: [{ id: 'transform-1', contextId: 'capture-1' }]
-  });
-}
-
 function createMockState(mock: test.Mock) {
   return {
     rpc: (() => ({
       note: mock.fn(),
       projects: mock.fn(),
       remove: mock.fn(),
-      generations: mock.fn(),
       citations: mock.fn(),
       provenance: mock.fn(),
       deletion: mock.fn(),
@@ -272,10 +205,7 @@ function createMockState(mock: test.Mock) {
       notes: mock.fn(),
       selection: mock.fn(),
       updateSelection: mock.fn(),
-      generation: mock.fn(),
       executions: mock.fn(),
-      retryGeneration: mock.fn(),
-      cancel: mock.fn(),
       context: mock.fn(),
       thread: mock.fn(),
       materials: mock.fn(),
@@ -307,10 +237,6 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule3 = await import('./start.queries');
 
   creationFlow = __mockModule3.creationFlow;
-  const __mockModule4 = await import('./transformation.queries');
-
-  transformDraft = __mockModule4.transformDraft;
-
   const __mockModule6 = await import('./deletion');
 
   NoteDeleteDialog = __mockModule6.NoteDeleteDialog;
@@ -319,9 +245,6 @@ test.unit.beforeEach(async ({ mock }) => {
   History = __mockModule7.History;
   CapturedContext = __mockModule7.CapturedContext;
 
-  const __mockModule9 = await import('./transformation');
-
-  Transformation = __mockModule9.Transformation;
   const __mockModule10 = await import('./workspace');
 
   NoteWorkspace = __mockModule10.NoteWorkspace;
@@ -339,11 +262,9 @@ test.unit.beforeEach(({ vi }) => {
     createdAt: 1n,
     updatedAt: 1n
   });
-  rpc.generations.mockResolvedValue({ items: [], next: null });
   rpc.citations.mockResolvedValue({ citations: [] });
   rpc.selection.mockResolvedValue(selection());
   rpc.executions.mockResolvedValue({ items: [], next: null });
-  rpc.generation.mockResolvedValue(generation());
   rpc.thread.mockResolvedValue({ items: [], next: null });
   rpc.materials.mockResolvedValue({ items: [], nextCursor: null });
   rpc.version.mockImplementation(({ id }) => pickerPage(id).version);
@@ -464,92 +385,8 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'persists an ambiguous retry key across remounts and waits for its exact execution before another retry',
-  async ({ fireEvent, screen, waitFor, expect, act, render, rpcHandlersTransport }) => {
-    rpc.executions.mockImplementation(({ eventId }) => ({
-      items: eventId ? [] : [execution('old-failure')],
-      next: null
-    }));
-    rpc.retryGeneration
-      .mockRejectedValueOnce(new StudyError('transient', 'Receipt lost'))
-      .mockResolvedValue(generation());
-    const client = cache();
-
-    seedTransform(client);
-    const first = mount({ render, rpcHandlersTransport }, <Transformation id={id} />, client);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Retry' }).length).toBe(2));
-    const original = rpc.retryGeneration.mock.calls[0]![0];
-
-    first.unmount();
-    const second = mount({ render, rpcHandlersTransport }, <Transformation id={id} />, client);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(2));
-    expect(rpc.retryGeneration.mock.calls[1]![0]).toEqual(original);
-    await waitFor(() =>
-      expect(rpc.executions).toHaveBeenCalledWith({
-        correlationId: 'transform-1',
-        eventId: original.retryId,
-        limit: 30
-      })
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
-    );
-    second.unmount();
-    mount({ render, rpcHandlersTransport }, <Transformation id={id} />, client);
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
-    );
-    await waitFor(() => expect(rpc.executions).toHaveBeenCalled());
-    // A newer unrelated failure must not authorize another retry of this attempt.
-    await act(async () => {
-      rpc.executions.mockImplementation(({ eventId }) => ({
-        items: eventId ? [] : [execution('unrelated')],
-        next: null
-      }));
-      await notify(client);
-    });
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-    await act(async () => {
-      const failed = execution('retry-failure');
-
-      rpc.executions.mockResolvedValue({ items: [failed], next: null });
-      await notify(client);
-    });
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(3));
-    expect(rpc.retryGeneration.mock.calls[2]![0].retryId).not.toBe(original.retryId);
-  }
-);
-
-test.unit.stable(
-  'keeps cancelled transforms terminal and offers a fresh transform instead',
-  async ({ screen, expect, fireEvent, waitFor, render, rpcHandlersTransport }) => {
-    rpc.generation.mockResolvedValue(generation({ cancelled: true }));
-    rpc.executions.mockResolvedValue({ items: [execution('old-failure')], next: null });
-    const client = cache();
-
-    seedTransform(client);
-    mount({ render, rpcHandlersTransport }, <Transformation id={id} />, client);
-    await screen.findByText('NoteCancelledTransform');
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'NoteCancel' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteNewTransform' }));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-    expect(rpc.retryGeneration).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'exposes operation toggle state and contextual version groups',
-  async ({ screen, expect, fireEvent, waitFor, within, render, rpcHandlersTransport }) => {
-    const client = cache();
+  'exposes contextual version groups',
+  async ({ screen, expect, fireEvent, within, render, rpcHandlersTransport }) => {
     const message = (messageId: bigint) =>
       Schema.decodeUnknownSync(chatMessageSchema)({
         id: messageId,
@@ -577,20 +414,8 @@ test.unit.stable(
       });
 
     rpc.thread.mockResolvedValue({ items: [message(1n), message(2n)], next: null });
-    mount(
-      { render, rpcHandlersTransport },
-      <>
-        <Transformation id={id} />
-        <History id={id} />
-      </>,
-      client
-    );
+    mount({ render, rpcHandlersTransport }, <History id={id} />);
 
-    const clarity = await screen.findByRole('button', { name: 'NoteOpClarity' });
-
-    expect(clarity).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(clarity);
-    await waitFor(() => expect(clarity).toHaveAttribute('aria-pressed', 'false'));
     const groups = await screen.findAllByRole('group', { name: /^NoteVersions/ });
 
     expect(groups).toHaveLength(2);
@@ -1387,18 +1212,3 @@ async function openStarterComposer({
 
   return screen.findByRole('textbox', { name: 'NoteCompose' });
 }
-
-test.unit.stable(
-  'ignores obsolete selection drafts when starting a note transformation',
-  async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
-    const client = cache();
-
-    mount({ render, rpcHandlersTransport }, <Transformation id={id} />, client);
-    fireEvent.change(await screen.findByRole('textbox', { name: 'NoteOutputTitle' }), {
-      target: { value: 'New summary' }
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-  }
-);

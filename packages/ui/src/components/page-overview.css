@@ -33,6 +33,9 @@
   max-width: 100%;
   flex: none;
 }
+.page-overview-section + .page-overview-section {
+  margin-block-start: 1.5rem;
+}
 .page-overview-section-heading {
   margin: 0;
   padding-block-end: 0.875rem;
@@ -227,11 +230,6 @@
   color: var(--foreground);
 }
 
-.page-overview-work {
-  max-width: 56rem;
-  margin-inline: auto;
-  padding-inline: clamp(1rem, 4vw, 3rem);
-}
 .page-overview-job {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

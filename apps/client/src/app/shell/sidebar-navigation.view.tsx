@@ -1,5 +1,5 @@
 import type { ProjectId } from '@study/contracts';
-import { NoteIcon, PageIcon, QuizIcon, AssistantIcon, SourcesIcon } from '@study/icons';
+import { NoteIcon, QuizIcon, AssistantIcon, SourcesIcon } from '@study/icons';
 import { Sidebar } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
@@ -11,7 +11,6 @@ import type { useSidebarCounts } from './sidebar-counts.queries';
 
 const sections = [
   ['/notes', 'notes', NoteIcon, 'Notes'],
-  ['/pages', 'pages', PageIcon, 'SourcePage'],
   ['/uploads', 'uploads', SourcesIcon, 'UploadedMaterials'],
   ['/practice', 'practice', QuizIcon, 'Practice']
 ] as const;

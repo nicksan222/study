@@ -157,10 +157,10 @@ function ShellHeader({
   );
 }
 
-function usePageLayout(notes: boolean, pages: boolean, workspace: boolean) {
+function usePageLayout(notes: boolean, workspace: boolean) {
   const search = useSearch({ from: '__root__' });
   const params = useParams({ strict: false });
-  const editingPage = pages && params.pageId !== undefined && !search.pageVersion;
+  const editingPage = params.pageId !== undefined && !search.pageVersion;
 
   return notes || editingPage || workspace ? 'bleed' : 'padded';
 }
@@ -224,11 +224,7 @@ function ShellContent() {
   const { title, section } = metadata;
   const notes = title === 'Notes';
   const notebook = ['Notes', 'Assistant'].includes(title);
-  const layout = usePageLayout(
-    notes,
-    section === 'pages',
-    header === 'workspace' || section === 'uploads'
-  );
+  const layout = usePageLayout(notes, header === 'workspace' || section === 'uploads');
   const navigation = useNavigation(pathname, notebook, section === 'practice');
   const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.visible);
   const context = useSidebarContext(metadata);

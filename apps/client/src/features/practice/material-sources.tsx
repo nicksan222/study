@@ -128,7 +128,7 @@ function PageLink({ id, version }: { id: PageId; version: PageVersionId }) {
       render={
         page.data ? (
           <Link
-            to="/pages/$pageId"
+            to="/practice/study-notes/$pageId"
             params={{ pageId: String(id) }}
             search={{ pageVersion: String(version) }}
           />

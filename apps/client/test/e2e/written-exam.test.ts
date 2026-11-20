@@ -232,7 +232,7 @@ async function startExam(
   if (language === 'english') await expect(answer).toBeFocused();
   else {
     await expect(exam).toBeVisible();
-    expect(await exam.boundingBox()).toMatchObject({ x: 0, width: viewport.width });
+    await expect.poll(() => exam.boundingBox()).toMatchObject({ x: 0, width: viewport.width });
     await expect(send).toBeInViewport();
   }
 

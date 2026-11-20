@@ -162,7 +162,13 @@ function subjectItemLink(location: SubjectRow['location'], project: ProjectId) {
     case 'note':
       return <Link to="/notes/$noteId" params={{ noteId: location.id }} search={search} />;
     case 'page':
-      return <Link to="/pages/$pageId" params={{ pageId: String(location.id) }} search={search} />;
+      return (
+        <Link
+          to="/practice/study-notes/$pageId"
+          params={{ pageId: String(location.id) }}
+          search={search}
+        />
+      );
     case 'source':
       return (
         <Link to="/sources/$sourceId" params={{ sourceId: String(location.id) }} search={search} />

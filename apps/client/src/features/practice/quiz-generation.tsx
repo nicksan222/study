@@ -342,10 +342,11 @@ function useExamOpening(opened: (opening: ExamOpening) => void, track: TrackExam
   };
 }
 
-function useStudyNotesGeneration(accepted: () => void) {
+function useStudyNotesGeneration(accepted: () => void, fallbackTitle: string) {
   const pending = useRef<{ intent: string; key: string } | undefined>(undefined);
 
-  return useNativeAction(async (input: Omit<typeof studyNotesRequestSchema.Type, 'key'>) => {
+  return useNativeAction(async (draft: Omit<typeof studyNotesRequestSchema.Type, 'key'>) => {
+    const input = { ...draft, title: draft.title.trim() || fallbackTitle };
     const intent = JSON.stringify({
       ...input,
       projectId: String(input.projectId),
@@ -362,6 +363,10 @@ function useStudyNotesGeneration(accepted: () => void) {
   });
 }
 
+function useGenerationReadiness(isExam: boolean) {
+  return useAiReadiness('medium', isExam ? 'chatgpt' : undefined);
+}
+
 /** Build document-grounded requests using the selected practice format. */
 function useGeneration(
   projectId: ProjectId | undefined,
@@ -374,13 +379,14 @@ function useGeneration(
   const [kind, setKind] = useState<GenerationKind>('quiz');
   const submission = useDictationSubmission();
   const [instruction, setInstruction] = useState('');
+  const [studyNotesTitle, setStudyNotesTitle] = useState('');
   const [capturePending, setCapturePending] = useState(false);
   const { pages, inputs, setInputs } = useGenerationPages(projectId);
   const isExam = kind === 'exam';
   const isStudyNotes = kind === 'study_notes';
   const needsQuizSettings = !isExam && !isStudyNotes;
-  const studyNotes = useStudyNotesGeneration(notesAccepted);
-  const readiness = useAiReadiness('medium', isExam ? 'chatgpt' : undefined);
+  const studyNotes = useStudyNotesGeneration(notesAccepted, t('PracticeStudyNotesTitle'));
+  const readiness = useGenerationReadiness(isExam);
   const preferences = rpc.settings.quizSettings.useQuery({}, { enabled: needsQuizSettings });
   const exam = useExamOpening(examOpened, trackRequest);
   const start = useNativeAction(async (input: typeof materialGenerationInputSchema.Type) => {
@@ -393,31 +399,30 @@ function useGeneration(
   const busy = [start, exam, studyNotes].some((action) => action.isPending);
   const instructionTooLong = isStudyNotes && instruction.length > studyNotesInstructionLimit;
   const option = generationKinds.find((entry) => entry.kind === kind)!;
+  const settingsReady = !needsQuizSettings || preferences.isSuccess;
   const canStart =
     readiness === 'ready' &&
     ![busy, capturePending, instructionTooLong].some(Boolean) &&
     inputs.length > 0 &&
     inputs.length <= 20 &&
-    (!needsQuizSettings || preferences.isSuccess);
+    settingsReady;
 
   const create = () => {
     if (!canStart || projectId === undefined || submission.isBlocked()) return;
 
-    const selected = inputs;
-
     if (kind === 'exam') {
-      const [first, ...rest] = selected;
+      const selected = [inputs[0]!, ...inputs.slice(1)] as const;
 
-      if (first) void exam.startExam({ projectId, inputs: [first, ...rest] });
+      void exam.startExam({ projectId, inputs: selected });
 
       return;
     }
 
     if (isStudyNotes) {
       studyNotes.mutate({
-        title: t('PracticeStudyNotesTitle'),
+        title: studyNotesTitle,
         projectId,
-        inputs: selected,
+        inputs,
         language: locale,
         instruction: instruction.trim()
       });
@@ -431,7 +436,7 @@ function useGeneration(
       autoTitle: true,
       kind: kind === 'flashcards' ? 'flashcards' : 'quiz',
       instruction: instruction.trim() || undefined,
-      inputs: selected,
+      inputs,
       quizConfig: quizConfiguration(kind, preferences.data ?? defaultQuizSettings)
     });
   };
@@ -445,6 +450,8 @@ function useGeneration(
     setInstruction,
     setCapturePending,
     instructionTooLong,
+    studyNotesTitle,
+    setStudyNotesTitle,
     pages,
     inputs,
     setInputs: (update: SetStateAction<ContentInput[]>) => {
@@ -584,6 +591,18 @@ function GenerationInstructions({
         <ExpandIcon aria-hidden="true" />
       </Practice.CustomizeSummary>
       <Practice.CustomizeBody>
+        {model.isStudyNotes && (
+          <Label>
+            {t('PracticeStudyNotesCustomTitle')}
+            <Input
+              value={model.studyNotesTitle}
+              placeholder={t('PracticeStudyNotesTitle')}
+              maxLength={200}
+              disabled={model.busy}
+              onChange={(event) => model.setStudyNotesTitle(event.target.value)}
+            />
+          </Label>
+        )}
         <DictationSubmissionScope value={model.submission.scope}>
           <DictationTextarea
             targetKey={`${projectId}:${model.kind}`}

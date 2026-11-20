@@ -38,7 +38,7 @@ test.unit.stable(
     rpc['pages.version'].mockImplementation(({ id }) =>
       Effect.succeed(id === old.id ? old : current.version!)
     );
-    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/pages/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/study-notes/41', rpc);
     const main = within(await screen.findByRole('main'));
 
     expect(await main.findByText('Current authored body')).toBeVisible();
@@ -155,7 +155,7 @@ test.unit.stable(
     );
     const view = mountLibraryRoute(
       { render, rpcHandlersTransport, vi },
-      '/pages/41?pageVersion=91',
+      '/practice/study-notes/41?pageVersion=91',
       rpc
     );
 
@@ -163,7 +163,7 @@ test.unit.stable(
     const go = async ({ act }: Pick<test.unit.Context, 'act'>, pageVersion?: string) =>
       act(async () => {
         await view.router.navigate({
-          to: '/pages/$pageId',
+          to: '/practice/study-notes/$pageId',
           params: { pageId: '41' },
           search: { pageVersion }
         });

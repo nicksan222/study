@@ -1,12 +1,8 @@
 export { PageReaderPage } from './reader-page';
 
 export { PagesSidebar } from './pages-sidebar';
-export { PagesPage } from './pages-page';
+export { PracticeStudyNotes } from './pages-page';
 
-export { pagesRouteDeps, pagesRouteLoader } from './pages-route.queries';
-
-export { NewBlankPage, useNewBlankPage } from './creation-actions';
+export { pagesRouteLoader } from './pages-route.queries';
 
 export { usePageBrowse } from './use-page-browse';
-
-export { PageMerges } from './merge';
