@@ -30,6 +30,7 @@ export async function startS3() {
         RUSTFS_TLS_PATH: '/tmp/study-tls',
         RUSTFS_CONSOLE_ENABLE: 'false',
         RUSTFS_OBS_LOGGER_LEVEL: 'info',
+        RUSTFS_OBS_LOG_STDOUT_ENABLED: 'true',
         RUSTFS_ACCESS_KEY: accessKeyId,
         RUSTFS_SECRET_KEY: secretAccessKey
       })
