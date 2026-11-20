@@ -9,7 +9,10 @@ const executable = process.argv[2];
 
 if (!executable) throw new Error('Pass the executable built with the desktop-e2e feature');
 
-await using directory = await temporaryDirectory({ prefix: 'study-desktop-e2e-' });
+await using directory = await temporaryDirectory({
+  prefix: 'study-desktop-e2e-',
+  waitForWindowsHandles: true
+});
 
 // Reserve a free loopback port for the test-only driver.
 const listener = Bun.listen({

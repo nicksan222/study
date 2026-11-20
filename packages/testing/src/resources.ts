@@ -1,5 +1,5 @@
 import { BunFileSystem } from '@effect/platform-bun';
-import { Effect, FileSystem } from 'effect';
+import { Effect, FileSystem, Schedule } from 'effect';
 
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
@@ -101,6 +101,7 @@ export async function temporaryDirectory(
     executable?: boolean;
     directory?: string;
     prefix?: string;
+    waitForWindowsHandles?: boolean;
   } = {}
 ) {
   if (options.directory)
@@ -115,9 +116,18 @@ export async function temporaryDirectory(
     })
   );
 
-  return {
-    path,
-    [Symbol.asyncDispose]: () =>
-      Effect.runPromise(fs.remove(path, { recursive: true, force: true }))
-  };
+  const remove = fs.remove(path, { recursive: true, force: true });
+  // WebView2 can release profile files after the owning application has exited.
+  const cleanup =
+    options.waitForWindowsHandles && process.platform === 'win32'
+      ? remove.pipe(
+          Effect.retry({
+            schedule: Schedule.spaced('100 millis'),
+            times: 30,
+            while: (error) => error.reason._tag === 'Busy'
+          })
+        )
+      : remove;
+
+  return { path, [Symbol.asyncDispose]: () => Effect.runPromise(cleanup) };
 }
