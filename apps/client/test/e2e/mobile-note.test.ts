@@ -285,19 +285,9 @@ async function phoneStarter({
     zoomPercent,
     ready: () => expect(save).toBeEnabled()
   });
-  await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles({
-    name: 'river-survey.md',
-    mimeType: 'text/markdown',
-    buffer: Buffer.from('# River survey\n\nThe shaded bank has twelve willows.')
-  });
-  await expect(
-    page
-      .getByRole('region', { name: copy.NoteCompose, exact: true })
-      .getByText('river-survey.md', { exact: true })
-  ).toBeVisible();
   await page.setViewportSize({ width: 320, height: 640 });
   await expect(save).toBeInViewport({ ratio: 1 });
-  await expectScreenshot('narrow-staged-file', {
+  await expectScreenshot('narrow-note-draft', {
     target: 'viewport',
     zoomPercent,
     ready: () => expect(save).toBeEnabled()
@@ -305,24 +295,6 @@ async function phoneStarter({
   await save.tap();
   await expect(page).toHaveURL(/\/notes\/.+/);
   await expect(capture).toBeHidden();
-  const source = page
-    .locator('[data-role="user"]')
-    .getByRole('button', { name: 'river-survey.md', exact: true });
-
-  await expect(source).toBeEnabled();
-  await expectScreenshot('saved-file', {
-    target: 'viewport',
-    zoomPercent,
-    ready: () => expect(source).toBeEnabled()
-  });
-  await source.tap();
-  await expect(page.getByRole('heading', { name: 'River survey', exact: true })).toBeVisible();
-  await expectScreenshot('source-preview', {
-    target: 'viewport',
-    zoomPercent,
-    ready: () =>
-      expect(page.getByRole('heading', { name: 'River survey', exact: true })).toBeVisible()
-  });
   await page.reload();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).tap();

@@ -9,9 +9,11 @@ const testE2e = harness.browser.stable.extend<{
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Journey['loseCreationResponse'];
   setVisualViewport: Journey['setVisualViewport'];
+  transferFile: Journey['transferFile'];
 }>({
   expectScreenshot: async ({ journey }, provide) => provide(journey.expectScreenshot),
   loseCreationResponse: async ({ journey }, provide) => provide(journey.loseCreationResponse),
+  transferFile: async ({ journey }, provide) => provide(journey.transferFile),
   setVisualViewport: async ({ journey }, provide) => provide(journey.setVisualViewport)
 });
 

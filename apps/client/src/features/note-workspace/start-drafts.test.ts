@@ -7,8 +7,7 @@ import {
   finishStartDraft,
   startDraftKey,
   startDrafts,
-  startDraft,
-  startFiles
+  startDraft
 } from './start-drafts.queries';
 
 test.unit.stable(
@@ -33,32 +32,21 @@ test.unit.stable(
   }
 );
 
-test.unit.stable(
-  'confirmation clears only submitted text and file occurrences, preserving newer work',
-  ({ expect }) => {
-    const cache = AtomRegistry.make();
-    const submitted = new File(['notes'], 'notes.txt');
-    const later = new File(['new'], 'new.txt');
+test.unit.stable('confirmation clears only submitted text, preserving newer work', ({ expect }) => {
+  const cache = AtomRegistry.make();
 
-    openStartDraft(cache, '1');
-    cache.set(startDraft(startDraftKey('1')), 'Newer notes');
-    cache.set(startFiles(startDraftKey('1')), [submitted, submitted, later]);
-    finishStartDraft(cache, {
-      draftKey: startDraftKey('1'),
-      filesKey: startDraftKey('1'),
-      text: 'Original notes',
-      files: [submitted]
-    });
-    expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
-    expect(cache.get(startFiles(startDraftKey('1')))).toEqual([submitted, later]);
-    expect(cache.get(startDrafts)).toEqual(['1']);
-    finishStartDraft(cache, {
-      draftKey: startDraftKey('1'),
-      filesKey: startDraftKey('1'),
-      text: 'Newer notes',
-      files: [submitted, later]
-    });
-    expect(cache.get(startDrafts)).toEqual([]);
-    cache.dispose();
-  }
-);
+  openStartDraft(cache, '1');
+  cache.set(startDraft(startDraftKey('1')), 'Newer notes');
+  finishStartDraft(cache, {
+    draftKey: startDraftKey('1'),
+    text: 'Original notes'
+  });
+  expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
+  expect(cache.get(startDrafts)).toEqual(['1']);
+  finishStartDraft(cache, {
+    draftKey: startDraftKey('1'),
+    text: 'Newer notes'
+  });
+  expect(cache.get(startDrafts)).toEqual([]);
+  cache.dispose();
+});

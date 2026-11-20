@@ -1,4 +1,3 @@
-import type { SourceId } from '@study/contracts';
 import type { KeyboardEvent } from 'react';
 
 import type { AskInput } from './note-workspace.queries';
@@ -9,7 +8,6 @@ export type Draft = {
   askAttempt?: AskInput;
   askUnavailable?: boolean;
   noteAttempt?: string;
-  noteSourceIds?: readonly SourceId[];
   pending?: boolean;
   preferences?: { language?: 'english' | 'italian'; detail?: 'brief' | 'balanced' | 'detailed' };
 };

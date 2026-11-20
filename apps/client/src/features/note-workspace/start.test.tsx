@@ -179,8 +179,7 @@ test.unit.stable(
     fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
     await waitFor(() =>
       expect(api.create).toHaveBeenCalledExactlyOnceWith(1n, {
-        text: 'Lecture notes',
-        sourceIds: []
+        text: 'Lecture notes'
       })
     );
     fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });

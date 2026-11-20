@@ -27,8 +27,6 @@ let captureContext: typeof __MockType3.captureContext;
 
 let transformPage: typeof __MockType3.transformPage;
 
-let uploadSource: typeof __MockType3.uploadSource;
-
 let saveNote: typeof __MockType3.saveNote;
 
 let Transformation: typeof __MockType4.Transformation;
@@ -137,8 +135,7 @@ test.unit.beforeEach(async ({ mock }) => {
     ask: mock.fn(),
     saveNote: mock.fn(),
     captureContext: mock.fn(),
-    transformPage: mock.fn(),
-    uploadSource: mock.fn()
+    transformPage: mock.fn()
   }));
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
   const __mockModule0 = await import('#client/lib/ai-readiness.ts');
@@ -155,7 +152,6 @@ test.unit.beforeEach(async ({ mock }) => {
   ask = __mockModule3.ask;
   captureContext = __mockModule3.captureContext;
   transformPage = __mockModule3.transformPage;
-  uploadSource = __mockModule3.uploadSource;
   saveNote = __mockModule3.saveNote;
   const __mockModule4 = await import('./transformation');
 
@@ -222,18 +218,11 @@ test.unit.stable.for(['selection', 'thread', 'runs'] as const)(
 );
 
 test.unit.stable(
-  'abandons a retained unavailable Ask after review and resumes plain capture with its attachments',
+  'abandons a retained unavailable Ask after review and resumes plain capture',
   async ({ vi, fireEvent, screen, act, expect, waitFor, render, rpcTestTransport }) => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
     vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
     const first = mount({ render, rpcTestTransport }, <Composer id={id} />);
 
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-      target: { files: [new File(['notes'], 'retained.txt')] }
-    });
-    await screen.findByText('NoteFileAccepted');
     act(() =>
       first.client.set(composerDraft(id), {
         text: 'Later draft',
@@ -256,12 +245,10 @@ test.unit.stable(
     fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
     fireEvent.click(await screen.findByRole('button', { name: 'NoteAbandonAttempt' }));
     expect(screen.getByRole('textbox')).toHaveValue('Later draft');
-    expect(screen.getByText('retained.txt')).toBeVisible();
     await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Later draft', [44n]));
+    await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Later draft'));
     expect(ask).not.toHaveBeenCalled();
-    expect(uploadSource).toHaveBeenCalledTimes(1);
   }
 );
 

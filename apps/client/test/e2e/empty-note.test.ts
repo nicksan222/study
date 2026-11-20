@@ -8,7 +8,6 @@ test.browser.stable(
   async ({ page, expectScreenshot, expect }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
-    const attach = page.getByTitle(copy.NoteAttachFiles, { exact: true });
     const noteLinks = page.locator('a[href^="/notes/"]');
     const content = [
       'Recovered field observations',
@@ -21,7 +20,7 @@ test.browser.stable(
     ].join('\n\n');
 
     async function reachableControls({ expect }: Pick<test.browser.Context, 'expect'>) {
-      for (const control of [composer, attach, save]) {
+      for (const control of [composer, save]) {
         await expect(control).toBeInViewport({ ratio: 1 });
 
         const box = await control.boundingBox();
@@ -37,7 +36,6 @@ test.browser.stable(
       }
 
       await composer.click({ trial: true });
-      await attach.click({ trial: true });
 
       const inputBox = await composer.boundingBox();
       const saveBox = await save.boundingBox();

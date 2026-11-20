@@ -63,11 +63,8 @@ const fixtureDirectory = new URL(
 
 test.browser.stable(
   'Mixed lecture retains ten attachments through extraction failures',
-  async ({ page, expectScreenshot, expect }) => {
+  async ({ page, expectScreenshot, expect, rpc }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
-
-    const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
-
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
 
     const entry = notebook.locator('[data-role="user"]');
@@ -133,8 +130,7 @@ test.browser.stable(
 
     await page.goto('/notes');
     await expect(noteLinks).toHaveCount(0);
-    await composer.fill(original);
-    await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles([
+    const files = [
       ...localFiles.map((file) => ({
         name: file.name,
         mimeType: file.name.endsWith('.md') ? 'text/markdown' : 'text/plain',
@@ -152,34 +148,27 @@ test.browser.stable(
         mimeType: 'application/octet-stream',
         buffer: Buffer.from([0, 255, 1, 254, 2, 253])
       }
-    ]);
+    ];
+    const sources = [];
 
-    const queue = page.getByRole('region', { name: copy.NoteCompose, exact: true });
+    for (const file of files)
+      sources.push(
+        await rpc.runPromise(
+          rpc.client['sources.createSource']({
+            name: file.name,
+            bytes: file.buffer,
+            projectId: null
+          })
+        )
+      );
 
-    await expect(queue.getByRole('button', { name: copy.NoteRemoveAttachment })).toHaveCount(10);
-    await expect(queue.getByText('duplicate.txt', { exact: true })).toHaveCount(2);
-    await expect(composer).toHaveValue(original);
-    await expect(save).toBeEnabled();
-    await composer.press('ControlOrMeta+Home');
-    await composer.press('PageUp');
-    await expect(composer).toHaveJSProperty('scrollTop', 0);
-    await queue.getByText('coastal-evidence.md', { exact: true }).scrollIntoViewIfNeeded();
-    await expectScreenshot('mixed-queue', {
-      target: 'viewport',
-      ready: async () => {
-        for (const name of new Set(names))
-          for (const item of await queue.getByText(name, { exact: true }).all())
-            await expect(item).toBeInViewport({ ratio: 1 });
+    const note = await rpc.runPromise(
+      rpc.client['notes.createUntitledNote']({
+        initialMessage: { text: original, sourceIds: sources.map(({ id }) => id) }
+      })
+    );
 
-        await expect(composer).toHaveValue(original);
-        await expect(save).toBeEnabled();
-      }
-    });
-    await save.scrollIntoViewIfNeeded();
-    await expect(save).toBeInViewport({ ratio: 1 });
-    await save.click({ trial: true });
-    await save.click();
-    await expect(page).toHaveURL(/\/notes\/[^/?]+$/);
+    await page.goto(`/notes/${note.id}`);
 
     const noteUrl = page.url();
 

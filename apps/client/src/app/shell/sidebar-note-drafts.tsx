@@ -9,7 +9,6 @@ import {
   startDraftKey,
   dismissStartDraft,
   startDraft,
-  startFiles,
   creationFlow
 } from '#client/features/note-workspace/index.ts';
 import { SubjectIdentity } from '#client/features/subjects/index.ts';
@@ -37,11 +36,10 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
   const search = useSearch({ from: '__root__' });
   const project = scope === 'unassigned' ? undefined : scope;
   const draft = { data: useAtomValue(startDraft(startDraftKey(project))) };
-  const files = { data: useAtomValue(startFiles(startDraftKey(project))) };
   const flow = { data: useAtomValue(creationFlow) };
   const owner = subjects.find((subject) => String(subject.id) === project);
   const active = /^\/notes\/?$/.test(location.pathname) && search.project === project;
-  const label = draftLabel(draft.data, files.data, t('NewNote'));
+  const label = draft.data.trim().split('\n')[0] || t('NewNote');
   const blocked = [flow.data.pending, flow.data.uncertain, flow.data.id].some(Boolean);
 
   return (
@@ -77,8 +75,4 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
       </Sidebar.NoteRowActions>
     </Sidebar.NoteEntry>
   );
-}
-
-function draftLabel(text: string, files: File[], fallback: string) {
-  return text.trim().split('\n')[0] || files[0]?.name || fallback;
 }
