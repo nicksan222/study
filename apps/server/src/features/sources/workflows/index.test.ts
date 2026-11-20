@@ -612,6 +612,11 @@ test.server.stable(
         name: 'sample.pptx',
         bytes: await fixture('sample.pptx'),
         expected: ['Slide 2', 'Speaker notes', 'Slide 1']
+      },
+      {
+        name: 'sample.xlsx',
+        bytes: await fixture('sample.xlsx'),
+        expected: ['Conteggio', 'Cell & label |  | 0 | \n | 4 | 12.50% | ', 'Preparati']
       }
     ];
 
@@ -702,7 +707,7 @@ test.server.stable(
 
             for (const [index, name] of [
               'legacy.doc',
-              'sheet.xlsx',
+              'legacy.xls',
               'slides.ppt',
               'sound.wav',
               'image.bmp'

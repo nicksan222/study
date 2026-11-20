@@ -36,7 +36,8 @@ test.server.stable(
 
               expect(exported.bytes.length).toBeGreaterThan(0);
 
-              if (source.kind === 'other') expect(extraction?.document.blocks).toEqual([]);
+              if (source.kind === 'other' || source.kind === 'archive')
+                expect(extraction).toBeNull();
               else expect(extraction?.document.blocks.length).toBeGreaterThan(0);
 
               expect(source.createdAt).toBeLessThan(BigInt(Math.floor(Date.now() / 1000)));

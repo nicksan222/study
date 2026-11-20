@@ -688,11 +688,18 @@ export {
   sourceHistoryRetireSchema,
   sourceLinkSchema,
   sourcePageInputSchema,
+  sourceProcessingJobSchema,
   sourceProcessingSchema,
   sourceRevisionSchema,
   sourcesEndpoints,
   SourcesRpc
 } from './sources/rpc.ts';
+export {
+  isDelimitedSource,
+  sourcePreviewInputSchema,
+  sourcePreviewSchema
+} from './sources/preview.ts';
+export type { SourcePreview } from './sources/preview.ts';
 export type { BlockContent, Inline, Source } from './sources/schemas.ts';
 export {
   blockContentSchema,

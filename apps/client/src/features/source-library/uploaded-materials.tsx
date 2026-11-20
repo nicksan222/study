@@ -13,7 +13,7 @@ import {
   SubjectWorkspace
 } from '@study/ui';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 import {
   CursorWindowActions,
@@ -23,7 +23,7 @@ import {
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useNarrowLayout } from '#client/lib/viewport.ts';
 
-import { useSourceProcessingExecution } from './source-panel.queries';
+import { useExtractionJob } from './source-panel.queries';
 
 export function UploadedMaterialsPage() {
   const { project } = useSearch({ from: '__root__' });
@@ -181,20 +181,27 @@ function UploadedFile({
   onReselect?: () => void;
 }) {
   const { t } = useI18n();
-  const status = materialStatus(useSourceProcessingExecution(source.id));
+  const job = useExtractionJob(source.id, source);
+  const status = t(job.sidebar);
+  const link = useRef<HTMLAnchorElement>(null);
+
+  useLayoutEffect(() => {
+    if (active) link.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [active]);
 
   return (
     <Sidebar.Item
       layout="compact"
       descriptionBelow
       label={source.name}
-      title={`${source.name} · ${t(`sourceKind.${source.kind}`)} · ${t(status)}`}
-      aria-description={status === 'UploadedMaterialsReady' ? t(status) : undefined}
-      description={status === 'UploadedMaterialsReady' ? undefined : t(status)}
+      title={`${source.name} · ${t(`sourceKind.${source.kind}`)} · ${status}`}
+      aria-description={job.status === 'complete' ? status : undefined}
+      description={job.status === 'complete' ? undefined : status}
       icon={<SourcesIcon aria-hidden="true" />}
       aria-current={active ? 'page' : undefined}
       render={
         <Link
+          ref={link}
           to="/sources/$sourceId"
           params={{ sourceId: String(source.id) }}
           search={{ project: String(project), fromUploads: '1' }}
@@ -203,23 +210,4 @@ function UploadedFile({
       }
     />
   );
-}
-
-function materialStatus({
-  isError,
-  data,
-  documentId
-}: ReturnType<typeof useSourceProcessingExecution>) {
-  if (isError) return 'UploadedMaterialsStatusUnavailable';
-
-  if (!data) return documentId ? 'UploadedMaterialsReady' : 'NotePending';
-
-  if (data.outcome === 'failure')
-    return data.failureKind === 'unsupported' ? 'MaterialOriginalOnly' : 'UploadedMaterialsFailed';
-
-  if (data.configurationWaitReason) return 'UploadedMaterialsWaiting';
-
-  if (data.outcome === 'success') return 'UploadedMaterialsReady';
-
-  return 'NotePending';
 }

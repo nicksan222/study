@@ -12,8 +12,6 @@ export function attachmentReaderKind(kind: string) {
 
   if (kind === 'text' || kind === 'code') return 'text';
 
-  if (kind === 'slides' || kind === 'document' || kind === 'spreadsheet') return 'office';
-
   return attachmentMediaKind(kind);
 }
 

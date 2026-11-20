@@ -1,13 +1,15 @@
 import { NextVersionIcon, PreviousVersionIcon } from '@study/icons';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { Button } from './button';
 import { DialogPopup } from './dialog';
 import { IconButton } from './icon-button';
 import { semanticPart as part } from './semantic-part';
+import { SourceMarkdown } from './source-markdown';
 import { WorkspaceDeskSurface as Desk } from './workspace-desk';
 
 import './source-content.css';
+import './source-extraction-summary.css';
 import './source-attachment-preview.css';
 
 /** Shared chrome for retained sources in a notebook panel or standalone reader. */
@@ -20,7 +22,9 @@ export const SourceReader = {
   Views: part('div', 'source-reader-views'),
   Original: part('div', 'source-reader-original'),
   OriginalText,
-  Details: part('dl', 'source-reader-details'),
+  Markdown: SourceMarkdown,
+  Details,
+  ExtractionSummary: part('div', 'material-extraction-summary'),
   Detail,
   Pdf: part('div', 'source-reader-pdf'),
   PdfControls: part('div', 'source-reader-pdf-controls'),
@@ -41,7 +45,25 @@ export const SourceReader = {
 /** Retained content uses the same document surface as editable pages. */
 export const SourceContent = Desk.Editor;
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Details({
+  heading,
+  notes,
+  children
+}: {
+  heading: string;
+  notes?: ReactNode;
+  children: ComponentProps<'dl'>['children'];
+}) {
+  return (
+    <section className="source-reader-details" aria-label={heading}>
+      <h2>{heading}</h2>
+      <dl>{children}</dl>
+      {notes && <div className="source-reader-detail-notes">{notes}</div>}
+    </section>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <dt>{label}</dt>

@@ -5,12 +5,6 @@
   margin-block-start: 1rem;
 }
 
-.source-attachment-preview .source-reader-pdf-controls {
-  justify-content: flex-start;
-  padding: 0;
-  border: 0;
-}
-
 .source-attachment-paper {
   min-width: 0;
   padding: 1.5rem;
@@ -18,31 +12,6 @@
   border-radius: var(--control-radius);
   background: var(--muted);
   overflow-wrap: anywhere;
-}
-
-.source-attachment-paper:has(.material-prose) {
-  width: min(100%, 58rem);
-}
-
-.source-attachment-paper[data-slide] {
-  min-height: min(15rem, 38vh);
-}
-
-.source-attachment-paper .material-prose {
-  max-width: 70ch;
-  margin: 0;
-}
-
-.source-attachment-paper .material-prose > section:first-child > :first-child {
-  margin-block-start: 0;
-}
-
-.source-attachment-paper .material-prose > section:last-child > :last-child {
-  margin-block-end: 0;
-}
-
-.source-attachment-paper .reader-table {
-  background: var(--background);
 }
 
 .source-attachment-notice {
@@ -55,4 +24,25 @@
   .source-attachment-paper {
     padding: 1rem;
   }
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='image'] {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='image'] img {
+  width: auto;
+  height: auto;
+  max-height: 70dvh;
+  aspect-ratio: auto;
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='audio'] {
+  max-inline-size: 42rem;
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='video'] video {
+  max-block-size: 68dvh;
+  aspect-ratio: auto;
 }

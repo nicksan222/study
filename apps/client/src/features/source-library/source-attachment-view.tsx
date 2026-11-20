@@ -1,6 +1,6 @@
+import { isDelimitedSource } from '@study/contracts';
 import type { exactExtractionSchema, Source } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { mediaSize } from '@study/localization';
 import {
   AttachmentPreview,
   attachmentReaderKind,
@@ -19,45 +19,66 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { ContentReadError } from '../document-presentation';
-import { ProcessingRetry } from './processing-retry';
+import { AttachmentDetails } from './attachment-details';
+import { DataAttachmentPreview } from './data-attachment-preview';
+import type { ExtractionJob } from './extraction-job';
+import { ExtractionSummary } from './extraction-job-view';
 import { SourcePdfPreview } from './source-pdf-preview';
-import {
-  FileAttachmentPreview,
-  StructuredAttachmentPreview
-} from './structured-attachment-preview';
 
 type View = 'preview' | 'text' | 'details';
 
 type ReaderMode = 'materials' | 'note' | 'citation';
 
-type PreviewKind = NonNullable<ReturnType<typeof attachmentReaderKind>> | 'file';
+type PreviewKind = NonNullable<ReturnType<typeof attachmentReaderKind>> | 'data' | 'markdown';
 
-type OriginalKind = Exclude<PreviewKind, 'office' | 'file'>;
+type OriginalKind = Exclude<PreviewKind, 'data'>;
 
 type Extraction = typeof exactExtractionSchema.Type;
 
 const encodeDigest = Schema.encodeSync(Schema.Uint8ArrayFromHex);
 
-export function SourceAttachmentView({
-  source,
-  pinned,
-  mode,
-  extraction,
-  children
-}: {
+type AttachmentProps = {
   source: Source;
-  pinned: boolean;
   mode: ReaderMode;
   extraction?: Extraction | null;
+  job?: ExtractionJob;
   children: ReactNode;
-}) {
-  const preview = pinned ? undefined : previewKind(source.kind, mode);
-  const [selected, setSelected] = useState<View>();
-  const defaultView = defaultAttachmentView(preview, mode);
-  const view = (!preview && selected === 'preview' ? 'text' : selected) ?? defaultView;
+};
 
-  if (mode === 'citation' || pinned)
-    return preview === 'pdf' ? <OriginalAttachment source={source} kind={preview} /> : children;
+export function isFileOnlyMaterial(source?: Source | null, extraction?: Extraction | null) {
+  return (
+    (source?.kind === 'archive' || source?.kind === 'other') && !extraction?.document.blocks.length
+  );
+}
+
+export function SourceAttachmentView({ pinned, ...props }: AttachmentProps & { pinned: boolean }) {
+  const { source, mode, children, extraction, job } = props;
+
+  if (pinned) return children;
+
+  if (mode === 'citation')
+    return source.kind === 'pdf' ? <SourcePdfPreview sourceId={source.id} /> : children;
+
+  const preview = previewKind(source, mode);
+
+  if (mode === 'materials' && isFileOnlyMaterial(source, extraction))
+    return <AttachmentDetails source={source} job={job} />;
+
+  return <AttachmentTabs key={String(source.id)} {...props} preview={preview} />;
+}
+
+function AttachmentTabs({
+  source,
+  mode,
+  extraction,
+  job,
+  children,
+  preview
+}: AttachmentProps & { preview?: PreviewKind }) {
+  const [selected, setSelected] = useState<View>();
+  const readExtractionFirst =
+    mode === 'materials' && prefersExtraction(source, preview, extraction);
+  const view = selected ?? (readExtractionFirst ? 'text' : defaultAttachmentView(preview, mode));
 
   return (
     <>
@@ -67,24 +88,41 @@ export function SourceAttachmentView({
         view={view}
         onSelect={setSelected}
       />
-      <AttachmentViewBody source={source} preview={preview} extraction={extraction} view={view}>
-        {mode === 'materials' && <ProcessingRetry id={source.id} />}
+      {job && view !== 'details' && <ExtractionSummary sourceId={source.id} job={job} allowRetry />}
+      <AttachmentViewBody
+        source={source}
+        preview={preview}
+        extraction={extraction}
+        view={view}
+        job={job}
+      >
         {children}
       </AttachmentViewBody>
     </>
   );
 }
 
-function previewKind(kind: Source['kind'], mode: ReaderMode): PreviewKind | undefined {
-  const original = attachmentReaderKind(kind);
+function previewKind(source: Source, mode: ReaderMode): PreviewKind | undefined {
+  if (mode === 'materials' && source.kind === 'text' && source.mime === 'text/markdown')
+    return 'markdown';
 
-  if (mode === 'materials') return original ?? 'file';
+  if (mode === 'materials' && isDelimitedSource(source)) return 'data';
 
-  return original === 'office' ? undefined : original;
+  return attachmentReaderKind(source.kind);
+}
+
+function prefersExtraction(source: Source, preview?: PreviewKind, extraction?: Extraction | null) {
+  if (!preview && ['document', 'slides', 'spreadsheet'].includes(source.kind)) return true;
+
+  return (
+    !!extraction?.document.blocks.length && ['image', 'pdf', 'video', 'audio'].includes(source.kind)
+  );
 }
 
 function defaultAttachmentView(preview: PreviewKind | undefined, mode: ReaderMode): View {
-  if (!preview || preview === 'text') return 'text';
+  if (!preview) return mode === 'materials' ? 'details' : 'text';
+
+  if (preview === 'text') return 'text';
 
   return preview === 'pdf' || mode === 'materials' ? 'preview' : 'text';
 }
@@ -106,7 +144,11 @@ function AttachmentViewSelector({
       ? 'UploadedMaterialsTranscript'
       : 'UploadedMaterialsText';
   const previewLabel =
-    preview === 'office' || preview === 'file' ? 'MaterialPreview' : 'UploadedMaterialsOriginal';
+    preview && ['data', 'markdown'].includes(preview)
+      ? 'MaterialPreview'
+      : 'UploadedMaterialsOriginal';
+
+  const originalTab = preview && <Toggle value="preview">{t(previewLabel)}</Toggle>;
 
   return (
     <SourceReader.Views>
@@ -119,7 +161,7 @@ function AttachmentViewSelector({
           if (next === 'preview' || next === 'text' || next === 'details') onSelect(next);
         }}
       >
-        {preview && <Toggle value="preview">{t(previewLabel)}</Toggle>}
+        {originalTab}
         <Toggle value="text">{t(textLabel)}</Toggle>
         <Toggle value="details">{t('UploadedMaterialsDetails')}</Toggle>
       </ToggleGroup>
@@ -132,24 +174,22 @@ function AttachmentViewBody({
   source,
   preview,
   extraction,
+  job,
   children
 }: {
   view: View;
   source: Source;
   preview?: PreviewKind;
   extraction?: Extraction | null;
+  job?: ExtractionJob;
   children: ReactNode;
 }) {
-  if (view === 'details') return <AttachmentDetails source={source} />;
+  if (view === 'details')
+    return <AttachmentDetails source={source} extraction={extraction} job={job} />;
 
   if (view !== 'preview' || !preview) return children;
 
-  if (preview === 'office')
-    return (
-      <StructuredAttachmentPreview source={source} extraction={extraction} feedback={children} />
-    );
-
-  if (preview === 'file') return <FileAttachmentPreview source={source} />;
+  if (preview === 'data') return <DataAttachmentPreview source={source} />;
 
   return <OriginalAttachment source={source} kind={preview} />;
 }
@@ -171,7 +211,16 @@ function OriginalFile({ source, kind }: { source: Source; kind: Exclude<Original
 
   const { bytes } = original.data;
 
-  if (kind === 'text') return <OriginalText bytes={bytes} code={source.kind === 'code'} />;
+  if (kind === 'markdown') return <OriginalMarkdown bytes={bytes} />;
+
+  if (kind === 'text')
+    return (
+      <OriginalText
+        bytes={bytes}
+        code={source.kind === 'code'}
+        preserveBom={source.mime === 'text/plain'}
+      />
+    );
 
   return (
     <OriginalMedia
@@ -183,12 +232,26 @@ function OriginalFile({ source, kind }: { source: Source; kind: Exclude<Original
   );
 }
 
-function OriginalText({ bytes, code }: { bytes: Uint8Array; code: boolean }) {
+function OriginalMarkdown({ bytes }: { bytes: Uint8Array }) {
+  const { readerFontSize } = useWorkspacePreferences();
+
+  return <SourceReader.Markdown bytes={bytes} fontSize={readerFontSize} />;
+}
+
+function OriginalText({
+  bytes,
+  code,
+  preserveBom
+}: {
+  bytes: Uint8Array;
+  code: boolean;
+  preserveBom: boolean;
+}) {
   const { readerFontSize } = useWorkspacePreferences();
 
   return (
     <SourceReader.OriginalText fontSize={readerFontSize} code={code}>
-      {new TextDecoder().decode(bytes)}
+      {new TextDecoder('utf-8', { ignoreBOM: preserveBom }).decode(bytes)}
     </SourceReader.OriginalText>
   );
 }
@@ -198,7 +261,7 @@ function OriginalMedia({
   source,
   bytes
 }: {
-  kind: Exclude<OriginalKind, 'pdf' | 'text'>;
+  kind: Exclude<OriginalKind, 'pdf' | 'text' | 'markdown'>;
   source: Source;
   bytes: Uint8Array;
 }) {
@@ -218,24 +281,5 @@ function OriginalMedia({
         fallback={<ErrorState title={t('UploadedMaterialsPreviewUnavailable')} />}
       />
     </SourceReader.Original>
-  );
-}
-
-function AttachmentDetails({ source }: { source: Source }) {
-  const { t, date, locale } = useI18n();
-
-  return (
-    <SourceReader.Details>
-      <SourceReader.Detail label={t('UploadedMaterialsFileName')} value={source.name} />
-      <SourceReader.Detail
-        label={t('UploadedMaterialsFormat')}
-        value={t(`sourceKind.${source.kind}`)}
-      />
-      <SourceReader.Detail
-        label={t('UploadedMaterialsSize')}
-        value={mediaSize(locale, Number(source.sizeBytes))}
-      />
-      <SourceReader.Detail label={t('UploadedMaterialsAdded')} value={date(source.createdAt)} />
-    </SourceReader.Details>
   );
 }

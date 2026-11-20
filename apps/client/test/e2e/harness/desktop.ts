@@ -29,6 +29,7 @@ const app = Bun.spawn([executable], {
   env: {
     ...process.env,
     TAURI_WEBDRIVER_PORT: String(port),
+    STUDY_MODEL_UPDATE_NOTICES: '0',
     STUDY_DATABASE: `${directory.path}/study.sqlite`,
     XDG_DATA_HOME: `${directory.path}/xdg-data`,
     WEBVIEW2_USER_DATA_FOLDER: `${directory.path}/webview`

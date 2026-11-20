@@ -29,6 +29,10 @@ export interface Translate {
 
 const plurals = {
   en: {
+    row_one: '{count} row',
+    row_other: '{count} rows',
+    column_one: '{count} column',
+    column_other: '{count} columns',
     file_one: '{count} file',
     file_other: '{count} files',
     card_one: '{count} card',
@@ -49,6 +53,10 @@ const plurals = {
     result_other: '{count} results ready'
   },
   it: {
+    row_one: '{count} riga',
+    row_other: '{count} righe',
+    column_one: '{count} colonna',
+    column_other: '{count} colonne',
     file_one: '{count} file',
     file_other: '{count} file',
     card_one: '{count} flashcard',

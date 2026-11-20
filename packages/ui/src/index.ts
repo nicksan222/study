@@ -257,6 +257,7 @@ export { QuizResultsView, QuizQuestionReviewView } from './components/quiz-resul
 export { QuizSessionView, QuizFinishView } from './components/quiz-session-view.tsx';
 export { SidebarSearchResults } from './components/sidebar-search-results.tsx';
 export type { SidebarSearchItem } from './components/sidebar-search-results.tsx';
+export { DelimitedGrid } from './components/lazy-delimited-grid.ts';
 export { SourceContent, SourceReader } from './components/source-content.tsx';
 export { MatchingReviewView } from './components/matching-review-view.tsx';
 export { OrderingResultView } from './components/ordering-result-view.tsx';

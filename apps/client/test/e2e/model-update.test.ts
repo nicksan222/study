@@ -73,6 +73,7 @@ function waitForNoticeSnapshot(page: Page) {
 }
 
 test.browser.use({
+  modelUpdateNotices: true,
   chatGpt: {
     chatGptReleases: [
       { model: earlier.model, text: earlier.title },

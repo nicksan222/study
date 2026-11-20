@@ -4,23 +4,17 @@ import { Button, StatusMessage } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { useSourceProcessingExecution } from './source-panel.queries';
-
-export function ProcessingRetry({ id }: { id: SourceId }) {
+export function ProcessingRetry({ sourceId, revision }: { sourceId: SourceId; revision: number }) {
   const { t } = useI18n();
-  const state = useSourceProcessingExecution(id);
   const retry = rpc.sources.requestProcessing.useMutation();
-  const revision = state.revision;
-
-  if (!revision || state.data?.outcome !== 'failure' || state.data.failureKind === 'unsupported')
-    return null;
 
   return (
     <>
       <Button
+        size="sm"
         variant="ghost"
         disabled={retry.pending > 0}
-        onClick={() => void retry.mutate({ id, expectedRevision: revision })}
+        onClick={() => void retry.mutate({ id: sourceId, expectedRevision: revision })}
       >
         {t('UploadedMaterialsRetry')}
       </Button>

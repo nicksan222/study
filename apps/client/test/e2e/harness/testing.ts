@@ -12,6 +12,7 @@ import { controlMicrophone } from './microphone.ts';
 import { captureProfile } from './profile.ts';
 import { screenshotAssertions, updateAllowed } from './screenshots.ts';
 import type { ExpectScreenshot } from './screenshots.ts';
+import { openSourcePeer } from './source-fetch.ts';
 import { openWebStack } from './stack.ts';
 
 type VisualBounds = Partial<Pick<VisualViewport, 'height' | 'width' | 'offsetLeft' | 'offsetTop'>>;
@@ -26,6 +27,7 @@ export type Journey = {
 type Fixtures = {
   study: Awaited<ReturnType<typeof createStudyMaterials>>;
   aiEnabled: boolean;
+  modelUpdateNotices: boolean;
   microphoneEnabled: boolean;
   microphone: Awaited<ReturnType<typeof createMicrophone>>;
   chatGpt: Pick<NonNullable<Parameters<typeof openWebStack>[0]>, 'chatGptReleases'>;
@@ -40,6 +42,7 @@ type Fixtures = {
   journey: Journey;
   desktopPage: Page;
   captureWorkflow: string;
+  sourcePeer: ReturnType<typeof openSourcePeer>;
   useDefaultNoteAppearance: boolean;
 };
 
@@ -47,6 +50,7 @@ type Fixtures = {
 const testHarness = testBrowser.extend<Fixtures>({
   study: async ({ app, ai }, provide) => provide(await createStudyMaterials(app, ai)),
   aiEnabled: [false, { option: true }],
+  modelUpdateNotices: [false, { option: true }],
   microphoneEnabled: [false, { option: true }],
   microphone: async ({ page, webStack }, provide) => {
     await provide(await webStack.bindMicrophone(page));
@@ -66,9 +70,14 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
+  sourcePeer: async ({ browserName: _browserName }, provide) => {
+    await using peer = openSourcePeer();
+
+    await provide(peer);
+  },
   useDefaultNoteAppearance: [false, { option: true }],
   webStack: async (
-    { ai, aiEnabled, chatGpt, microphoneEnabled, useDefaultNoteAppearance },
+    { ai, aiEnabled, chatGpt, microphoneEnabled, modelUpdateNotices, useDefaultNoteAppearance },
     provide
   ) => {
     assertCapturePlatform();
@@ -76,6 +85,7 @@ const testHarness = testBrowser.extend<Fixtures>({
 
     await using stack = await openWebStack({
       ai: aiEnabled ? ai.runtime : undefined,
+      modelUpdateNotices,
       voice: voice?.runtime,
       useDefaultNoteAppearance,
       ...chatGpt

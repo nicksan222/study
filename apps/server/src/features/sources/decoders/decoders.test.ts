@@ -132,7 +132,7 @@ test.unit.stable(
       [
         'nested-tables.docx',
         'document',
-        ['Before', 'Inner A | Inner B', 'Inner C', 'After | Outer second']
+        ['Before', 'Inner A | Inner B\nInner C', 'After | Outer second']
       ],
       [
         'wrapped.docx',
@@ -264,6 +264,40 @@ test.unit.stable(
 
     for (const block of markdown.blocks)
       assert.strictEqual(block.text, canonicalText(block.content));
+  }
+);
+
+test.unit.stable(
+  'Word keeps each table together and its title above its sections',
+  async ({ expect }) => {
+    const { zipSync } = await import('fflate');
+    const { decodeOffice } = await import('#server/features/sources/decoders/office');
+    const cell = (value: string) => `<w:tc><w:p><w:r><w:t>${value}</w:t></w:r></w:p></w:tc>`;
+
+    const xml = `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+    <w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>Laboratorio</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Risultati</w:t></w:r></w:p>
+    <w:tbl><w:tr><w:trPr><w:tblHeader/></w:trPr>${cell('Fase')}${cell('Conteggio')}</w:tr>
+    <w:tr>${cell('Metafase')}${cell('12')}</w:tr></w:tbl>
+    <w:tbl><w:tr>${cell('Seconda tabella')}</w:tr></w:tbl>
+  </w:body></w:document>`;
+    const result = await decodeOffice({
+      kind: 'document',
+      bytes: zipSync({ 'word/document.xml': bytes(xml) })
+    });
+
+    expect(result.blocks.map((block) => block.content)).toMatchObject([
+      { type: 'heading', level: 1 },
+      { type: 'heading', level: 2 },
+      {
+        type: 'table',
+        rows: [
+          { cells: [{ header: true }, { header: true }] },
+          { cells: [{ header: false }, { header: false }] }
+        ]
+      },
+      { type: 'table', rows: [{ cells: [{ header: false }] }] }
+    ]);
   }
 );
 
@@ -564,3 +598,88 @@ test.unit.stable(
     );
   }
 );
+
+test.unit.stable(
+  'Excel extracts ordered sheets and anchored worksheet cells',
+  async ({ expect }) => {
+    const { decoderPath } = await import('#server/features/sources/decoders/capability');
+    const { detectedMime, documentSchema } = await import('@study/contracts');
+    const { Schema } = await import('effect');
+    const source = detectedMime(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+
+    expect(decoderPath(source)).toBe('office');
+
+    const { decodeSpreadsheet } = await import('#server/features/sources/decoders/spreadsheet');
+    const fixture = await Bun.file(new URL('./fixtures/sample.xlsx', import.meta.url)).bytes();
+    const decoded = await decodeSpreadsheet(fixture);
+
+    expect(Schema.is(documentSchema)(decoded)).toBe(true);
+    expect(decoded.blocks.map(({ kind, text, anchor }) => [kind, text, anchor])).toStrictEqual([
+      ['heading', 'Conteggio', { type: 'paragraph', index: 1 }],
+      ['table', 'Cell & label |  | 0 | \n | 4 | 12.50% | ', { type: 'paragraph', index: 2 }],
+      ['heading', 'Preparati', { type: 'paragraph', index: 3 }]
+    ]);
+    expect(decoded.blocks[1]?.content).toMatchObject({
+      rows: [
+        {
+          cells: [
+            {
+              paragraphs: [
+                [
+                  { text: 'Cell', marks: ['strong'] },
+                  { text: ' & label', marks: [] }
+                ]
+              ]
+            },
+            {},
+            {},
+            {}
+          ]
+        },
+        { cells: [{}, {}, {}, {}] }
+      ]
+    });
+  }
+);
+
+test.unit.stable('Excel hyperlink ranges do not introduce worksheet cells', async ({ expect }) => {
+  const { unzipSync, zipSync } = await import('fflate');
+  const { decodeSpreadsheet } = await import('#server/features/sources/decoders/spreadsheet');
+  const path = 'xl/worksheets/sheet1.xml';
+  const fixture = await Bun.file(new URL('./fixtures/sample.xlsx', import.meta.url)).bytes();
+  const parts = unzipSync(fixture);
+  const sheet = new TextDecoder().decode(parts[path]);
+
+  parts[path] = bytes(
+    sheet.replace(
+      '</worksheet>',
+      '<hyperlinks><hyperlink ref="E1:I5" location="A1"/></hyperlinks></worksheet>'
+    )
+  );
+
+  const decoded = await decodeSpreadsheet(zipSync(parts));
+
+  expect(decoded.blocks.map((block) => block.text)).toStrictEqual([
+    'Conteggio',
+    'Cell & label |  | 0 | \n | 4 | 12.50% | ',
+    'Preparati'
+  ]);
+});
+
+test.unit.stable('Excel bounds expanded archives and worksheet cells', async ({ expect }) => {
+  const { unzipSync, zipSync } = await import('fflate');
+  const { decodeSpreadsheet } = await import('#server/features/sources/decoders/spreadsheet');
+  const fixture = await Bun.file(new URL('./fixtures/sample.xlsx', import.meta.url)).bytes();
+  const parts = unzipSync(fixture);
+
+  for (const extra of [
+    new Uint8Array(16 * 1024 * 1024 + 1),
+    bytes('<extra>' + '<c/>'.repeat(100_001) + '</extra>')
+  ]) {
+    await expect(
+      decodeSpreadsheet(zipSync({ ...parts, 'xl/unused.xml': extra }))
+    ).rejects.toMatchObject({ kind: 'invalid_input' });
+  }
+});

@@ -5,6 +5,7 @@ import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema, noteIdSchema 
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { importCapabilityInputSchema, importCapabilitySchema } from './capabilities.ts';
 import { conversionStrategySchema } from './conversion.ts';
+import { sourcePreviewInputSchema, sourcePreviewSchema } from './preview.ts';
 import { documentSchema, sourceSchema } from './schemas.ts';
 
 export const sourceExportSchema = Schema.Struct({ source: sourceSchema, bytes: Schema.Uint8Array });
@@ -26,6 +27,13 @@ export const sourceProcessingSchema = Schema.Struct({
   revision: sourceRevisionSchema,
   requestId: Schema.NullOr(Schema.String.check(Schema.isMinLength(1))),
   documentId: Schema.NullOr(contentSnapshotIdSchema)
+});
+
+/** The current processing request and evidence of its durable dispatch and publication. */
+export const sourceProcessingJobSchema = Schema.Struct({
+  ...sourceProcessingSchema.fields,
+  publishedRequestId: sourceProcessingSchema.fields.requestId,
+  requestedAtMs: Schema.NullOr(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
 });
 
 export const setSourceProjectInputSchema = Schema.Struct({
@@ -251,6 +259,15 @@ export const sourcesEndpoints = {
     },
     { dependencies: allDependencies, refresh: 'database' }
   ),
+  preview: liveQuery(
+    'sources.preview',
+    {
+      payload: sourcePreviewInputSchema,
+      success: sourcePreviewSchema,
+      error: failureSchema
+    },
+    { dependencies: [dependency.sources], refresh: 'database' }
+  ),
   sourceExport: liveQuery(
     'sources.sourceExport',
     {
@@ -282,7 +299,7 @@ export const sourcesEndpoints = {
     'sources.sourceProcessing',
     {
       payload: { id: sourceIdSchema },
-      success: sourceProcessingSchema,
+      success: sourceProcessingJobSchema,
       error: failureSchema
     },
     { dependencies: allDependencies, refresh: 'database' }

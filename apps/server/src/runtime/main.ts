@@ -20,7 +20,10 @@ const path = process.env.STUDY_DATABASE;
 
 if (!path) throw new Error('STUDY_DATABASE is required');
 
-const app = await App.open({ path });
+const app = await App.open({
+  path,
+  modelUpdateNotices: process.env.STUDY_MODEL_UPDATE_NOTICES !== '0'
+});
 
 let server: Awaited<ReturnType<typeof serve>>;
 

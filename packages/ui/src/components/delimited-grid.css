@@ -1,0 +1,20 @@
+.delimited-grid {
+  min-width: 0;
+}
+
+.delimited-grid .ag-center-cols-viewport {
+  min-height: 0;
+}
+
+.delimited-grid .delimited-grid-row-number {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.delimited-grid .delimited-grid-value {
+  padding-block: 0.5rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

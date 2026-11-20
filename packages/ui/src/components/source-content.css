@@ -211,39 +211,57 @@
 }
 
 .source-reader-details {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 1rem;
-  font-size: 0.8125rem;
-}
-
-.source-reader-details > div {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  max-inline-size: 100%;
-  padding: 0.375rem 0.625rem;
+  width: min(100%, 41rem);
+  margin-block: 1rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
   border: 1px solid var(--border);
   border-radius: var(--control-radius);
-  background: var(--muted);
+  background: var(--card);
+}
+
+.source-reader-details h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.source-reader-details dl {
+  margin: 0;
+}
+
+.source-reader-details dl > div {
+  display: grid;
+  grid-template-columns: minmax(5rem, 35%) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 1rem;
+  padding-block: 0.75rem;
+  border-block-start: 1px solid var(--border);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.source-reader-details dl > div:last-child {
+  padding-block-end: 0;
 }
 
 .source-reader-details dt {
-  flex: none;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
+}
+
+.source-reader-detail-notes .reader-notice {
+  margin: 1rem 0 0;
 }
 
 .source-reader-details dd {
   margin: 0;
   overflow-wrap: anywhere;
-  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
 }
 
 .study-content[data-section='uploads'] {
-  --material-gutter: 1.5rem;
+  --material-gutter: clamp(1rem, 3vw, 1.5rem);
   background: var(--background);
 }
 
@@ -260,15 +278,57 @@
   white-space: nowrap;
 }
 
-.source-reader[data-materials-reader] {
-  padding: 0 var(--material-gutter) 1rem;
+:where(.source-reader[data-materials-reader]) {
+  --material-column: 58rem;
+  padding: 0 var(--material-gutter) 2rem;
   overflow: auto;
   overscroll-behavior: contain;
+  container-type: inline-size;
+}
+
+.source-reader[data-materials-reader] > * {
+  inline-size: 100%;
+  max-inline-size: var(--material-column);
+  min-inline-size: 0;
 }
 
 .source-reader[data-materials-reader] > .source-reader-header {
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(50%);
+  align-items: start;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
   padding: 0 0 0.75rem;
+}
+
+.source-reader[data-materials-reader] .source-reader-title {
+  font-size: clamp(1.375rem, 3vw, 1.875rem);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.source-reader[data-materials-reader] .source-reader-header > .source-reader-actions {
+  align-self: center;
+  justify-content: flex-end;
+  margin-inline-end: -0.125rem;
+}
+
+@media (pointer: coarse) {
+  .source-reader[data-materials-reader] .source-reader-header button[data-slot='button'] {
+    min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
+  }
+}
+
+@container (max-width: 36rem) {
+  .source-reader[data-materials-reader] > .source-reader-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block-end: 0.5rem;
+  }
+
+  .source-reader[data-materials-reader] .source-reader-header > .source-reader-actions {
+    justify-content: flex-start;
+  }
 }
 
 .source-reader[data-materials-reader] .source-reader-views {
@@ -281,25 +341,19 @@
   scrollbar-gutter: auto;
 }
 
+.source-reader[data-materials-reader] .source-reader-pdf-viewport > .react-pdf__Page {
+  margin-inline: 0;
+}
+
 .source-reader[data-materials-reader] .source-reader-pdf-controls {
-  padding-block: 0.375rem;
+  justify-content: flex-start;
+  padding: 0.375rem 0;
   border: 0;
 }
 
-.source-reader[data-materials-reader] :is(.source-reader-original, .source-reader-details) {
-  padding: 1rem 0;
-}
-
-@media (max-width: 700px) {
-  .study-content[data-section='uploads'] {
-    --material-gutter: 1rem;
-  }
-}
-
-.source-reader[data-materials-reader] .source-reader-title {
-  font-size: clamp(1.25rem, 3vw, 1.875rem);
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+.source-reader[data-materials-reader] .source-reader-original {
+  justify-items: start;
+  padding: 1rem 0 0;
 }
 
 .source-reader-original-text {
@@ -315,19 +369,31 @@
   font-family: var(--font-mono, monospace);
 }
 
-.source-reader[data-materials-reader] .source-reader-original-text {
-  max-width: 70ch;
-  padding: 1rem 0 2rem;
+.source-reader[data-materials-reader] > :is(.source-markdown, .source-reader-original-text) {
+  max-inline-size: min(100%, 70ch);
+  padding: 1rem 0 0;
+}
+
+.source-reader[data-materials-reader] > .source-reader-original-text[data-code] {
+  margin-block-start: 1rem;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--muted);
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.source-reader[data-materials-reader] > .source-reader-details {
+  max-inline-size: min(100%, 36rem);
+  margin-block-end: 0;
 }
 
 .source-reader[data-materials-reader] > .workspace-desk-editor {
   flex: none;
-  width: min(100%, 52rem);
-  margin-top: 1rem;
-  padding: clamp(1rem, 2.5vw, 2rem);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--card);
+  margin-block-start: 1rem;
+  background: var(--background);
 }
 
 .source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content,
@@ -341,7 +407,7 @@
 }
 
 .source-reader[data-materials-reader] .workspace-desk-editor .tiptap {
-  max-width: 70ch;
+  inline-size: 100%;
   text-align: start;
 }
 
@@ -349,14 +415,51 @@
   margin-block-start: 0;
 }
 
+.source-reader[data-materials-reader] .tiptap > * + :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: 1.5em;
+}
+
 .source-reader[data-materials-reader] .tiptap > :last-child {
   margin-block-end: 0;
+}
+
+.source-reader[data-materials-reader] .tiptap > :is(p, ul, ol, blockquote) {
+  max-inline-size: 70ch;
 }
 
 .source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content p {
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.source-reader[data-materials-reader] .tableWrapper {
+  margin-block-start: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--contrast-muted-foreground) var(--muted);
+}
+
+.source-reader[data-materials-reader] .tableWrapper + .tableWrapper {
+  margin-block-start: 0.25rem;
+}
+
+.source-reader[data-materials-reader] .tableWrapper table,
+.source-reader[data-materials-reader] .tableWrapper :is(td, th) > p:only-child {
+  margin-block: 0;
+}
+
+/* Extracted sheets scroll within the reader on narrow screens. */
+.source-reader[data-materials-reader][data-source-kind='spreadsheet'] .tableWrapper table {
+  table-layout: auto;
+}
+
+.source-reader[data-materials-reader][data-source-kind='spreadsheet'] .tableWrapper :is(td, th) {
+  min-width: 6rem;
+}
+
+.source-reader[data-materials-reader][data-source-kind='spreadsheet'] .tableWrapper p {
+  max-inline-size: 60ch;
+  overflow-wrap: break-word;
 }
 
 .source-reader-editor {

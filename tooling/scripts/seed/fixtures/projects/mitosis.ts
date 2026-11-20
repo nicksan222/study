@@ -12,9 +12,12 @@ const phases = [
 ];
 
 const counts = table([
-  ['Fase', 'Cellule'],
-  ['Metafase', '12'],
-  ['Anafase', '7']
+  ['Fase', 'Vetrino A', 'Vetrino B', 'Vetrino C'],
+  ['Interfase', '36', '42', '38'],
+  ['Profase', '18', '16', '20'],
+  ['Metafase', '12', '14', '9'],
+  ['Anafase', '7', '5', '8'],
+  ['Telofase', '5', '4', '6']
 ]);
 
 /** Representative originals can be opened side by side in one subject. */
@@ -40,26 +43,60 @@ export function createMitosisMaterials(project: ProjectHarness) {
       'laboratory.docx',
       [
         heading('Osservare la mitosi'),
-        paragraph('Identifica la fase osservando la posizione dei cromosomi.')
+        paragraph('Identifica la fase osservando la posizione dei cromosomi.'),
+        heading('Domanda di laboratorio'),
+        paragraph('Quale indizio distingue la metafase dalla anafase?'),
+        table([
+          ['Fase', 'Cellule osservate'],
+          ['Metafase', '12'],
+          ['Anafase', '7']
+        ])
       ]
     ],
     ['counts.csv', [counts]],
-    ['counts.xlsx', [counts]],
+    [
+      'counts.xlsx',
+      [
+        heading('Conteggio'),
+        counts,
+        heading('Preparati'),
+        table([
+          ['Vetrino', 'Ingrandimento', 'Preparato'],
+          ['A', '400×', 'Apice radicale'],
+          ['B', '400×', 'Apice radicale'],
+          ['C', '400×', 'Apice radicale']
+        ])
+      ]
+    ],
     ['observations.json', [paragraph('Vetrino B-08: 12 cellule in metafase, 7 in anafase.')]],
     [
       'laboratory.md',
       [
         heading('La divisione cellulare'),
         paragraph('In metafase i cromosomi si allineano al centro della cellula.'),
-        heading('Come riconoscere l’anafase')
+        heading('Come riconoscere l’anafase'),
+        paragraph('Osserva due gruppi di cromatidi che si allontanano.'),
+        paragraph('Confronta la seconda slide con il video della lezione.'),
+        heading('Verifica al microscopio'),
+        paragraph('Confronta la posizione dei cromosomi nei due vetrini.'),
+        table([
+          ['Fase', 'Indizio da cercare'],
+          ['Metafase', 'Cromosomi allineati al centro'],
+          ['Anafase', 'Due gruppi di cromatidi verso poli opposti']
+        ]),
+        paragraph('Individua una cellula in metafase.'),
+        paragraph('Disegna una cellula in anafase.'),
+        paragraph(
+          'Se i cromatidi non sono distinguibili, cambia campo prima di classificare la cellula.'
+        )
       ]
     ],
-    ['laboratory.zip', [paragraph('Conteggio.csv')]],
-    ['slide-counts.bin', []]
+    ['laboratory.zip', null],
+    ['slide-counts.bin', null]
   ] as const) {
     createSource(
       project,
-      assetFile(new URL(`../files/mitosis/${name}`, import.meta.url), document(blocks))
+      assetFile(new URL(`../files/mitosis/${name}`, import.meta.url), blocks && document(blocks))
     );
   }
 }

@@ -65,7 +65,7 @@ test.browser.stable(
     await expect(standalone).toHaveAttribute('aria-current', 'page');
     await expect(search).toHaveValue('STANDALONE');
     await page.getByRole('button', { name: copy.UploadedMaterialsDetails }).click();
-    await expect(page.getByText(copy.UploadedMaterialsFileName, { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: copy.MaterialFileInformation })).toBeVisible();
 
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Field observations' })).toBeVisible();
@@ -108,6 +108,106 @@ test.browser.stable(
     await expect(noteReader.getByText('# Field observations', { exact: false })).toBeVisible();
     await noteReader.getByRole('button', { name: copy.UploadedMaterialsText }).click();
     await expect(noteReader.getByRole('heading', { name: 'Field observations' })).toBeVisible();
+  }
+);
+
+test.browser.stable(
+  'Render original GitHub Flavored Markdown in Materials',
+  async ({ page, rpc, expect, expectScreenshot }) => {
+    const subject = await rpc.runPromise(
+      rpc.client['projects.createProject']({ name: 'Markdown' })
+    );
+    const original = [
+      '# Field notebook',
+      '',
+      'Written during **class** and *review*. [Reference](https://example.com/study)',
+      '',
+      '1. Inspect the slide',
+      '2. Record the result',
+      '',
+      '- [x] Recorded',
+      '- [ ] Reviewed',
+      '',
+      '> Keep the field notes.',
+      '',
+      '```ts',
+      'const stages = 4;',
+      '```',
+      '',
+      '| Stage | Count |',
+      '| ----- | ----: |',
+      '| Mitosis | 4 |',
+      '',
+      '[Unsafe destination](javascript:alert%281%29)',
+      '',
+      '![Remote sample](https://example.com/sample.svg)',
+      '',
+      '<img src="https://example.com/raw.svg" alt="Raw sample">'
+    ].join('\r\n');
+    const bytes = new TextEncoder().encode(original);
+    const file = await rpc.runPromise(
+      rpc.client['sources.createSource']({
+        projectId: subject.id,
+        name: 'lecture.md',
+        bytes
+      })
+    );
+
+    await page.goto(`/projects/${subject.id}/sources/${file.id}?fromUploads=1`);
+    const reader = page.locator('[data-materials-reader]');
+
+    await expect(reader.getByRole('button', { name: copy.MaterialPreview })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(reader.getByRole('heading', { name: 'Field notebook', level: 1 })).toBeVisible();
+    await expect(reader.getByRole('table').getByRole('cell', { name: 'Mitosis' })).toBeVisible();
+    await expect(reader.getByText('Inspect the slide', { exact: true })).toBeVisible();
+    await expect(reader.getByRole('checkbox').first()).toBeChecked();
+    await expect(reader.getByRole('checkbox').last()).toBeDisabled();
+    await expect(reader.locator('blockquote')).toHaveText('Keep the field notes.');
+    await expect(reader.locator('strong')).toHaveText('class');
+    await expect(reader.locator('em')).toHaveText('review');
+    await expect(reader.locator('pre code')).toHaveText('const stages = 4;');
+    const reference = reader.getByRole('link', { name: 'Reference' });
+    const code = reader.locator('pre');
+
+    await expect(reference).toHaveAttribute('href', 'https://example.com/study');
+    await expect(reference).toHaveAttribute('rel', 'noopener noreferrer');
+    await reference.focus();
+    await reference.press('Tab');
+    await expect(code).toBeFocused();
+    await code.press('Tab');
+    await expect(reader.locator('.source-markdown-table')).toBeFocused();
+    await expect(reader.getByText('Unsafe destination')).toBeVisible();
+    await expect(reader.getByRole('link', { name: 'Unsafe destination' })).toHaveCount(0);
+    await expect(reader.getByText('Remote sample')).toBeVisible();
+    await expect(reader.getByRole('img')).toHaveCount(0);
+    const extracted = reader.getByRole('button', { name: copy.UploadedMaterialsText });
+
+    await extracted.press('Enter');
+    await expect(extracted).toHaveAttribute('aria-pressed', 'true');
+    await reader.getByRole('button', { name: copy.MaterialPreview }).press('Enter');
+
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(
+      rpc.client['settings.saveAppSettings']({ ...settings, appearance: Appearance.LIGHT })
+    );
+    await page.setViewportSize({ width: 390, height: 780 });
+    await page.reload();
+    await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
+    await expect(reader.getByRole('heading', { name: 'Field notebook', level: 1 })).toBeVisible();
+    const table = reader.getByRole('table');
+
+    await table.scrollIntoViewIfNeeded();
+    await expectScreenshot('markdown-phone-light', {
+      target: 'viewport',
+      ready: async () => {
+        await expect(table).toBeInViewport({ ratio: 0.99 });
+        await expect(reader.getByRole('checkbox').first()).toBeChecked();
+      }
+    });
   }
 );
 
@@ -162,22 +262,16 @@ test.browser.stable(
 );
 
 test.browser.stable(
-  'Preview slides and other files in Materials',
+  'Read extracted PowerPoint slides in Materials',
   async ({ page, rpc, expect, expectScreenshot }) => {
     const project = await rpc.runPromise(
       rpc.client['projects.createProject']({ name: 'Lectures' })
     );
-    const fixtures = new URL(
-      '../../../server/src/features/sources/decoders/fixtures/',
+    const dataFixtures = new URL(
+      '../../../../tooling/scripts/seed/fixtures/files/mitosis/',
       import.meta.url
     );
-    const deck = await Bun.file(new URL('sample.pptx', fixtures)).bytes();
-    const document = await Bun.file(new URL('sample.docx', fixtures)).bytes();
-    const files = [
-      { name: 'reading.docx', bytes: document },
-      { name: 'counts.csv', bytes: new TextEncoder().encode('Item,Count\nCells,24') },
-      { name: 'archive.bin', bytes: new Uint8Array([0, 255, 0, 255]) }
-    ];
+    const deck = await Bun.file(new URL('phases.pptx', dataFixtures)).bytes();
     const presentation = await rpc.runPromise(
       rpc.client['sources.createSource']({
         projectId: project.id,
@@ -186,75 +280,165 @@ test.browser.stable(
       })
     );
 
+    const presentationRoute = `/projects/${project.id}/sources/${presentation.id}?fromUploads=1`;
+
+    const metaphase = page.getByText('I cromosomi si allineano al centro della cellula.', {
+      exact: true
+    });
+    const anaphase = page.getByText('I cromatidi fratelli si separano.', { exact: true });
+    const original = page.getByRole('button', { name: copy.ReaderOriginal, exact: true });
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    const openSlides = async (appearance: Appearance) => {
+      await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, appearance }));
+      await page.goto(presentationRoute);
+      await expect(
+        page.getByRole('button', { name: copy.MaterialPreview, exact: true })
+      ).toHaveCount(0);
+      await expect(original).toBeInViewport();
+    };
+    const expectOriginalDownload = async () => {
+      const readerUrl = page.url();
+      const pending = page.waitForEvent('download');
+
+      await original.press('Enter');
+      const saved = await pending;
+
+      expect(saved.suggestedFilename()).toBe('lecture.pptx');
+      expect(await Bun.file(await saved.path()).bytes()).toEqual(deck);
+      await expect(page).toHaveURL(readerUrl);
+      await expect(metaphase).toBeVisible();
+      await expect(anaphase).toBeVisible();
+    };
+
+    await openSlides(Appearance.DARK);
+    await expectScreenshot('extracted-slides-desktop-dark', {
+      target: 'viewport',
+      ready: async () => {
+        await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+        await expect(metaphase).toBeInViewport();
+        await expect(anaphase).toBeInViewport();
+      }
+    });
+    await expectOriginalDownload();
+
+    await page.setViewportSize({ width: 390, height: 780 });
+    await openSlides(Appearance.LIGHT);
+    await expectScreenshot('extracted-slides-phone-light', {
+      target: 'viewport',
+      ready: async () => {
+        await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
+        await expect(metaphase).toBeInViewport();
+        await expect(anaphase).toBeInViewport();
+      }
+    });
+    await expectOriginalDownload();
+  }
+);
+
+test.browser.stable(
+  'Preview documents, tables, and original-only files in Materials',
+  async ({ page, rpc, expect, expectScreenshot }) => {
+    const project = await rpc.runPromise(
+      rpc.client['projects.createProject']({ name: 'Lectures' })
+    );
+    const dataFixtures = new URL(
+      '../../../../tooling/scripts/seed/fixtures/files/mitosis/',
+      import.meta.url
+    );
+    const word = {
+      name: 'reading.docx',
+      bytes: await Bun.file(new URL('laboratory.docx', dataFixtures)).bytes()
+    };
+    const files = [
+      word,
+      {
+        name: 'counts.csv',
+        bytes: new TextEncoder().encode('Roma,0012,TRUE\n"Cells, sampled",24,"Two\nlines"')
+      },
+      { name: 'files.zip', bytes: await Bun.file(new URL('laboratory.zip', dataFixtures)).bytes() },
+      { name: 'archive.bin', bytes: new Uint8Array([0, 255, 0, 255]) }
+    ];
+
     for (const { name, bytes } of files)
       await rpc.runPromise(
         rpc.client['sources.createSource']({ projectId: project.id, name, bytes })
       );
 
-    const presentationRoute = `/projects/${project.id}/sources/${presentation.id}?fromUploads=1`;
-
-    await page.goto(presentationRoute);
+    await page.goto(`/projects/${project.id}/uploads`);
     const preview = page.getByRole('region', { name: copy.MaterialPreview });
-    const next = preview.getByRole('button', { name: copy.MaterialNextSlide });
-    const previous = preview.getByRole('button', { name: copy.MaterialPreviousSlide });
     const materials = page.getByRole('navigation', { name: copy.UploadedMaterials });
 
-    await expect(preview.getByText(copy.MaterialPreviewSimplified)).toBeVisible();
-    await expect(preview.getByText('Slide 2', { exact: true })).toBeVisible();
-    await expect(preview.getByText('Slide 1', { exact: true })).toHaveCount(0);
-    await expect(previous).toBeDisabled();
-    await next.press('Enter');
-    await expect(next).toBeDisabled();
-    await expect(preview.getByText('Slide 1', { exact: true })).toBeVisible();
-    await expectScreenshot('slide-preview', {
-      target: 'viewport',
-      ready: async () => {
-        await expect(preview.getByText('Slide 2 of 2', { exact: true })).toBeVisible();
-
-        for (const name of ['lecture.pptx', 'counts.csv', 'reading.docx'])
-          await expect(materials.getByRole('link', { name, exact: true })).toHaveAttribute(
-            'aria-description',
-            copy.UploadedMaterialsReady
-          );
-
-        await expect(materials.getByRole('link', { name: /archive\.bin/ })).toContainText(
-          copy.MaterialOriginalOnly
-        );
-      }
-    });
-    await previous.press('Space');
-    await expect(preview.getByText('Slide 2', { exact: true })).toBeVisible();
-
-    await page.getByRole('button', { name: copy.UploadedMaterialsText, exact: true }).click();
-    await expect(preview).toHaveCount(0);
-    await expect(page.getByText('Slide 1', { exact: true })).toBeVisible();
-    await expect(page.getByText('Slide 2', { exact: true })).toBeVisible();
-
     await materials.getByRole('link', { name: /reading\.docx/ }).click();
-    await expect(preview.getByRole('heading', { name: 'Heading', exact: true })).toBeVisible();
-    await expect(next).toHaveCount(0);
-    await materials.getByRole('link', { name: /counts\.csv/ }).click();
-    await expect(preview.getByText('Cells,24', { exact: false })).toBeVisible();
-    await materials.getByRole('link', { name: /archive\.bin/ }).click();
-    await expect(preview.getByText(copy.UploadedMaterialsPreviewUnavailable)).toBeVisible();
     await expect(
-      page.getByRole('button', { name: copy.ReaderOriginal, exact: true })
-    ).toBeEnabled();
+      page.getByRole('button', { name: copy.UploadedMaterialsText, exact: true })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      page.getByRole('heading', { name: 'Domanda di laboratorio', exact: true, level: 2 })
+    ).toBeVisible();
+    await expect(
+      page.getByText('Quale indizio distingue la metafase dalla anafase?', { exact: true })
+    ).toBeVisible();
+    const table = page.getByRole('table');
+    const row = table.getByRole('row').filter({ hasText: 'Metafase' });
 
-    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
-
-    await rpc.runPromise(
-      rpc.client['settings.saveAppSettings']({ ...settings, appearance: Appearance.LIGHT })
+    await expect(table.getByText('Cellule osservate', { exact: true })).toBeVisible();
+    await expect(row.getByRole('cell', { name: '12', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: copy.MaterialPreview, exact: true })).toHaveCount(
+      0
     );
-    await page.setViewportSize({ width: 390, height: 780 });
-    await page.goto(presentationRoute);
-    await expectScreenshot('slide-preview-phone-light', {
+    await expect(preview).toHaveCount(0);
+    const wordRoute = page.url();
+    const wordDownload = page.waitForEvent('download');
+
+    await page.getByRole('button', { name: copy.ReaderOriginal, exact: true }).press('Enter');
+    const savedWord = await wordDownload;
+
+    expect(savedWord.suggestedFilename()).toBe(word.name);
+    expect(await Bun.file(await savedWord.path()).bytes()).toEqual(word.bytes);
+    await expect(page).toHaveURL(wordRoute);
+    await materials.getByRole('link', { name: /counts\.csv/ }).click();
+    const grid = preview.getByRole('grid');
+
+    await expect(grid.getByRole('columnheader', { name: 'A', exact: true })).toBeVisible();
+
+    const first = grid.getByRole('gridcell', { name: 'Roma', exact: true });
+
+    await first.click();
+    await first.press('ArrowRight');
+    await expect(grid.getByRole('gridcell', { name: '0012', exact: true })).toBeFocused();
+    await expect(grid.getByRole('gridcell', { name: 'TRUE', exact: true })).toBeVisible();
+    await expect(grid.getByRole('gridcell', { name: 'Cells, sampled', exact: true })).toBeVisible();
+    await expect(grid.getByRole('gridcell', { name: 'Two lines', exact: true })).toHaveText(
+      'Two\nlines',
+      { useInnerText: true }
+    );
+    await expectScreenshot('csv-preview', {
       target: 'viewport',
-      ready: async () => {
-        await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
-        await expect(preview.getByText('Slide 1 of 2', { exact: true })).toBeVisible();
-        await expect(preview.getByText('Slide 2', { exact: true })).toBeInViewport();
-      }
+      ready: () => expect(grid.getByRole('gridcell', { name: '0012', exact: true })).toBeFocused()
     });
+
+    for (const original of files.filter(
+      ({ name }) => name === 'files.zip' || name === 'archive.bin'
+    )) {
+      await materials.getByRole('link', { name: original.name, exact: false }).click();
+      const details = page.getByRole('region', { name: copy.MaterialFileInformation });
+      const download = page.getByRole('button', { name: copy.ReaderOriginal, exact: true });
+
+      await expect(details).toBeVisible();
+      await expect(download).toHaveCount(1);
+
+      await expect(download).toBeInViewport();
+      await expect(
+        page.getByRole('button', { name: copy.MaterialPreview, exact: true })
+      ).toHaveCount(0);
+      const pending = page.waitForEvent('download');
+
+      await download.press('Enter');
+      const saved = await pending;
+
+      expect(saved.suggestedFilename()).toBe(original.name);
+      expect(await Bun.file(await saved.path()).bytes()).toEqual(original.bytes);
+    }
   }
 );

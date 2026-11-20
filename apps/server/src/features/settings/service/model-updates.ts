@@ -2,7 +2,7 @@
 import { modelTiers, StudyError } from '@study/contracts';
 import type { LlmSettings, ModelSuggestions, ModelUpdate } from '@study/contracts';
 import type { CatalogIdentities } from '@study/server';
-import { transaction, useStore } from '@study/server';
+import { ModelUpdateNotices, transaction, useStore } from '@study/server';
 import { Effect } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
@@ -66,6 +66,7 @@ function retainSelectedIdentities(
 export function* modelUpdateOperations(account: () => string | null | undefined) {
   const models = yield* useStore(ModelUpdatesStore);
   const preferences = yield* useStore(SettingsStore);
+  const showNotices = yield* ModelUpdateNotices;
 
   return {
     catalogIdentities: () =>
@@ -84,6 +85,8 @@ export function* modelUpdateOperations(account: () => string | null | undefined)
       };
     }),
     modelUpdates: Effect.fnUntraced(function* () {
+      if (!showNotices) return [];
+
       const { recommendations, dismissed } = accountCatalog(
         yield* models.snapshot(undefined),
         account()

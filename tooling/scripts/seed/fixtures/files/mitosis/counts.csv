@@ -1,3 +1,6 @@
-Fase,Cellule
-Metafase,12
-Anafase,7
+Fase,Vetrino A,Vetrino B,Vetrino C
+Interfase,36,42,38
+Profase,18,16,20
+Metafase,12,14,9
+Anafase,7,5,8
+Telofase,5,4,6
