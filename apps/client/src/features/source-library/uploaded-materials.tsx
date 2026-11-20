@@ -194,8 +194,10 @@ function UploadedFile({
       layout="compact"
       descriptionBelow
       label={source.name}
+      announcement={`${source.name} · ${status}`}
+      aria-label={source.name}
       title={`${source.name} · ${t(`sourceKind.${source.kind}`)} · ${status}`}
-      aria-description={job.status === 'complete' ? status : undefined}
+      aria-description={status}
       description={job.status === 'complete' ? undefined : status}
       icon={<SourcesIcon aria-hidden="true" />}
       aria-current={active ? 'page' : undefined}

@@ -46,6 +46,7 @@ async function workbookArchive(bytes: Uint8Array, signal?: AbortSignal) {
   const parts = new Map<string, Uint8Array>();
   let total = 0;
   let cellsRemaining = maxCells;
+  let largestPartCells = 0;
 
   try {
     if (zip.entryCount > maxArchiveEntries)
@@ -70,7 +71,10 @@ async function workbookArchive(bytes: Uint8Array, signal?: AbortSignal) {
 
       const xml = await readZipXml(zip, entry, maxExpandedBytes, signal);
 
-      cellsRemaining = reserveXmlCells(xml, cellsRemaining);
+      const remaining = reserveXmlCells(xml, cellsRemaining);
+
+      largestPartCells = Math.max(largestPartCells, cellsRemaining - remaining);
+      cellsRemaining = remaining;
 
       // Hyperlink metadata can cover a rectangular range of otherwise absent cells.
       // Keep cell contents and avoid materializing those ranges in the workbook parser.
@@ -82,7 +86,7 @@ async function workbookArchive(bytes: Uint8Array, signal?: AbortSignal) {
     if (!parts.has('[Content_Types].xml') || !parts.has('xl/workbook.xml'))
       throw new StudyError('invalid_input', 'Excel workbook parts are missing');
 
-    return zipSync(Object.fromEntries(parts), { level: 0 });
+    return { archive: zipSync(Object.fromEntries(parts), { level: 0 }), largestPartCells };
   } finally {
     zip.close();
   }
@@ -219,7 +223,17 @@ export async function decodeSpreadsheet(
   checkInput(bytes, DEFAULT_MAX_BYTES, signal);
 
   try {
-    const archive = await workbookArchive(bytes, signal);
+    const { archive, largestPartCells } = await workbookArchive(bytes, signal);
+
+    checkAbort(signal);
+    // Read names only. Several declared sheets can point at the same physical XML part.
+    const { SheetNames } = read(archive, { type: 'array', bookSheets: true, sheets: [] });
+
+    if (!SheetNames?.length || SheetNames.length > maxArchiveEntries)
+      throw new StudyError('invalid_input', 'Invalid number of Excel worksheets');
+
+    if (SheetNames.length * largestPartCells > maxCells)
+      throw new StudyError('invalid_input', 'Excel workbook exceeds the worksheet parsing budget');
 
     checkAbort(signal);
     const workbook = read(archive, {

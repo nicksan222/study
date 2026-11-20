@@ -156,7 +156,9 @@ test.browser.stable(
         await expect(sidebar.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
 
         for (const format of ['pdf', 'png'] as const)
-          await expect(links.get(format)!.getByText(copy.UploadedMaterialsWaiting)).toBeVisible();
+          await expect(
+            links.get(format)!.getByText(copy.UploadedMaterialsWaiting, { exact: true })
+          ).toBeVisible();
 
         await expect(views.docx).toBeVisible();
       }

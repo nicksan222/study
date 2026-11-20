@@ -683,3 +683,34 @@ test.unit.stable('Excel bounds expanded archives and worksheet cells', async ({ 
     ).rejects.toMatchObject({ kind: 'invalid_input' });
   }
 });
+
+test.unit.stable(
+  'Excel reserves a cell parsing budget for each declared sheet',
+  async ({ expect }) => {
+    const { unzipSync, zipSync } = await import('fflate');
+    const { decodeSpreadsheet } = await import('#server/features/sources/decoders/spreadsheet');
+    const fixture = await Bun.file(new URL('./fixtures/sample.xlsx', import.meta.url)).bytes();
+    const parts = unzipSync(fixture);
+    const path = 'xl/worksheets/sheet1.xml';
+    const xml = new TextDecoder().decode(parts[path]);
+    const rows = Array.from({ length: 5001 }, (_, index) => {
+      const row = index + 1;
+      const cells = Array.from(
+        'ABCDEFGHIJ',
+        (column) => '<c r="' + column + row + '"><v>1</v></c>'
+      );
+
+      return '<row r="' + row + '">' + cells.join('') + '</row>';
+    });
+
+    parts[path] = bytes(
+      xml.replace(
+        /<sheetData>[\s\S]*?<\/sheetData>/,
+        '<sheetData>' + rows.join('') + '</sheetData>'
+      )
+    );
+    await expect(decodeSpreadsheet(zipSync(parts))).rejects.toMatchObject({
+      kind: 'invalid_input'
+    });
+  }
+);

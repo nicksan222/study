@@ -778,6 +778,7 @@ function Item({
   timestamp,
   description,
   descriptionBelow,
+  announcement,
   activity,
   selection,
   render,
@@ -791,6 +792,7 @@ function Item({
   timestamp?: ReactNode;
   description?: ReactNode;
   descriptionBelow?: boolean;
+  announcement?: string;
   activity?: AiActivityState;
   selection?: boolean;
 }) {
@@ -808,14 +810,21 @@ function Item({
       type: render ? undefined : 'button',
       className: cn('study-note-row', className),
       children: (
-        <ItemContent
-          compact={layout !== 'detailed'}
-          icon={icon}
-          label={label}
-          description={description}
-          context={context}
-          timestamp={timestamp}
-        />
+        <>
+          <ItemContent
+            compact={layout !== 'detailed'}
+            icon={icon}
+            label={label}
+            description={description}
+            context={context}
+            timestamp={timestamp}
+          />
+          {announcement !== undefined && (
+            <span aria-live="polite" aria-atomic="true" className="sr-only">
+              {announcement}
+            </span>
+          )}
+        </>
       )
     }
   });
