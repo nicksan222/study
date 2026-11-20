@@ -10,7 +10,7 @@ import { Schema } from 'effect';
 
 import type { SidebarRouteConfig } from './sidebar-config';
 
-export type Section = 'notes' | 'pages' | 'practice' | 'assistant';
+export type Section = 'notes' | 'pages' | 'practice' | 'assistant' | 'uploads';
 
 export type PageMetadata = {
   title: StaticMessageKey;
@@ -37,6 +37,7 @@ export type AppSearch = {
   pageVersion?: string;
   sourceRevision?: string;
   sourceSnapshot?: string;
+  fromUploads?: string;
 };
 
 function decimalId(value: unknown): value is string {
@@ -69,6 +70,7 @@ export function validateSearch(search: Record<string, unknown>): AppSearch {
     throw new Error('Incomplete source extraction identity');
 
   return {
+    ...(search.fromUploads === '1' ? { fromUploads: '1' } : {}),
     ...(sourceSnapshot && sourceRevision ? { sourceSnapshot, sourceRevision } : {}),
     ...(pageVersion ? { pageVersion } : {}),
     ...(decimalId(search.project) ? { project: search.project } : {}),

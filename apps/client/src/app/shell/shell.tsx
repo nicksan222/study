@@ -197,14 +197,21 @@ function ShellContent() {
     sidebar,
     header
   } = match?.staticData ?? {};
-  const metadata = { title, section, scope, sidebar };
+  const fromUploads = useSearch({
+    from: '__root__',
+    select: (search) => search.fromUploads && search.project
+  });
+  const materialReader = title === 'AnswerSources' && fromUploads;
+  const metadata = materialReader
+    ? { title, section: 'uploads' as const, scope: 'project' as const }
+    : { title, section, scope, sidebar };
   const notes = title === 'Notes';
   const notebook = ['Notes', 'Assistant'].includes(title);
   const layout = usePageLayout(notes, section === 'pages', header === 'workspace');
   const navigation = useNavigation(match?.pathname ?? '', notebook, section === 'practice');
   const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.visible);
   const context = useSidebarContext(metadata);
-  const { project, shortcutsDisabled } = useContextMenuScope(scope, context);
+  const { project, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);
 
   return (
     <>

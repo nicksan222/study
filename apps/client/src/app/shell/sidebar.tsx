@@ -19,6 +19,7 @@ type PanelProps = { model: SidebarModel; ready: boolean };
 const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
   workspace: null,
   assistant: null,
+  uploads: null,
   pages: ({ model, ready }) =>
     ready ? (
       <PagesSidebar

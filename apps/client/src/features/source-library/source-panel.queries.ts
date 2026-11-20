@@ -33,6 +33,8 @@ export function useSourceProcessingExecution(id: SourceId) {
 
   return {
     ...state,
+    documentId: processing.data?.documentId,
+    revision: processing.data?.revision,
     data: executions.data?.items.find(
       (item) => item.workflow === 'source-ingestion/v1' || item.workflow === 'source-correction/v1'
     )
