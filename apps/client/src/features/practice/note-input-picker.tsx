@@ -41,7 +41,7 @@ export function NoteInputPicker({
     const input = await rpc.notes.captureStudyEvidence.call({ noteId, projectId: project });
 
     setCaptures((previous) => new Map(previous).set(noteId, input));
-    onChange((previous) => (previous.length < 20 ? [...previous, input] : previous));
+    onChange((previous) => [...previous, input]);
 
     return input;
   });

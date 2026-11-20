@@ -59,6 +59,12 @@ export const NoteDeletionStore = defineStore({
         JOIN ${s.learning_practice_slots} p ON p.id=i.slot_id
         JOIN ${s.learning_practice_controls} c ON c.project_id=p.project_id AND c.epoch=p.epoch
         WHERE i.note_context_id=${id} AND p.status IN ('pending','ready') AND c.enabled=1
+        UNION ALL
+        SELECT 1 FROM ${s.page_transform_requests} r
+        JOIN json_each(r.request, '$.studyNotes.inputs') j
+        WHERE r.cancelled=0 AND r.result_version_id IS NULL
+          AND json_extract(j.value, '$.kind')='note'
+          AND json_extract(j.value, '$.contextId')=${id}
         LIMIT 1
       `);
 

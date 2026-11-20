@@ -358,6 +358,7 @@ export const italian = Object.freeze({
     'Riduci le istruzioni a 10.000 caratteri per generare gli appunti.',
   PracticeStudyNotesGenerating: 'Generazione degli appunti…',
   PracticeStudyNotesFailed: 'Impossibile generare gli appunti. Puoi riprovare con le stesse fonti.',
+  PracticeStudyNotesEvidenceLimit: 'Seleziona meno fonti o note più brevi e riprova.',
   PracticeStudyNotesActivity: 'Attività di generazione',
   PracticeStudyNotesCustomTitle: 'Titolo degli appunti di studio',
   PracticeStudyNotesTitle: 'Appunti di studio',

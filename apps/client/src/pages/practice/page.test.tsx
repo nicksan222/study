@@ -2,9 +2,12 @@ import { projectIdSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
-test.unit.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for([
+  ['english', undefined],
+  ['italian', '9007199254740993']
+] as const)(
   'shows study-note work in %s',
-  async (locale, { page, expect, screen, rpc }) => {
+  async ([locale, project], { page, expect, screen, rpc }) => {
     const copy = catalogs[locale];
 
     rpc.given({
@@ -32,13 +35,15 @@ test.unit.stable.for(['english', 'italian'] as const)(
         }
       ]
     });
-    const { router } = await page.open('/practice?project=9007199254740993', { locale });
+    const { router } = await page.open(project ? `/practice?project=${project}` : '/practice', {
+      locale
+    });
 
     expect(
       await screen.findByRole('heading', { name: copy.PracticeStudyNotesTitle })
     ).toBeVisible();
     expect(await screen.findByText('Field observations')).toBeVisible();
     expect(screen.getByText(copy.PracticeStudyNotesGenerating)).toBeVisible();
-    expect(router.state.location.search.project).toBe('9007199254740993');
+    expect(router.state.location.search.project).toBe(project);
   }
 );

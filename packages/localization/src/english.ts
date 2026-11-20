@@ -351,6 +351,7 @@ export const english = Object.freeze({
   PracticeStudyNotesGenerating: 'Generating study notes…',
   PracticeStudyNotesFailed:
     'Study notes could not be generated. You can retry using the same sources.',
+  PracticeStudyNotesEvidenceLimit: 'Select fewer sources or shorter notes and try again.',
   PracticeStudyNotesActivity: 'Generation activity',
   PracticeStudyNotesCustomTitle: 'Study notes title',
   PracticeStudyNotesTitle: 'Study notes',

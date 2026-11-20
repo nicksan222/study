@@ -652,6 +652,10 @@ test.unit.stable(
     await waitFor(() => expect(start).toBeEnabled());
     await user.click(await dialog.findByRole('switch', { name: notebook.title }));
     expect(start).toBeDisabled();
+    expect(dialog.getByRole('switch', { name: 'Prime numbers notes' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     await user.click(start);
     expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
 

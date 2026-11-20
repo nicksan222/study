@@ -61,6 +61,7 @@ export function pageTestValues(locale: Locale = 'english'): RpcFixtureValues {
     'workflows.agentProgress': [],
     'notes.thread': { items: [], next: null },
     'pages.pages': { items: [], nextCursor: null },
+    'pages.merges': [],
     'sources.sources': { items: [], next: null },
     'materials.activeMaterialGenerations': [],
     'materials.materials': { items: [], nextCursor: null },

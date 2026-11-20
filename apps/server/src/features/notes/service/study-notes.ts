@@ -1,5 +1,5 @@
 /** @file Prepares standalone study notes using retained notebook and material evidence. */
-import { StudyError } from '@study/contracts';
+import { authoredPageInputLimit, StudyError } from '@study/contracts';
 import type {
   pageTransformContextSchema,
   ProjectId,
@@ -22,7 +22,12 @@ type Context = typeof pageTransformContextSchema.Type;
 
 type DocumentInput = Exclude<StudyNotes['inputs'][number], { kind: 'note' }>;
 
-function exactDocument(tx: Transaction, input: DocumentInput, projectId: ProjectId) {
+function exactDocument(
+  tx: Transaction,
+  input: DocumentInput,
+  projectId: ProjectId,
+  admitting: boolean
+) {
   if (input.kind === 'source') {
     if (!Sources.belongsToProjectInTransaction(tx, input.sourceId, projectId))
       throw new StudyError('invalid_input', 'Material is outside the requested subject');
@@ -34,17 +39,21 @@ function exactDocument(tx: Transaction, input: DocumentInput, projectId: Project
   const page = Pages.pageInTransaction(tx, { id: version.pageId });
 
   if (
-    !page.projectIds.includes(projectId) ||
-    page.archivedAt !== null ||
-    version.status !== 'published'
+    version.status !== 'published' ||
+    (admitting && (!page.projectIds.includes(projectId) || page.archivedAt !== null))
   )
     throw new StudyError('invalid_input', 'Select an active page in the requested subject');
 
   return { ...version, name: page.title };
 }
 
-function fullDocument(tx: Transaction, input: DocumentInput, projectId: ProjectId) {
-  const exact = exactDocument(tx, input, projectId);
+function fullDocument(
+  tx: Transaction,
+  input: DocumentInput,
+  projectId: ProjectId,
+  admitting: boolean
+) {
+  const exact = exactDocument(tx, input, projectId, admitting);
   const excerpts = Pages.wholeDocumentExcerpts(exact.document);
 
   if (!excerpts.length) throw new StudyError('invalid_input', 'Study evidence has no text');
@@ -62,20 +71,30 @@ function fullDocument(tx: Transaction, input: DocumentInput, projectId: ProjectI
 
 export function studyNotesContext(
   tx: Transaction,
-  request: typeof transformSnapshotSchema.Type
+  request: typeof transformSnapshotSchema.Type,
+  admitting = false
 ): Context {
   const settings = request.studyNotes;
 
   if (!settings) throw new StudyError('invalid_input', 'Study notes request expected');
 
   const inputs: Context['inputs'][number][] = [];
-  const messages: Context['messages'][number][] = [];
+  const messagesByVersion = new Map<
+    Context['messages'][number]['versionId'],
+    Context['messages'][number]
+  >();
 
   for (const input of settings.inputs) {
-    if (input.kind === 'note')
-      messages.push(...studyContext(tx, input, settings.projectId).messages);
-    else inputs.push(fullDocument(tx, input, settings.projectId));
+    if (input.kind === 'note') {
+      for (const message of studyContext(tx, input, settings.projectId).messages)
+        messagesByVersion.set(message.versionId, message);
+    } else inputs.push(fullDocument(tx, input, settings.projectId, admitting));
   }
+
+  const messages = [...messagesByVersion.values()];
+
+  if (inputs.length + messages.length > authoredPageInputLimit)
+    throw new StudyError('not_enough', 'Select fewer sources for study notes');
 
   const size =
     messages.reduce((count, message) => count + message.text.length, 0) +
@@ -105,7 +124,7 @@ export const studyNotesOperations = {
     transaction((tx) => {
       const { created, request } = Pages.requestStudyNotesInTransaction(tx, settings);
 
-      if (created) studyNotesContext(tx, request);
+      if (created) studyNotesContext(tx, request, true);
 
       return request;
     }),

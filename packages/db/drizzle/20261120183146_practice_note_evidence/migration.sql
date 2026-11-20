@@ -146,6 +146,13 @@ WHEN EXISTS(SELECT 1 FROM "page_inputs" i JOIN "page_versions" v ON v.id=i.versi
  OR EXISTS(SELECT 1 FROM "note_context_pages" WHERE version_id=NEW.version_id)
  OR EXISTS(SELECT 1 FROM material_evidence_inputs WHERE "page_version_id"=NEW.version_id)
  OR EXISTS(SELECT 1 FROM learning_practice_inputs WHERE "page_version_id"=NEW.version_id)
+ OR EXISTS(
+  SELECT 1 FROM page_transform_requests r
+  JOIN json_each(r.request, '$.studyNotes.inputs') j
+  WHERE r.cancelled=0 AND r.result_version_id IS NULL
+    AND json_extract(j.value, '$.kind')='page'
+    AND json_extract(j.value, '$.versionId')=CAST(NEW.version_id AS TEXT)
+ )
 BEGIN SELECT RAISE(ABORT,'exact authored inputs protect referenced bodies'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_generation_input_project BEFORE INSERT ON material_evidence_inputs WHEN NEW.request_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM material_generation_requests r WHERE r.id=NEW.request_id AND ((NEW.note_context_id IS NOT NULL AND EXISTS(
@@ -233,6 +240,12 @@ WHEN EXISTS(
   JOIN learning_practice_slots p ON p.id=i.slot_id
   JOIN learning_practice_controls c ON c.project_id=p.project_id AND c.epoch=p.epoch
   WHERE i.note_context_id=OLD.request_id AND p.status IN ('pending','ready') AND c.enabled=1
+) OR EXISTS(
+  SELECT 1 FROM page_transform_requests r
+  JOIN json_each(r.request, '$.studyNotes.inputs') j
+  WHERE r.cancelled=0 AND r.result_version_id IS NULL
+    AND json_extract(j.value, '$.kind')='note'
+    AND json_extract(j.value, '$.contextId')=OLD.request_id
 )
 BEGIN SELECT RAISE(ABORT,'practice evidence pins the exact note context'); END;
 --> statement-breakpoint
@@ -252,6 +265,14 @@ WHEN EXISTS(
   JOIN json_each(c.snapshot, '$.messages') m
   WHERE json_extract(m.value, '$.versionId')=CAST(OLD.id AS TEXT)
     AND p.status IN ('pending','ready') AND a.enabled=1
+) OR EXISTS(
+  SELECT 1 FROM page_transform_requests r
+  JOIN json_each(r.request, '$.studyNotes.inputs') j
+  JOIN note_run_contexts c ON c.request_id=json_extract(j.value, '$.contextId')
+  JOIN json_each(c.snapshot, '$.messages') m
+  WHERE r.cancelled=0 AND r.result_version_id IS NULL
+    AND json_extract(j.value, '$.kind')='note'
+    AND json_extract(m.value, '$.versionId')=CAST(OLD.id AS TEXT)
 )
 BEGIN SELECT RAISE(ABORT,'practice evidence pins the exact note version'); END;
 --> statement-breakpoint
@@ -368,10 +389,14 @@ WHEN NEW.result_version_id IS NOT NULL AND (NOT (EXISTS(SELECT 1 FROM "page_vers
    END
  )
  AND (SELECT COUNT(*) FROM page_inputs i WHERE i.version_id=v.id)=(
-   SELECT coalesce(sum(CASE WHEN json_extract(j.value,'$.kind')='note' THEN (
-     SELECT count(*) FROM note_run_contexts c JOIN json_each(c.snapshot,'$.messages') m
-     WHERE c.request_id=json_extract(j.value,'$.contextId')
-   ) ELSE 1 END),0) FROM json_each(tr.request,'$.studyNotes.inputs') j
+   SELECT COUNT(*) FROM json_each(tr.request,'$.studyNotes.inputs') j
+   WHERE json_extract(j.value,'$.kind')!='note'
+ ) + (
+   SELECT COUNT(DISTINCT json_extract(m.value,'$.versionId'))
+   FROM json_each(tr.request,'$.studyNotes.inputs') j
+   JOIN note_run_contexts c ON c.request_id=json_extract(j.value,'$.contextId')
+   JOIN json_each(c.snapshot,'$.messages') m
+   WHERE json_extract(j.value,'$.kind')='note'
  )
 ) OR EXISTS(
  SELECT 1 FROM "page_transform_requests" tr JOIN "note_run_contexts" c ON c.request_id=tr.context_request_id JOIN "page_versions" v ON v.id=NEW.result_version_id
@@ -494,10 +519,14 @@ WHEN NEW.result_version_id IS NOT NULL AND OLD.result_version_id IS NULL AND (NO
    END
  )
  AND (SELECT COUNT(*) FROM page_inputs i WHERE i.version_id=v.id)=(
-   SELECT coalesce(sum(CASE WHEN json_extract(j.value,'$.kind')='note' THEN (
-     SELECT count(*) FROM note_run_contexts c JOIN json_each(c.snapshot,'$.messages') m
-     WHERE c.request_id=json_extract(j.value,'$.contextId')
-   ) ELSE 1 END),0) FROM json_each(tr.request,'$.studyNotes.inputs') j
+   SELECT COUNT(*) FROM json_each(tr.request,'$.studyNotes.inputs') j
+   WHERE json_extract(j.value,'$.kind')!='note'
+ ) + (
+   SELECT COUNT(DISTINCT json_extract(m.value,'$.versionId'))
+   FROM json_each(tr.request,'$.studyNotes.inputs') j
+   JOIN note_run_contexts c ON c.request_id=json_extract(j.value,'$.contextId')
+   JOIN json_each(c.snapshot,'$.messages') m
+   WHERE json_extract(j.value,'$.kind')='note'
  )
 ) OR EXISTS(
  SELECT 1 FROM "page_transform_requests" tr JOIN "note_run_contexts" c ON c.request_id=tr.context_request_id JOIN "page_versions" v ON v.id=NEW.result_version_id

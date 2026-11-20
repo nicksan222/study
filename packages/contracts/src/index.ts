@@ -444,6 +444,7 @@ export {
 } from './notes/work.ts';
 export {
   applyProposalSchema,
+  authoredPageInputLimit,
   blockDifferenceSchema,
   compareSchema,
   comparisonSchema,

@@ -42,7 +42,7 @@ export function PracticeStudyNotes({ project }: { project?: ProjectId }) {
           </IconButton>
         </PageOverview.Actions>
       </PageOverview.Heading>
-      {project && <PageMerges project={project} />}
+      <PageMerges project={project} />
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
       <SavedPages items={items} project={project} />
 

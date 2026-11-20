@@ -406,6 +406,10 @@ test.server.stable(
             noteId: note.id,
             projectId: project.id
           });
+          const duplicateCapture = yield* notes.captureStudyEvidence({
+            noteId: note.id,
+            projectId: project.id
+          });
           const document = yield* docs.create({
             projectId: project.id,
             title: 'Field measurements',
@@ -424,10 +428,34 @@ test.server.stable(
             title: 'Study notes',
             language: 'english',
             instruction: '',
-            inputs: [capture, { kind: 'page', versionId: document.version.id }, source]
+            inputs: [
+              capture,
+              duplicateCapture,
+              { kind: 'page', versionId: document.version.id },
+              source
+            ]
           });
 
           yield* notes.editMessage({ messageId: message.id, text: 'edited observation' });
+          expect(
+            yield* Effect.exit(
+              notes.deleteMessageVersion({
+                messageId: message.id,
+                versionId: message.activeVersionId!
+              })
+            )
+          ).toMatchObject({ _tag: 'Failure' });
+          yield* docs.save({
+            pageId: document.id,
+            expectedVersionId: document.version.id,
+            key: crypto.randomUUID(),
+            document: content()
+          });
+          const retirement = { pageId: document.id, keepLatest: 1 };
+          const preview = yield* docs.previewHistory(retirement);
+
+          expect(preview.blockedVersionIds).toContain(document.version.id);
+          yield* docs.archive({ id: document.id, archived: true });
 
           return { document, message, request, source };
         }).pipe(Effect.provide(fixture.domain()))
@@ -449,7 +477,7 @@ test.server.stable(
             { kind: 'message', versionId: message.activeVersionId }
           ]);
           expect(result.citations[0]?.quote).toContain('alpha');
-          expect((yield* docs.page({ id: document.id })).archivedAt).toBeNull();
+          expect((yield* docs.page({ id: document.id })).archivedAt).not.toBeNull();
           expect((yield* docs.merges({ studyNotes: true }))[0]?.resultVersionId).toEqual(versionId);
         }).pipe(Effect.provide(fixture.domain()))
       );

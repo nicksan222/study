@@ -10,7 +10,7 @@ import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { ContentReadError } from '../document-presentation';
 
-export function PageMerges({ project }: { project: ProjectId }) {
+export function PageMerges({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
   const state = rpc.pages.merges.useQuery({ projectId: project, studyNotes: true });
   const items = state.data ?? [];
@@ -23,7 +23,11 @@ export function PageMerges({ project }: { project: ProjectId }) {
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
       <PageOverview.Rows>
         {items.map((item) => (
-          <MergeProgress key={item.id} item={item} project={project} />
+          <MergeProgress
+            key={item.id}
+            item={item}
+            project={item.studyNotes?.projectId ?? project}
+          />
         ))}
       </PageOverview.Rows>
     </PageOverview.Section>

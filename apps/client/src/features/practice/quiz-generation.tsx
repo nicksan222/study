@@ -58,6 +58,7 @@ import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';
 import { useNativeAction } from '#client/lib/effect/native.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { GenerationWatcher } from './generation-watcher';
 import { MaterialInputPicker } from './material-input-picker';
@@ -367,6 +368,17 @@ function useGenerationReadiness(isExam: boolean) {
   return useAiReadiness('medium', isExam ? 'chatgpt' : undefined);
 }
 
+function useGenerationQuizSettings(kind: GenerationKind) {
+  const enabled = kind !== 'exam' && kind !== 'study_notes';
+  const query = rpc.settings.quizSettings.useQuery({}, { enabled });
+
+  return {
+    ...query,
+    ready: !enabled || query.isSuccess,
+    failed: enabled && query.isError
+  };
+}
+
 /** Build document-grounded requests using the selected practice format. */
 function useGeneration(
   projectId: ProjectId | undefined,
@@ -384,10 +396,9 @@ function useGeneration(
   const { pages, inputs, setInputs } = useGenerationPages(projectId);
   const isExam = kind === 'exam';
   const isStudyNotes = kind === 'study_notes';
-  const needsQuizSettings = !isExam && !isStudyNotes;
   const studyNotes = useStudyNotesGeneration(notesAccepted, t('PracticeStudyNotesTitle'));
   const readiness = useGenerationReadiness(isExam);
-  const preferences = rpc.settings.quizSettings.useQuery({}, { enabled: needsQuizSettings });
+  const preferences = useGenerationQuizSettings(kind);
   const exam = useExamOpening(examOpened, trackRequest);
   const start = useNativeAction(async (input: typeof materialGenerationInputSchema.Type) => {
     const result = await rpc.materials.requestMaterialGeneration.call(input);
@@ -399,13 +410,12 @@ function useGeneration(
   const busy = [start, exam, studyNotes].some((action) => action.isPending);
   const instructionTooLong = isStudyNotes && instruction.length > studyNotesInstructionLimit;
   const option = generationKinds.find((entry) => entry.kind === kind)!;
-  const settingsReady = !needsQuizSettings || preferences.isSuccess;
   const canStart =
     readiness === 'ready' &&
     ![busy, capturePending, instructionTooLong].some(Boolean) &&
     inputs.length > 0 &&
     inputs.length <= 20 &&
-    settingsReady;
+    preferences.ready;
 
   const create = () => {
     if (!canStart || projectId === undefined || submission.isBlocked()) return;
@@ -450,6 +460,7 @@ function useGeneration(
     setInstruction,
     setCapturePending,
     instructionTooLong,
+    inputSelectionBusy: busy || capturePending,
     studyNotesTitle,
     setStudyNotesTitle,
     pages,
@@ -538,14 +549,14 @@ function GenerationPanel({
                   project={projectId}
                   inputs={model.inputs}
                   onChange={model.setInputs}
-                  disabled={model.busy}
+                  disabled={model.inputSelectionBusy}
                   onCapturePending={model.setCapturePending}
                 />
                 <MaterialInputPicker
                   project={projectId}
                   inputs={model.inputs}
                   onChange={model.setInputs}
-                  disabled={model.busy}
+                  disabled={model.inputSelectionBusy}
                 />
               </>
             )}
@@ -553,7 +564,7 @@ function GenerationPanel({
               pages={model.pages}
               inputs={model.inputs}
               onChange={model.setInputs}
-              disabled={model.busy}
+              disabled={model.inputSelectionBusy}
             />
           </Practice.SourceInputs>
         </Practice.GenerationPages>
@@ -646,9 +657,9 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
             <RetryButton
               variant="outline"
               size="sm"
-              disabled={model.submission.blocked && (model.isExam || !model.preferences.isError)}
+              disabled={model.submission.blocked && !model.preferences.failed}
               onClick={() => {
-                if (!model.isExam && model.preferences.isError) void model.preferences.refetch();
+                if (model.preferences.failed) void model.preferences.refetch();
                 else model.create();
               }}
               label={t('Retry')}
@@ -663,7 +674,11 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
 function generationErrorLabel(model: GenerationModel) {
   if (model.isExam) return 'WrittenExamStartError';
 
-  return model.isStudyNotes ? 'PracticeStudyNotesFailed' : 'QuizGenerateError';
+  if (!model.isStudyNotes) return 'QuizGenerateError';
+
+  return toStudyError(model.studyNotes.error).kind === 'not_enough'
+    ? 'PracticeStudyNotesEvidenceLimit'
+    : 'PracticeStudyNotesFailed';
 }
 
 function hasGenerationError(model: GenerationModel) {
@@ -671,7 +686,7 @@ function hasGenerationError(model: GenerationModel) {
 
   if (model.isStudyNotes) return model.studyNotes.isError;
 
-  return model.preferences.isError || model.start.isError;
+  return model.preferences.failed || model.start.isError;
 }
 
 function GenerationAction({ model }: { model: GenerationModel }) {

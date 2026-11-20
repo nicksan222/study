@@ -68,7 +68,9 @@ test.server.stable(
       expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(102n);
       expect(
         db.orm
-          .all(sql`SELECT project_id, count(*) n FROM project_notes GROUP BY project_id`)
+          .all(
+            sql`SELECT project_id, count(*) n FROM project_notes GROUP BY project_id ORDER BY project_id`
+          )
           .map((row) => row.n)
       ).toEqual([11n, 10n, 10n, 10n, 10n]);
       expect(

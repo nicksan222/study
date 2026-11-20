@@ -19,7 +19,12 @@ export function captureStudyEvidence({
   return transaction((tx) => {
     const contextId = crypto.randomUUID();
 
-    tx.store(NoteContextStore).capture({
+    const note = tx.store(NoteStore).note(noteId);
+
+    if (!note.projectIds.includes(projectId))
+      throw new StudyError('invalid_input', 'Select a whole notebook in the requested subject');
+
+    const snapshot = tx.store(NoteContextStore).capture({
       noteId,
       requestId: contextId,
       intentKey: `study-evidence/${contextId}`,
@@ -29,9 +34,8 @@ export function captureStudyEvidence({
       inputs: []
     });
     const input = { kind: 'note' as const, contextId };
-    const evidence = readStudyEvidence(tx, input, projectId);
 
-    if (!evidence.document.blocks.length)
+    if (!snapshot.messages.length)
       throw new StudyError('invalid_input', 'The notebook has no authored text');
 
     return input;
