@@ -2359,6 +2359,7 @@ test.browser.stable(
       target: dialog,
       zoomPercent: 100,
       center: zoom,
+      centerWithin: dialog.locator('.settings-scroll'),
       ready: () => expect(zoom).toHaveValue('100')
     });
 

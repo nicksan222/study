@@ -25,6 +25,7 @@ export type ExpectScreenshot = (
   options: {
     target: Locator | 'viewport';
     center?: Locator;
+    centerWithin?: Locator;
     /** Anchor the owner scroller at its end when zoom makes centering clamp ambiguously. */
     scrollToEnd?: Locator;
     ready: () => Promise<void>;
@@ -53,7 +54,7 @@ export function screenshotAssertions(
   const names = new Set<string>();
   const expectScreenshot: ExpectScreenshot = async (
     name,
-    { target, ready, timeoutMs = 30000, focus, center, scrollToEnd }
+    { target, ready, timeoutMs = 30000, focus, center, centerWithin, scrollToEnd }
   ) => {
     safeName(name);
 
@@ -175,6 +176,24 @@ export function screenshotAssertions(
             await center.evaluate(
               (element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }),
               undefined,
+              { timeout: remaining() }
+            );
+          }
+
+          if (center && centerWithin) {
+            const anchor = await center.boundingBox({ timeout: remaining() });
+
+            if (!anchor) throw new Error(`Screenshot ${name} has no visible center anchor`);
+
+            await centerWithin.evaluate(
+              (element, anchorY) => {
+                const { top, height } = element.getBoundingClientRect();
+                const zoom = height / (element as HTMLElement).offsetHeight;
+
+                // Correct fractional scroll drift after a root zoom change.
+                element.scrollBy({ top: (anchorY - top - height / 2) / zoom, behavior: 'instant' });
+              },
+              anchor.y + anchor.height / 2,
               { timeout: remaining() }
             );
           }
