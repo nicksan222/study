@@ -78,9 +78,10 @@ test.browser.stable(
     await choose(width, copy.AppearanceNoteWidthWide);
     await close.click();
     await expect(notebook).toHaveAttribute('data-content-width', 'wide');
+    await expect.poll(async () => (await timeline.boundingBox())?.width).toBeLessThan(fullWidth);
+
     const wideWidth = (await timeline.boundingBox())!.width;
 
-    expect(wideWidth).toBeLessThan(fullWidth);
     await expectScreenshot('wide', {
       target: 'viewport',
       ready: () => expect(input).toBeInViewport()
