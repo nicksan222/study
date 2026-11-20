@@ -186,8 +186,7 @@ export function Shell() {
   );
 }
 
-function ShellContent() {
-  const { t } = useI18n();
+function useShellRoute() {
   const matches = useMatches();
   const match = matches.at(-1);
   const {
@@ -205,10 +204,18 @@ function ShellContent() {
   const metadata = materialReader
     ? { title, section: 'uploads' as const, scope: 'project' as const }
     : { title, section, scope, sidebar };
+
+  return { metadata, header, pathname: match?.pathname ?? '' };
+}
+
+function ShellContent() {
+  const { t } = useI18n();
+  const { metadata, header, pathname } = useShellRoute();
+  const { title, section } = metadata;
   const notes = title === 'Notes';
   const notebook = ['Notes', 'Assistant'].includes(title);
   const layout = usePageLayout(notes, section === 'pages', header === 'workspace');
-  const navigation = useNavigation(match?.pathname ?? '', notebook, section === 'practice');
+  const navigation = useNavigation(pathname, notebook, section === 'practice');
   const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.visible);
   const context = useSidebarContext(metadata);
   const { project, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);
