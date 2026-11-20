@@ -85,6 +85,7 @@ async function checkSetupKeyboard(
   const sources = setup.getByRole('switch').first();
 
   await expect(setup).toHaveCSS('width', '368px');
+  await format.scrollIntoViewIfNeeded();
   expect((await format.boundingBox())!.y).toBeLessThan((await sources.boundingBox())!.y);
   await expectScreenshot('setup-tablet-pinched', {
     target: setup,

@@ -8,7 +8,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AttemptsAction } from './history-dialog';
-import { MaterialPages } from './material-pages';
+import { MaterialSources } from './material-sources';
 import { useMaterialArchive } from './practice.queries';
 
 export function MaterialActions({ material }: { material: MaterialDetailDto }) {
@@ -66,7 +66,7 @@ export function MaterialActions({ material }: { material: MaterialDetailDto }) {
         )}
       </WorkspaceCard.Group>
       <WorkspaceCard.Group>
-        <MaterialPages version={version} materialId={material.id} />
+        <MaterialSources version={version} materialId={material.id} />
       </WorkspaceCard.Group>
       <WorkspaceCard.Group>
         <ArchiveAction material={material} busy={false} project={project} />

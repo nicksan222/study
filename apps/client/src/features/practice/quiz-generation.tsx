@@ -1,4 +1,5 @@
 import {
+  contentInputKey,
   defaultQuizSettings,
   practiceGenerationSettings,
   writtenExamTopicLimit
@@ -255,7 +256,11 @@ function GenerationDialog({
               setRequests((current) => [...current, id]);
               dialog.closeAccepted();
             }}
-            notesAccepted={dialog.closeAccepted}
+            notesAccepted={() => {
+              if (projectId === undefined || !dialog.closeAccepted()) return;
+
+              void navigate({ to: '/practice', search: { project: String(projectId) } });
+            }}
             examOpened={openExam}
             trackRequest={dialog.trackRequest}
           />
@@ -336,6 +341,26 @@ function useExamOpening(opened: (opening: ExamOpening) => void, track: TrackExam
   };
 }
 
+function useStudyNotesGeneration(accepted: () => void) {
+  const pending = useRef<{ intent: string; key: string } | undefined>(undefined);
+
+  return useNativeAction(async (input: Omit<typeof studyNotesRequestSchema.Type, 'key'>) => {
+    const intent = JSON.stringify({
+      ...input,
+      projectId: String(input.projectId),
+      inputs: input.inputs.map(contentInputKey)
+    });
+    const key = pending.current?.intent === intent ? pending.current.key : crypto.randomUUID();
+
+    pending.current = { intent, key };
+    const result = await rpc.pages.generateStudyNotes.call({ ...input, key });
+
+    accepted();
+
+    return result;
+  });
+}
+
 /** Build document-grounded requests using the selected practice format. */
 function useGeneration(
   projectId: ProjectId | undefined,
@@ -352,7 +377,7 @@ function useGeneration(
   const isExam = kind === 'exam';
   const isStudyNotes = kind === 'study_notes';
   const needsQuizSettings = !isExam && !isStudyNotes;
-  const notesKey = useRef(crypto.randomUUID());
+  const studyNotes = useStudyNotesGeneration(notesAccepted);
   const readiness = useAiReadiness('medium', isExam ? 'chatgpt' : undefined);
   const preferences = rpc.settings.quizSettings.useQuery({}, { enabled: needsQuizSettings });
   const exam = useExamOpening(examOpened, trackRequest);
@@ -363,19 +388,11 @@ function useGeneration(
 
     return result;
   });
-  const generateNotes = useNativeAction(async (input: typeof studyNotesRequestSchema.Type) => {
-    const result = await rpc.pages.generateStudyNotes.call(input);
-
-    notesAccepted();
-
-    return result;
-  });
-  const busy = [start, exam, generateNotes].some((action) => action.isPending);
+  const busy = [start, exam, studyNotes].some((action) => action.isPending);
   const option = generationKinds.find((entry) => entry.kind === kind)!;
   const canStart =
     readiness === 'ready' &&
     !busy &&
-    pages.isSuccess &&
     inputs.length > 0 &&
     inputs.length <= 20 &&
     (!needsQuizSettings || preferences.isSuccess);
@@ -394,8 +411,7 @@ function useGeneration(
     }
 
     if (isStudyNotes) {
-      generateNotes.mutate({
-        key: notesKey.current,
+      studyNotes.mutate({
         title: t('PracticeStudyNotesTitle'),
         projectId,
         inputs: selected,
@@ -432,7 +448,7 @@ function useGeneration(
     },
     preferences,
     start,
-    generateNotes,
+    studyNotes,
     isStudyNotes,
     exam,
     isExam,
@@ -595,7 +611,13 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
       {hasGenerationError(model) && (
         <ErrorState
           layout="inline"
-          title={t(model.isExam ? 'WrittenExamStartError' : 'QuizGenerateError')}
+          title={t(
+            model.isExam
+              ? 'WrittenExamStartError'
+              : model.isStudyNotes
+                ? 'PracticeStudyNotesFailed'
+                : 'QuizGenerateError'
+          )}
           action={
             <RetryButton
               variant="outline"
@@ -617,7 +639,7 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
 function hasGenerationError(model: GenerationModel) {
   if (model.isExam) return model.exam.isError;
 
-  if (model.isStudyNotes) return model.generateNotes.isError;
+  if (model.isStudyNotes) return model.studyNotes.isError;
 
   return model.preferences.isError || model.start.isError;
 }

@@ -2123,8 +2123,8 @@ export const english = Object.freeze({
   AlertDeleteCard: 'Delete this card?',
   ConfirmDeleteCard: 'Its review history goes with it.',
   AddCard: 'Add a card',
-  PracticeSourcePages: 'Source pages',
-  PracticeNoSourcePages: 'No pages are linked to this material.',
+  PracticeEvidence: 'Sources used',
+  PracticeNoEvidence: 'This exercise has no linked sources.',
   PracticeGenerateFromPages: 'Generate practice from sources',
   PracticeGenerateAutomaticTitle:
     'Study will create a title automatically. Your defaults come from Settings → Study.',

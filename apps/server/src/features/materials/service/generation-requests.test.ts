@@ -29,6 +29,7 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { materialRpcHandlers } from '#testing/material-rpc';
+import { withTestPublication } from '#testing/publication';
 
 const document = () => ({
   blocks: [plainBlock('paragraph', 'Canonical material', { type: 'authored' })],
@@ -796,6 +797,32 @@ test.server.stable(
           );
 
           expect(failure.kind).toBe('invalid_input');
+          yield* withTestPublication(
+            context,
+            Effect.gen(function* () {
+              const id = yield* materials.publishMaterialGeneration({
+                requestId: queued.id,
+                content: {
+                  kind: 'quiz',
+                  questions: [
+                    {
+                      kind: 'open',
+                      prompt: 'What was recorded?',
+                      referenceAnswer: 'Original observation',
+                      explanation: 'The original note records this observation. [1]'
+                    }
+                  ]
+                },
+                citations: [{ marker: 1n, input, quote: 'Original observation', blockOrdinal: 0 }]
+              });
+              const version = yield* materials.materialVersion({ id });
+
+              expect(version.inputs).toEqual(request.inputs);
+              expect((yield* materials.citations({ id, limit: 10 })).items[0]?.input).toEqual(
+                input
+              );
+            })
+          );
           expect((yield* Effect.flip(notes.deleteNote(note.id))).kind).toBeDefined();
           expect((yield* notes.note(note.id)).id).toBe(note.id);
         }).pipe(Effect.provide(services))

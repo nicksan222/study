@@ -2177,8 +2177,8 @@ export const italian = Object.freeze({
   AlertDeleteCard: 'Eliminare questa flashcard?',
   ConfirmDeleteCard: 'Anche i suoi ripassi vengono eliminati.',
   AddCard: 'Aggiungi una flashcard',
-  PracticeSourcePages: 'Pagine di riferimento',
-  PracticeNoSourcePages: 'Nessuna pagina è collegata a questo materiale.',
+  PracticeEvidence: 'Fonti usate',
+  PracticeNoEvidence: 'Questo esercizio non ha fonti collegate.',
   PracticeGenerateFromPages: 'Genera esercizi dalle fonti',
   PracticeGenerateAutomaticTitle:
     'Study creerà automaticamente il titolo. Le preferenze vengono da Impostazioni → Studio.',
