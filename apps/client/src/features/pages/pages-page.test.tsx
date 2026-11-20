@@ -27,7 +27,6 @@ test.unit.beforeEach(async ({ mock }) => {
     Link: ({ children }: { children: ReactNode }) => <a href="/pages/1">{children}</a>
   }));
   mock('#client/features/pages/creation-actions', () => ({ NewBlankPage: () => null }));
-  mock('#client/features/pages/from-notes', () => ({ PagesFromNotes: () => null }));
   mock('#client/features/pages/page-context-menu', () => ({
     PageContextMenu: ({ children }: { children: ReactNode }) => children
   }));

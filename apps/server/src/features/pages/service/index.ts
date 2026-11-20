@@ -21,11 +21,17 @@ import { pageEditingOperations } from './editing.ts';
 import { pageEvidenceOperations } from './evidence.ts';
 import { pageGenerationOperations } from './generation.ts';
 import { pageLibraryOperations } from './library.ts';
+import { wholeDocumentExcerpts } from './merge.ts';
 import { pageProposalOperations } from './proposals.ts';
 import { created, proposalCommitted } from './publication.ts';
 import { pageRetirementOperations } from './retirement.ts';
 import { pageTransformOperations } from './transform-operations.ts';
-import { publishTransform, requestTransform, retryTransform } from './transforms.ts';
+import {
+  publishTransform,
+  requestStudyNotes,
+  requestTransform,
+  retryTransform
+} from './transforms.ts';
 
 export const Pages = defineService(
   'study/Pages',
@@ -61,6 +67,8 @@ export const Pages = defineService(
       proposalCommitted(tx, tx.store(PageProposalsStore).keepProposal(v)),
     findTransformInTransaction: (tx: Transaction, v: typeof t.transformKeySchema.Type) =>
       Option.getOrNull(tx.store(PageTransformsStore).findTransform(v)),
+    wholeDocumentExcerpts,
+    requestStudyNotesInTransaction: requestStudyNotes,
     requestTransformInTransaction: requestTransform,
     publishTransformInTransaction: publishTransform,
     retryTransformInTransaction: retryTransform,

@@ -1,5 +1,6 @@
 import type { ProjectId, transformSnapshotSchema, PageSummary } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
+import { PageIcon } from '@study/icons';
 import { AiActivity, Button, DialogFooter, Input, PageOverview, StatusMessage } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { Effect } from 'effect';
@@ -91,22 +92,45 @@ export function MergePagesDialog({
   );
 }
 
-export function PageMerges({ project }: { project?: ProjectId }) {
+export function PageMerges({
+  project,
+  studyNotes = false
+}: {
+  project?: ProjectId;
+  studyNotes?: boolean;
+}) {
   const { t } = useI18n();
-  const state = rpc.pages.merges.useQuery({ projectId: project });
-  const items = state.data?.filter((item) => !item.cancelled) ?? [];
+  const state = rpc.pages.merges.useQuery({ projectId: project, studyNotes });
+  const items = state.data ?? [];
 
   if (!items.length && !state.error) return null;
 
-  return (
+  const itemsList = (
+    <PageOverview.Rows>
+      {items.map((item) => (
+        <MergeProgress key={item.id} item={item} project={project} />
+      ))}
+    </PageOverview.Rows>
+  );
+  const error = state.error && (
+    <ContentReadError error={state.error} retry={() => void state.refetch()} />
+  );
+
+  return studyNotes ? (
+    <PageOverview.Work>
+      <PageOverview.Heading>
+        <PageOverview.Intro>
+          <PageOverview.Title>{t('PracticeStudyNotesTitle')}</PageOverview.Title>
+        </PageOverview.Intro>
+      </PageOverview.Heading>
+      {error}
+      {itemsList}
+    </PageOverview.Work>
+  ) : (
     <PageOverview.Section aria-label={t('PagesMergeWork')}>
       <PageOverview.SectionHeading>{t('PagesMergeWork')}</PageOverview.SectionHeading>
-      {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
-      <PageOverview.Picker>
-        {items.map((item) => (
-          <MergeProgress key={item.id} item={item} project={project} />
-        ))}
-      </PageOverview.Picker>
+      {error}
+      {itemsList}
     </PageOverview.Section>
   );
 }
@@ -132,17 +156,22 @@ function MergeProgress({
   );
 
   return (
-    <div>
-      <PageOverview.Name>{item.title}</PageOverview.Name>
-      <MergeProgressOutcome {...{ item, result, project }} />
+    <PageOverview.Job>
+      <PageOverview.Icon>
+        <PageIcon aria-hidden="true" />
+      </PageOverview.Icon>
+      <PageOverview.Copy>
+        <PageOverview.Name>{item.title}</PageOverview.Name>
+        <MergeProgressOutcome {...{ item, result, project }} />
+        {mutation.error && <ContentReadError error={mutation.error} />}
+        {result.error && <ContentReadError error={result.error} />}
+      </PageOverview.Copy>
       <MergeProgressActions
         item={item}
         busy={mutation.isPending}
         run={(action) => void mutation.mutate(action)}
       />
-      {mutation.error && <ContentReadError error={mutation.error} />}
-      {result.error && <ContentReadError error={result.error} />}
-    </div>
+    </PageOverview.Job>
   );
 }
 
@@ -159,16 +188,21 @@ function MergeProgressOutcome({
 
   return (
     <>
-      {' '}
-      {item.resultVersionId === null && !item.errorKind && <AiActivity label={t('PagesMerging')} />}
-      {item.errorKind && <StatusMessage>{t(mergeErrorMessage(item.errorKind))}</StatusMessage>}
+      {item.resultVersionId === null && !item.errorKind && (
+        <AiActivity label={t(item.studyNotes ? 'PracticeStudyNotesGenerating' : 'PagesMerging')} />
+      )}
+      {item.errorKind && (
+        <StatusMessage>
+          {t(item.studyNotes ? 'PracticeStudyNotesFailed' : mergeErrorMessage(item.errorKind))}
+        </StatusMessage>
+      )}
       {result.data && (
         <Link
           to="/pages/$pageId"
           params={{ pageId: String(result.data.pageId) }}
           search={project ? { project: String(project) } : {}}
         >
-          {t('PagesMergeDone')}
+          {t(item.studyNotes ? 'PracticeOpenStudyNotes' : 'PagesMergeDone')}
         </Link>
       )}
     </>
@@ -188,18 +222,17 @@ function MergeProgressActions({
 
   return (
     <>
-      {' '}
       {item.resultVersionId === null && (
-        <>
+        <PageOverview.Actions>
           {item.errorKind && (
             <Button variant="outline" disabled={busy} onClick={() => run('retry')}>
-              {t('PagesMergeRetry')}
+              {t(item.studyNotes ? 'Retry' : 'PagesMergeRetry')}
             </Button>
           )}
           <Button variant="ghost" disabled={busy} onClick={() => run('cancel')}>
-            {t('PagesMergeCancel')}
+            {t(item.studyNotes ? 'Cancel' : 'PagesMergeCancel')}
           </Button>
-        </>
+        </PageOverview.Actions>
       )}
     </>
   );

@@ -284,7 +284,7 @@ test.unit.stable(
 
     expect(scrollHost).toContainElement(card);
     await waitFor(() => expect(card).toBeVisible());
-    expect(within(card).getByRole('button', { name: 'NoteTransform' })).toBeVisible();
+    expect(within(card).queryByRole('button', { name: 'NoteTransform' })).toBeNull();
     expect(screen.getByRole('button', { name: 'NoteDockBelow' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'NoteDockBeside' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));

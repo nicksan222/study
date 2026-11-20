@@ -113,6 +113,10 @@ function rpcFixture({ vi }: Pick<test.unit.Context, 'vi'>, linked = true) {
 
   return {
     ...rpc,
+    'notes.notes': () => Effect.succeed({ items: [], next: null }),
+    'sources.sources': vi
+      .fn<StudyClient['sources.sources']>()
+      .mockReturnValue(Effect.succeed({ items: [], next: null })),
     'settings.quizSettings': vi
       .fn<StudyClient['settings.quizSettings']>()
       .mockReturnValue(

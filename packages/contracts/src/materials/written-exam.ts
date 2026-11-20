@@ -1,7 +1,8 @@
-/** Interactive written examinations use an exact page selection and a bounded transcript. */
+/** Interactive written examinations use exact content inputs and a bounded transcript. */
 import { Schema } from 'effect';
 
-import { pageVersionIdSchema, projectIdSchema } from '../ids.ts';
+import { projectIdSchema } from '../ids.ts';
+import { contentInputSchema } from '../inputs.ts';
 
 export const writtenExamAnswerLimit = 4000;
 
@@ -52,9 +53,7 @@ const writtenExamStepSchema = Schema.Union([
 
 export const writtenExamInputSchema = Schema.Struct({
   projectId: projectIdSchema,
-  inputs: Schema.NonEmptyArray(
-    Schema.Struct({ kind: Schema.Literal('page'), versionId: pageVersionIdSchema })
-  ).check(Schema.isMaxLength(20)),
+  inputs: Schema.NonEmptyArray(contentInputSchema).check(Schema.isMaxLength(20)),
   step: writtenExamStepSchema
 });
 

@@ -24,8 +24,10 @@ import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Materials } from '#server/features/materials/index';
+import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
+import { Settings } from '#server/features/settings/index';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const document = () => ({
@@ -727,6 +729,75 @@ test.server.stable(
           expect((yield* materials.activeMaterialGenerations({})).map((item) => item.id)).toEqual([
             otherRequest.id
           ]);
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.server.stable(
+  'accepts a captured notebook alongside a page and fences the exact authored evidence',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Materials.layer,
+      Notes.layer,
+      Pages.layer,
+      Settings.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const notes = yield* Notes;
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'Cell biology' });
+          const other = yield* projects.createProject({ name: 'Botany' });
+          const note = yield* notes.createUntitledNote({ project: project.id });
+          const message = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'Original observation',
+            requestReply: false
+          });
+          const input = yield* notes.captureStudyEvidence({
+            noteId: note.id,
+            projectId: project.id
+          });
+          const page = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Summary' }
+          );
+          const request = {
+            projectId: project.id,
+            title: 'Mixed quiz',
+            kind: 'quiz' as const,
+            inputs: [input, { kind: 'page' as const, versionId: page.version.id }]
+          };
+          const queued = yield* materials.requestMaterialGeneration(request);
+
+          expect(queued.inputs).toEqual(request.inputs);
+          yield* notes.editMessage({ messageId: message.id, text: 'A later observation' });
+          expect(
+            (yield* materials.contentInput(input)).document.blocks.map((block) => block.text)
+          ).toEqual(['Original observation']);
+          const failure = yield* Effect.flip(
+            materials.requestMaterialGeneration({
+              ...request,
+              projectId: other.id,
+              inputs: [input]
+            })
+          );
+
+          expect(failure.kind).toBe('invalid_input');
+          expect((yield* Effect.flip(notes.deleteNote(note.id))).kind).toBeDefined();
+          expect((yield* notes.note(note.id)).id).toBe(note.id);
         }).pipe(Effect.provide(services))
       );
     } finally {

@@ -207,6 +207,8 @@ export function makePageHistory(resources: StoreResources) {
           report: null,
           request: sql`CASE WHEN json_type(${requests.request},'$.merge')='object'
             THEN json_set(${requests.request},'$.title','-','$.merge.title','-','$.merge.instruction','')
+            WHEN json_type(${requests.request},'$.studyNotes')='object'
+            THEN json_set(${requests.request},'$.title','-','$.studyNotes.title','-','$.studyNotes.instruction','')
             ELSE json_set(${requests.request},'$.title','-') END`
         })
         .where(

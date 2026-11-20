@@ -11,7 +11,6 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { ContentReadError } from '../document-presentation';
 import { PagesArchive } from './archive';
 import { NewBlankPage } from './creation-actions';
-import { PagesFromNotes } from './from-notes';
 import { PageMerges } from './merge';
 import { PageContextMenu } from './page-context-menu';
 import { usePageBrowse } from './use-page-browse';
@@ -45,7 +44,6 @@ function PagesOverviewPage({ project }: { project?: ProjectId }) {
         <PageOverview.Actions>
           <PagesArchive project={project} />
           <NewBlankPage key={String(project)} project={project} />
-          <PagesFromNotes key={String(project)} project={project} />
           <IconButton
             variant="ghost-muted"
             size="icon"

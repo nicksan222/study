@@ -353,9 +353,15 @@ export const italian = Object.freeze({
   QuizImportedSource: 'Fonte importata',
   QuizNoMatchingQuestions:
     'Questo materiale non contiene domande del tipo selezionato. Scegli un altro tipo per iniziare.',
-  QuizChooseInputs: 'Materiale di partenza',
-  QuizChooseInputsHelp:
-    'Scegli fino a 20 pagine dalla pagina Pagine. Tutte le pagine sono selezionate inizialmente.',
+  PracticeStudyNotes: 'Genera appunti',
+  PracticeStudyNotesGenerating: 'Generazione degli appunti…',
+  PracticeStudyNotesFailed: 'Impossibile generare gli appunti. Puoi riprovare con le stesse fonti.',
+  PracticeStudyNotesTitle: 'Appunti di studio',
+  PracticeStudyNotesHelp: 'Crea un documento di studio dalle note e dai materiali selezionati.',
+  PracticeOpenStudyNotes: 'Apri gli appunti',
+  PracticeMaterialNeedsExtraction: 'Serve il testo estratto',
+  QuizChooseInputs: 'Fonti',
+  QuizChooseInputsHelp: 'Scegli fino a 20 fonti tra note, materiali e pagine.',
   QuizInputsError: 'Impossibile caricare il materiale di partenza. Riprova.',
   QuizNoProjectInputs: 'Questa materia non ha ancora pagine. Aggiungine una da Pagine.',
   QuizInputUnavailable:
@@ -2173,7 +2179,7 @@ export const italian = Object.freeze({
   AddCard: 'Aggiungi una flashcard',
   PracticeSourcePages: 'Pagine di riferimento',
   PracticeNoSourcePages: 'Nessuna pagina è collegata a questo materiale.',
-  PracticeGenerateFromPages: 'Genera dalle pagine',
+  PracticeGenerateFromPages: 'Genera esercizi dalle fonti',
   PracticeGenerateAutomaticTitle:
     'Study creerà automaticamente il titolo. Le preferenze vengono da Impostazioni → Studio.',
   PracticeClearSelection: 'Deseleziona tutto',
@@ -2185,8 +2191,7 @@ export const italian = Object.freeze({
   PracticeNextQuestion: 'Successiva',
   PracticeOverallResults: 'Risultati complessivi',
   PracticeGenerate: 'Genera esercizi',
-  PracticeGenerateHelp:
-    'Crea esercizi e flashcard dalle tue pagine. Sono tutte selezionate; deseleziona quelle che vuoi escludere.',
+  PracticeGenerateHelp: 'Crea esercizi o appunti di studio da note, materiali e pagine.',
   WrittenExam: 'Interrogazione scritta',
   WrittenExamHelp:
     'Discuti un concetto con un professore che ti fa domande di approfondimento. Se ti blocchi, chiedi un indizio.',
@@ -2224,7 +2229,7 @@ export const italian = Object.freeze({
   PracticeGeneratePrompt: 'Su cosa concentrarsi? (facoltativo)',
   PracticeGeneratePromptHint:
     'Per esempio: un quiz sull’isolamento delle transazioni o flashcard con le definizioni principali.',
-  PracticeGenerateLimit: 'Scegli fino a 20 pagine. Deseleziona alcune pagine per continuare.',
+  PracticeGenerateLimit: 'Scegli fino a 20 fonti. Deseleziona alcune fonti per continuare.',
   PracticeGenerateStart: 'Genera',
   PracticeChooseSubject: 'Scegli una materia prima di generare gli esercizi.',
   PracticeOpenGenerated: 'Apri gli esercizi',

@@ -36,7 +36,7 @@ import { ProposalReview } from '../document-editing';
 import { CapturedContext } from './history';
 import { useNoteGenerations } from './note-reads';
 import { NoteWindowNavigation } from './note-window-navigation';
-import type { SelectedNote } from './page-creation-dialog';
+import type { SelectedNote } from './selected-note';
 import { ExecutionStatus, NoteError, NoteReadError } from './status';
 import { TransformSuggestion } from './transform-suggestion';
 import { transformDraft, runTransformAttempt, transformRetry } from './transformation.queries';

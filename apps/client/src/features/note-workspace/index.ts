@@ -1,9 +1,7 @@
 export { NoteWorkspace } from './workspace';
 export { NoteDeleteDialog, NoteBatchDeleteDialog } from './deletion';
 
-export { NotePageDialog } from './page-creation-dialog';
-
-export type { SelectedNote } from './page-creation-dialog';
+export type { SelectedNote } from './selected-note';
 
 export { PageMetadataDialog } from './note-page-metadata';
 

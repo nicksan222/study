@@ -21,6 +21,7 @@ import { hasTextualContent } from '@study/contracts';
 import type { Transaction } from '@study/server';
 import { Schema } from 'effect';
 
+import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
 
@@ -32,15 +33,21 @@ export function readContentInput(
   allowArchived = false
 ) {
   if (input.kind === 'source') {
-    const source = Sources.sourceInTransaction(tx, input.sourceId);
-
-    if (projectId !== undefined && source.projectId !== projectId)
+    if (
+      projectId !== undefined &&
+      !Sources.belongsToProjectInTransaction(tx, input.sourceId, projectId)
+    )
       throw new StudyError('invalid_input', 'Source is outside the requested project');
 
     const exact = Sources.extractionInTransaction(tx, input);
 
     return Schema.decodeUnknownSync(resolvedContentInputSchema)({ input, ...exact });
   }
+
+  if (input.kind === 'note')
+    return Schema.decodeUnknownSync(resolvedContentInputSchema)(
+      Notes.studyEvidenceInTransaction(tx, input, projectId)
+    );
 
   const version = Pages.versionInTransaction(tx, input.versionId);
   const page = Pages.pageInTransaction(tx, { id: version.pageId });

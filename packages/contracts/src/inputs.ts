@@ -16,17 +16,29 @@ const extractedSourceInputSchema = Schema.Struct({
   snapshotId: contentSnapshotIdSchema
 });
 
-export const contentInputSchema = Schema.Union([
+export const documentInputSchema = Schema.Union([
   authoredVersionInputSchema,
   extractedSourceInputSchema
 ]);
 
+export const noteStudyInputSchema = Schema.Struct({
+  kind: Schema.Literal('note'),
+  contextId: Schema.String.check(Schema.isUUID())
+});
+
+export const contentInputSchema = Schema.Union([documentInputSchema, noteStudyInputSchema]);
+
 export type ContentInput = typeof contentInputSchema.Type;
 
 export function contentInputKey(input: ContentInput): string {
-  return input.kind === 'page'
-    ? `page:${input.versionId}`
-    : `source:${input.sourceId}:${input.revision}:${input.snapshotId}`;
+  switch (input.kind) {
+    case 'page':
+      return `page:${input.versionId}`;
+    case 'source':
+      return `source:${input.sourceId}:${input.revision}:${input.snapshotId}`;
+    case 'note':
+      return `note:${input.contextId}`;
+  }
 }
 
 export const contentRangeSchema = Schema.Struct({
@@ -37,7 +49,7 @@ export const contentRangeSchema = Schema.Struct({
 
 export const resolvedContentInputSchema = Schema.Struct({
   input: contentInputSchema,
-  snapshotId: contentSnapshotIdSchema,
+  snapshotId: Schema.NullOr(contentSnapshotIdSchema),
   name: Schema.String,
   document: documentSchema
 });

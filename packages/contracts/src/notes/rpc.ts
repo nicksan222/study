@@ -10,6 +10,7 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
+import { noteStudyInputSchema } from '../inputs.ts';
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import {
   noteArchiveInputSchema,
@@ -333,6 +334,15 @@ export const notesEndpoints = {
     {
       payload: updateNoteSelectionSchema,
       success: noteSelectionSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.notes] }
+  ),
+  captureStudyEvidence: mutation(
+    'notes.captureStudyEvidence',
+    {
+      payload: { noteId: noteIdSchema, projectId: projectIdSchema },
+      success: noteStudyInputSchema,
       error: failureSchema
     },
     { changes: [dependency.notes] }

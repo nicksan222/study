@@ -346,8 +346,16 @@ export const english = Object.freeze({
   QuizImportedSource: 'Imported source',
   QuizNoMatchingQuestions:
     'This material has no questions of the selected type. Choose another type to start.',
-  QuizChooseInputs: 'Source material',
-  QuizChooseInputsHelp: 'Choose up to 20 pages from Pages. All pages are selected by default.',
+  PracticeStudyNotes: 'Generate study notes',
+  PracticeStudyNotesGenerating: 'Generating study notes…',
+  PracticeStudyNotesFailed:
+    'Study notes could not be generated. You can retry using the same sources.',
+  PracticeStudyNotesTitle: 'Study notes',
+  PracticeStudyNotesHelp: 'Turn your selected notes and materials into a study document.',
+  PracticeOpenStudyNotes: 'Open study notes',
+  PracticeMaterialNeedsExtraction: 'Extracted text is required',
+  QuizChooseInputs: 'Sources',
+  QuizChooseInputsHelp: 'Choose up to 20 notes, materials, or pages.',
   QuizInputsError: 'Could not load source material. Try again.',
   QuizNoProjectInputs: 'This subject has no pages yet. Add one from Pages first.',
   QuizInputUnavailable:
@@ -2117,7 +2125,7 @@ export const english = Object.freeze({
   AddCard: 'Add a card',
   PracticeSourcePages: 'Source pages',
   PracticeNoSourcePages: 'No pages are linked to this material.',
-  PracticeGenerateFromPages: 'Generate from pages',
+  PracticeGenerateFromPages: 'Generate practice from sources',
   PracticeGenerateAutomaticTitle:
     'Study will create a title automatically. Your defaults come from Settings → Study.',
   PracticeClearSelection: 'Clear selection',
@@ -2129,8 +2137,7 @@ export const english = Object.freeze({
   PracticeNextQuestion: 'Next',
   PracticeOverallResults: 'Overall results',
   PracticeGenerate: 'Generate practice',
-  PracticeGenerateHelp:
-    'Create practice exercises and flashcards from your pages. All pages are selected; deselect any you want to leave out.',
+  PracticeGenerateHelp: 'Create exercises or study notes from your notes, materials, and pages.',
   WrittenExam: 'Written exam',
   WrittenExamHelp:
     'Talk through one concept with a professor who asks follow-up questions. Ask for a hint if you get stuck.',
@@ -2167,8 +2174,7 @@ export const english = Object.freeze({
   PracticeGeneratePrompt: 'What should it focus on? (optional)',
   PracticeGeneratePromptHint:
     'For example: quiz me on transaction isolation, or make flashcards for key definitions.',
-  PracticeGenerateLimit:
-    'Choose up to 20 pages to generate practice. Deselect some pages to continue.',
+  PracticeGenerateLimit: 'Choose up to 20 sources. Deselect some sources to continue.',
   PracticeGenerateStart: 'Generate',
   PracticeChooseSubject: 'Choose a subject before generating practice.',
   PracticeOpenGenerated: 'Open practice',

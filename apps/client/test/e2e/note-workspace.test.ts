@@ -133,53 +133,56 @@ test.browser.stable(
         await expect(outline.getByRole('button', { name: 'DNA before division' })).toBeVisible();
       }
     });
-    await page.getByRole('button', { name: copy.NoteTransform, exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: copy.NoteTransform });
-    const title = 'Cell division study guide';
+    await expect(page.getByRole('button', { name: copy.NoteTransform, exact: true })).toHaveCount(
+      0
+    );
+    await page.goto(`/projects/${fixture.project.id}/uploads`);
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'lab-results.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Lab counts: each daughter cell had the same number of chromosomes.')
+    });
+    await page.getByRole('link', { name: 'lab-results.txt', exact: true }).click();
+    await expect(page.locator('[data-materials-reader]').getByText(/Lab counts/)).toBeVisible();
+    await page.goto(`/practice?project=${fixture.project.id}`);
+    const dialog = await openStudyNotes(page);
+
+    await dialog.getByRole('switch', { name: 'Cell division research dump' }).click();
+    await dialog.getByRole('switch', { name: /lab-results/ }).click();
+    await dialog.getByText(copy.PracticeCustomize, { exact: true }).click();
     const instruction = 'Organize the observations for revision. Preserve the original claims.';
 
-    await dialog.getByRole('textbox', { name: copy.NoteOutputTitle }).fill(title);
-    await dialog.getByRole('textbox', { name: copy.NoteInstructions }).fill(instruction);
+    await dialog.getByRole('textbox', { name: copy.PracticeGeneratePrompt }).fill(instruction);
     await expectScreenshot('transform-context-and-instructions', {
       target: dialog,
-      ready: () =>
-        expect(dialog.getByRole('textbox', { name: copy.NoteOutputTitle })).toHaveValue(title)
+      ready: async () => {
+        await expect(
+          dialog.getByRole('switch', { name: 'Cell division research dump' })
+        ).toBeChecked();
+        await expect(dialog.getByRole('switch', { name: /lab-results/ })).toBeChecked();
+      }
     });
-    await dialog.getByText(copy.PageAdvancedOptions, { exact: true }).click();
-    await dialog.getByRole('button', { name: copy.NoteOpStructure, exact: true }).click();
-    await expectScreenshot('transform-operations-selected', {
-      target: dialog,
-      ready: () =>
-        expect(
-          dialog.getByRole('button', { name: copy.NoteOpStructure, exact: true })
-        ).toHaveAttribute('aria-pressed', 'true')
-    });
-    const transform = await study.notes.transform(fixture.note.id, {
-      title,
-      instruction,
-      operations: ['clarity', 'structure']
-    });
+    await dialog.getByRole('switch', { name: /lab-results/ }).click();
+    const transform = await study.notes.studyNotes(
+      fixture.note.id,
+      fixture.project.id,
+      copy.PracticeStudyNotesTitle,
+      instruction
+    );
     const failure = transform.fail(
       new StudyError('invalid_input', 'Controlled transformation output rejection')
     );
 
-    await dialog.getByRole('button', { name: copy.NoteCreatePage, exact: true }).click();
+    await dialog.getByRole('button', { name: copy.PracticeGenerateStart, exact: true }).click();
     await failure.called;
     await expectScreenshot('transform-generation-running', {
       target: 'viewport',
       ready: async () => {
         await expect(dialog).toBeHidden();
-        await expect(
-          page.getByRole('button', {
-            name: copy.NoteWorkStop.replace('{title}', title),
-            exact: true
-          })
-        ).toBeVisible();
-        await expect(notebook.locator('.chat-message-text')).toHaveText([revised, second]);
+        await expect(page.getByRole('button', { name: copy.Cancel })).toBeVisible();
       }
     });
     failure.release();
-    await page.getByRole('button', { name: copy.NoteTransform, exact: true }).click();
     await expectScreenshot('transform-generation-failed', {
       target: 'viewport',
       ready: () => expect(page.getByRole('button', { name: copy.Retry, exact: true })).toBeVisible()
@@ -221,17 +224,15 @@ test.browser.stable(
     await expectScreenshot('transform-retry-running', {
       target: 'viewport',
       ready: () =>
-        expect(page.getByRole('button', { name: copy.NoteCancel, exact: true })).toBeVisible()
+        expect(page.getByRole('button', { name: copy.Cancel, exact: true })).toBeVisible()
     });
     generated.release();
     await expectScreenshot('transform-output-published-raw-preserved', {
       target: 'viewport',
-      ready: async () => {
-        await expect(page.getByRole('link', { name: copy.NoteOpenOutput })).toBeVisible();
-        await expect(notebook.locator('.chat-message-text')).toHaveText([revised, second]);
-      }
+      ready: () =>
+        expect(page.getByRole('link', { name: copy.PracticeOpenStudyNotes })).toBeVisible()
     });
-    await page.getByRole('link', { name: copy.NoteOpenOutput }).click();
+    await page.getByRole('link', { name: copy.PracticeOpenStudyNotes }).click();
     await expect(page).toHaveURL(/\/pages\//);
     const pageEditor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
@@ -299,16 +300,18 @@ test.browser.stable(
     await Promise.all([capture.classification.called, capture.naming.called]);
     capture.naming.release();
     await expect(page.getByRole('heading', { name: 'Mitosis and daughter cells' })).toBeVisible();
-    await page.getByRole('button', { name: copy.NoteTransform, exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: copy.NoteTransform });
-    const title = 'Cancelled study guide';
+    const practice = `/practice?project=${fixture.project.id}`;
 
-    await dialog.getByRole('textbox', { name: copy.NoteOutputTitle }).fill(title);
-    const transform = await study.notes.transform(fixture.note.id, {
-      title,
-      instruction: '',
-      operations: ['clarity']
-    });
+    await page.goto(practice);
+    const dialog = await openStudyNotes(page);
+
+    await dialog.getByRole('switch', { name: 'Cell division research dump' }).click();
+    const transform = await study.notes.studyNotes(
+      fixture.note.id,
+      fixture.project.id,
+      copy.PracticeStudyNotesTitle,
+      ''
+    );
     const held = transform.next({
       blocks: [{ type: 'paragraph', inlines: [{ type: 'text', text: first, marks: [] }] }],
       notes: [
@@ -320,41 +323,23 @@ test.browser.stable(
       ]
     });
 
-    await dialog.getByRole('button', { name: copy.NoteCreatePage, exact: true }).click();
+    await dialog.getByRole('button', { name: copy.PracticeGenerateStart, exact: true }).click();
     await held.called;
+    const cancel = page.getByRole('button', { name: copy.Cancel, exact: true });
+
     await expectScreenshot('cancellable-transform-running', {
       target: 'viewport',
-      ready: () =>
-        expect(
-          page.getByRole('button', {
-            name: copy.NoteWorkStop.replace('{title}', title),
-            exact: true
-          })
-        ).toBeVisible()
+      ready: () => expect(cancel).toBeVisible()
     });
-    await page
-      .getByRole('button', { name: copy.NoteWorkStop.replace('{title}', title), exact: true })
-      .click();
-    await page.getByRole('button', { name: copy.NoteTransform, exact: true }).click();
-    await expectScreenshot('transform-cancelled-raw-preserved', {
-      target: 'viewport',
-      ready: async () => {
-        await expect(
-          page.getByRole('status').filter({ hasText: copy.NoteCancelledTransform })
-        ).toBeVisible();
-        await expect(page.locator('.chat-message-text')).toHaveText(first);
-        await expect(page.getByRole('link', { name: copy.NoteOpenOutput })).toHaveCount(0);
-      }
-    });
+    await cancel.click();
+    await expect(cancel).toHaveCount(0);
     held.release();
     await page.reload();
-    await page.getByRole('button', { name: copy.NoteTransform, exact: true }).click();
+    await expect(page.getByRole('link', { name: copy.PracticeOpenStudyNotes })).toHaveCount(0);
+    await page.goto(`/notes/${fixture.note.id}`);
     await expectScreenshot('cancelled-transform-reopened', {
       target: 'viewport',
       ready: async () => {
-        await expect(
-          page.getByRole('status').filter({ hasText: copy.NoteCancelledTransform })
-        ).toBeVisible();
         await expect(page.locator('.chat-message-text')).toHaveText(first);
         await expect(
           page.getByRole('heading', { name: 'Mitosis and daughter cells' })
@@ -363,3 +348,12 @@ test.browser.stable(
     });
   }
 );
+
+async function openStudyNotes(page: test.browser.Context['page']) {
+  await page.getByRole('button', { name: copy.PracticeGenerate, exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: copy.PracticeGenerate });
+
+  await dialog.getByRole('radio', { name: copy.PracticeStudyNotes, exact: true }).click();
+
+  return dialog;
+}

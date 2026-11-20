@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { useNoteMerge } from './merge.queries';
-import type { SelectedNote } from './page-creation-dialog';
+import type { SelectedNote } from './selected-note';
 import { NoteError } from './status';
 
 /** Confirms the exact source set; retries reuse the committed merge identity. */

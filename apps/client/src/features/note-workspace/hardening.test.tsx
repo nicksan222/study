@@ -1215,17 +1215,8 @@ test.unit.stable.for(['', '?project=9007199254740997'])(
 );
 
 test.unit.stable(
-  'keeps vertical note actions inside the default card and restores dialog focus and drafts',
-  async ({
-    screen,
-    expect,
-    within,
-    fireEvent,
-    userEvent,
-    waitFor,
-    render,
-    rpcHandlersTransport
-  }) => {
+  'keeps notebook actions in the context card',
+  async ({ screen, expect, within, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
       id,
       title: 'Notebook',
@@ -1235,40 +1226,13 @@ test.unit.stable(
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
-
-    await screen.findByRole('button', { name: 'NoteTransform' });
     const panel = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
 
-    expect(screen.getAllByRole('button', { name: 'NoteTransform' })).toHaveLength(1);
     expect(within(panel).getByRole('button', { name: 'NoteArchived' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'NoteSelection' })).toBeNull();
-    expect(within(panel).getByRole('button', { name: 'NoteTransform' })).toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'NoteDelete' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'NoteSelection' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'NoteTransform' })).toBeNull();
     expect(view.container.querySelector('.ui-workspace-dock .note-context-actions')).toBeNull();
-    expect(screen.queryByText('NoteTools')).not.toBeInTheDocument();
-    fireEvent.click(within(panel).getByRole('button', { name: 'NoteTransform' }));
-    const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
-    const instruction = within(dialog).getByRole('textbox', { name: 'NoteInstructions' });
-
-    fireEvent.change(instruction, { target: { value: 'Keep this instruction' } });
-    instruction.focus();
-    await userEvent.setup().keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'NoteTransform' })).toBeNull());
-    expect(within(panel).getByRole('button', { name: 'NoteTransform' })).toHaveFocus();
-    fireEvent.click(within(panel).getByRole('button', { name: 'NoteTransform' }));
-    await screen.findByRole('dialog', { name: 'NoteTransform' });
-    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' }).at(-1)!);
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByRole('textbox', { name: 'NoteInstructions' })).toBeNull();
-    fireEvent.click(within(panel).getByRole('button', { name: 'NoteTransform' }));
-    expect(
-      within(await screen.findByRole('dialog', { name: 'NoteTransform' })).getByRole('textbox', {
-        name: 'NoteInstructions'
-      })
-    ).toBe(instruction);
-    expect(instruction).toHaveValue('Keep this instruction');
-    expect(rpc.selection).toHaveBeenCalledWith({ noteId: id });
   }
 );
 

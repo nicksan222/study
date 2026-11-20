@@ -226,3 +226,28 @@
   background: var(--accent);
   color: var(--foreground);
 }
+
+.page-overview-work {
+  max-width: 56rem;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 3rem);
+}
+.page-overview-job {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+}
+.page-overview-job .page-overview-copy {
+  display: grid;
+  gap: 0.375rem;
+}
+@container page-overview (max-width: 32rem) {
+  .page-overview-job {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .page-overview-job > .page-overview-actions {
+    grid-column: 2;
+  }
+}

@@ -27,11 +27,22 @@ export function makeGenerationHistory({ db }: StoreResources) {
     request: typeof materialGenerationSnapshotSchema.Type,
     snapshot?: typeof materialGenerationHistoryReferencesSchema.Type
   ): typeof generationHistorySchema.Type => {
-    const overlap = request.inputs.map((input) =>
-      input.kind === 'source'
-        ? eq(s.material_evidence_inputs.source_id, input.sourceId)
-        : eq(s.material_evidence_inputs.page_version_id, input.versionId)
-    );
+    const evidence = s.material_evidence_inputs;
+    const overlap = request.inputs.map((input) => {
+      switch (input.kind) {
+        case 'source':
+          return eq(evidence.source_id, input.sourceId);
+        case 'page':
+          return eq(evidence.page_version_id, input.versionId);
+        case 'note':
+          return sql`EXISTS (
+            SELECT 1 FROM ${s.note_run_contexts} AS retained
+            JOIN ${s.note_run_contexts} AS selected ON selected.note_id = retained.note_id
+            WHERE retained.request_id = ${evidence.note_context_id}
+              AND selected.request_id = ${input.contextId}
+          )`;
+      }
+    });
     const versions = db.orm
       .select({ id: s.material_versions.id })
       .from(s.material_versions)

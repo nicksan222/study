@@ -1,5 +1,5 @@
 import type { NoteId } from '@study/contracts';
-import { OpenIcon, ArchiveIcon, PageIcon, CreatePageIcon, DeleteIcon } from '@study/icons';
+import { OpenIcon, ArchiveIcon, CreatePageIcon, DeleteIcon } from '@study/icons';
 import {
   Dialog,
   DialogTrigger,
@@ -7,13 +7,11 @@ import {
   WorkspaceCard,
   WorkspaceChanges
 } from '@study/ui';
-import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { ArchivePanel } from './archive';
-import { NotePageDialog } from './page-creation-dialog';
 
 function ContextAction({
   title,
@@ -55,21 +53,9 @@ export function NoteContextActions({
   pending: boolean;
 }) {
   const { t } = useI18n();
-  const [creating, setCreating] = useState(false);
 
   return (
     <WorkspaceChanges.Actions>
-      <NotePageDialog
-        id={id}
-        open={creating}
-        onOpenChange={setCreating}
-        trigger={
-          <WorkspaceCard.Primary>
-            <PageIcon size={16} aria-hidden="true" />
-            {t('NoteTransform')}
-          </WorkspaceCard.Primary>
-        }
-      />
       <WorkspaceCard.Item onClick={onCreate} disabled={pending}>
         <CreatePageIcon aria-hidden="true" />
         <span>{t('NoteNewPage')}</span>

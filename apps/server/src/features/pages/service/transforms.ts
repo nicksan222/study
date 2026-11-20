@@ -56,6 +56,24 @@ export function requestTransform(
   return result.request;
 }
 
+export function requestStudyNotes(
+  tx: Transaction,
+  settings: typeof t.studyNotesRequestSchema.Type
+) {
+  const result = tx.store(PageTransformsStore).requestTransform({
+    contextRequestId: `study-notes/${settings.key}`,
+    noteId: null,
+    title: settings.title,
+    instruction: settings.instruction,
+    operations: ['summarize', 'structure'],
+    studyNotes: settings
+  });
+
+  if (result.created) emitRequested(tx, result.request);
+
+  return result;
+}
+
 function publicationContent(
   request: typeof t.transformSnapshotSchema.Type,
   context: Context,
@@ -129,7 +147,7 @@ export function publishTransform(
       ...common,
       title: request.title,
       noteId: context.noteId ?? undefined,
-      projectId: request.merge?.projectId
+      projectId: standaloneProject(request)
     });
 
     versionId = result.version.id;
@@ -181,6 +199,10 @@ function emitRequested(tx: Transaction, request: typeof t.transformSnapshotSchem
     depth: 0,
     requestId: request.id
   });
+}
+
+function standaloneProject(request: typeof t.transformSnapshotSchema.Type) {
+  return request.studyNotes?.projectId ?? request.merge?.projectId;
 }
 
 function validateMergeInputs(tx: Transaction, request: typeof t.transformSnapshotSchema.Type) {

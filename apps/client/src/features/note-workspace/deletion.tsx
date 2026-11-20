@@ -17,7 +17,7 @@ import { useContext, useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
-import type { SelectedNote } from './page-creation-dialog';
+import type { SelectedNote } from './selected-note';
 import { NoteError, NoteReadError } from './status';
 
 type DeletionAttempt = { started: boolean; pending: boolean; announced?: string };
