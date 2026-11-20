@@ -231,6 +231,14 @@ function Footer({
   );
 }
 
+function NavigationGroup({ children, compact }: { children: ReactNode; compact: boolean }) {
+  return (
+    <div className="study-sidebar-navigation-group" data-compact={compact || undefined}>
+      {children}
+    </div>
+  );
+}
+
 function Navigation({ className, ...props }: ComponentProps<'nav'>) {
   return <nav {...props} className={cn('study-sidebar-navigation', className)} />;
 }
@@ -976,6 +984,7 @@ export const Sidebar = {
   Toolbar,
   Content,
   Footer,
+  NavigationGroup,
   Navigation,
   NavigationItem,
   Items,

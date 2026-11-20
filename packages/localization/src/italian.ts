@@ -442,9 +442,9 @@ export const italian = Object.freeze({
   WorkspaceExpandPages: 'Apri le pagine espanse',
   WorkspaceExpandPagesHelp:
     'Usa tutta la larghezza dello spazio di lavoro per le pagine appena aperte.',
-  WorkspaceSidebarTitle: 'Note',
+  WorkspaceSidebarTitle: 'Aspetto della barra laterale',
   WorkspaceSidebarDescription:
-    'Scegli come mostrare le note nella barra laterale e quando spostarle tra quelle concluse.',
+    'Scegli come mostrare le note e le scorciatoie di navigazione nella barra laterale.',
   WorkspaceDensity: 'Spaziatura della barra laterale',
   WorkspaceDensityHelp: 'Lascia spazio intorno a ogni nota oppure mostrane di più.',
   WorkspaceComfortable: 'Comoda',
@@ -455,6 +455,9 @@ export const italian = Object.freeze({
   WorkspaceAbsoluteTime: 'Data e ora',
   WorkspacePageCounts: 'Conteggio pagine',
   WorkspacePageCountsHelp: 'Mostra quante pagine appartengono a ogni nota.',
+  SidebarCompactNavigation: 'Navigazione compatta',
+  SidebarCompactNavigationHelp:
+    'Mostra le scorciatoie in fondo alla barra laterale come icone su una riga.',
   WorkspaceReadingTitle: 'Lettura ed esportazioni',
   WorkspaceReadingDescription:
     'Scegli una dimensione comoda per la lettura e il formato di download preferito.',
