@@ -39,12 +39,11 @@ test.browser.stable(
     await expect(page).toHaveURL(/\/notes\/\d+/);
     await expect(timeline).toContainText(observation);
     await expect(notebook).toHaveAttribute('data-content-width', 'full');
-    const fullWidth = (await timeline.boundingBox())!.width;
-
     await expectScreenshot('full-width', {
       target: 'viewport',
       ready: () => expect(input).toBeInViewport()
     });
+    const fullWidth = (await timeline.boundingBox())!.width;
 
     const writePage = page.getByRole('button', { name: copy.NoteWritePage, exact: true });
     const editor = page.getByRole('textbox', { name: copy.NotePageEditor });
@@ -78,14 +77,17 @@ test.browser.stable(
     await choose(width, copy.AppearanceNoteWidthWide);
     await close.click();
     await expect(notebook).toHaveAttribute('data-content-width', 'wide');
-    await expect.poll(async () => (await timeline.boundingBox())?.width).toBeLessThan(fullWidth);
-
-    const wideWidth = (await timeline.boundingBox())!.width;
-
     await expectScreenshot('wide', {
       target: 'viewport',
-      ready: () => expect(input).toBeInViewport()
+      ready: async () => {
+        await expect
+          .poll(async () => (await timeline.boundingBox())?.width ?? fullWidth)
+          .toBeLessThan(fullWidth);
+        await expect(input).toBeInViewport();
+      }
     });
+    const wideWidth = (await timeline.boundingBox())!.width;
+
     await openAppearance(page);
     await choose(width, copy.AppearanceNoteWidthComfortable);
     await always.press('Space');

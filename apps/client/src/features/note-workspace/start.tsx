@@ -77,6 +77,8 @@ function useNoteStart() {
   const [reviewed, setReviewed] = useState(false);
 
   async function select(id: NoteId, scope: string | null = search.project ?? null) {
+    cache.set(creationFlow, { id, pending: true });
+
     try {
       await navigate({
         to: '/notes/$noteId',
@@ -86,6 +88,7 @@ function useNoteStart() {
       cache.set(creationFlow, {});
       setNavigationError(undefined);
     } catch (error) {
+      cache.set(creationFlow, { id });
       setNavigationError(error);
     }
   }
@@ -98,9 +101,8 @@ function useNoteStart() {
         try {
           const created = await startNote(input);
 
+          await select(created.id, input.project ? String(input.project) : null);
           finishStartDraft(cache, input);
-          cache.set(creationFlow, { id: created.id });
-          void select(created.id, input.project ? String(input.project) : null);
 
           return created;
         } catch (error) {
@@ -201,10 +203,10 @@ export function NoteStart() {
                       <p>{t('NoteStartHelp')}</p>
                     </WorkspaceSurface.Heading>
                   </Notebook.History>
-                  <CreationStatus view={view} />
                   <CreationRecovery view={view} />
                   <Desk.InlineComposer>
                     <StarterComposer view={view} />
+                    <CreationStatus view={view} />
                   </Desk.InlineComposer>
                 </Desk.BoardBody>
               </Desk.Board>
@@ -369,22 +371,31 @@ function CreationStatus({ view }: { view: StartView }) {
   const { t } = useI18n();
   const { flow, select, navigationError, create } = view;
 
-  return (
-    <>
-      {flow.data.pending && <Loading label={t('NoteStarting')} />}
-      {flow.data.id && (
-        <Button variant="outline" onClick={() => void select(flow.data.id!)}>
+  if (flow.data.pending)
+    return (
+      <NoteStarter.Feedback>
+        <Loading label={t('NoteStarting')} />
+      </NoteStarter.Feedback>
+    );
+
+  const id = flow.data.id;
+
+  if (id)
+    return (
+      <NoteStarter.Feedback>
+        {!!navigationError && <NoteError error={navigationError} />}
+        <Button variant="outline" onClick={() => void select(id)}>
           {t('NoteOpenCreated')}
         </Button>
-      )}
-      {!!navigationError && (
-        <NoteError
-          error={navigationError}
-          retry={flow.data.id ? () => void select(flow.data.id!) : undefined}
-        />
-      )}
-      {create.error && <NoteError error={create.error} />}
-    </>
+      </NoteStarter.Feedback>
+    );
+
+  if (!create.error) return null;
+
+  return (
+    <NoteStarter.Feedback>
+      <NoteError error={create.error} />
+    </NoteStarter.Feedback>
   );
 }
 

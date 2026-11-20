@@ -9,14 +9,41 @@ import type { executionSchema } from '@study/contracts';
 import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
-import { Effect } from 'effect';
+import { Deferred, Effect } from 'effect';
 import { useLayoutEffect } from 'react';
 
 import { authoredPage } from '../document-editing/test-support';
 import { importedSource, materialRpc, mountLibraryRoute } from '../material-library/test/support';
 import { useSourceProcessingExecution, useSourceCopy } from './source-panel.queries';
+import { SourcePdfPreview } from './source-pdf-preview';
 
 const source = sourceIdSchema.make(7n);
+
+test.unit.stable(
+  'shows loading, a missing PDF original and a recoverable original read error',
+  async ({ act, expect, render, rpcHandlersTransport, screen, userEvent, vi }) => {
+    const copy = catalogs.english;
+    const read = await Effect.runPromise(Deferred.make<never, StudyError>());
+    const sourceExport = vi
+      .fn<StudyClient['sources.sourceExport']>()
+      .mockReturnValueOnce(Deferred.await(read))
+      .mockReturnValue(Effect.fail(new StudyError('transient', 'Original read interrupted')));
+    const harness = rpcHandlersTransport({ 'sources.sourceExport': sourceExport });
+
+    render(
+      <harness.wrapper>
+        <SourcePdfPreview sourceId={source} />
+      </harness.wrapper>
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(copy.PdfLoading);
+    await act(() =>
+      Effect.runPromise(Deferred.fail(read, new StudyError('not_found', 'Original missing')))
+    );
+    expect(await screen.findByRole('alert', { name: copy.PdfMissing })).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: copy.Retry }));
+    expect(await screen.findByRole('alert', { name: copy.PdfFileReadFailed })).toBeInTheDocument();
+  }
+);
 
 function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {

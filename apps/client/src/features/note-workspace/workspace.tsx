@@ -154,7 +154,9 @@ function NoteFeedback({
 
   return (
     <>
-      {(state.isPending || deletion.isPending) && <Loading label={t('LoadingStudy')} />}
+      {(state.isPending || deletion.isPending) && (
+        <Loading label={t('LoadingStudy')} layout="panel" />
+      )}
       {deletion.error && (
         <NoteReadError error={deletion.error} retry={() => void deletion.refetch()} />
       )}

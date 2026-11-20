@@ -541,6 +541,15 @@
   white-space: nowrap;
 }
 
+.note-start-feedback {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  margin-block-start: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
 .note-start-recovery {
   margin-top: 1.5rem;
   padding-top: 1rem;

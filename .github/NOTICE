@@ -11,6 +11,9 @@ Bundled with the app
 - packages/ui/assets/icons/: Lucide icons, ISC license
   (packages/ui/assets/icons/LICENSE).
 
+- React-PDF: MIT license. PDF.js: Apache License 2.0. The app bundles both
+  licenses in pdf-assets/, along with the notices for PDF.js fonts and decoders.
+
 - @transcribe-cpp/* 0.4.2: transcribe.cpp native speech runtime, MIT license
   (https://github.com/handy-computer/transcribe.cpp). The bundled platform packages
   retain their licenses/ directory, including ggml and bundled backend notices.

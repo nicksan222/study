@@ -182,6 +182,8 @@ export {
   Film as VideoSourceIcon,
   Globe2 as WebSourceIcon,
   Activity as WorkActivityIcon,
-  PenLine as WritingIcon
+  PenLine as WritingIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon
 } from 'lucide-react';
 export type { LucideIcon as IconComponent } from 'lucide-react';
