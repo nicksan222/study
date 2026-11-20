@@ -109,11 +109,15 @@ type DeletionFlow = ReturnType<typeof useNoteDeletion>;
 /** Exposes mutation and receipt read failures with the recovery each operation permits. */
 
 function DeleteErrors({ flow }: { flow: DeletionFlow }) {
+  const { t } = useI18n();
   const { state, mutation, retry, pending } = flow;
+  const pinned =
+    mutation.error && toStudyError(mutation.error).resource === 'note_practice_evidence';
 
   return (
     <>
-      {mutation.error && (
+      {pinned && <ErrorState layout="inline" title={t('NoteDeletePracticeEvidence')} />}
+      {mutation.error && !pinned && (
         <NoteError error={mutation.error} retry={pending ? undefined : () => mutation.mutate()} />
       )}
       {state.error && <NoteReadError error={state.error} retry={() => void state.refetch()} />}

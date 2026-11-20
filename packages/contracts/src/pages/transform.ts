@@ -63,6 +63,8 @@ export const mergeRequestSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema)
 });
 
+export const studyNotesInstructionLimit = 10000;
+
 export const studyNotesRequestSchema = Schema.Struct({
   key: Schema.String.check(Schema.isUUID()),
   title: transformRequestSchema.fields.title,
@@ -71,7 +73,7 @@ export const studyNotesRequestSchema = Schema.Struct({
     Schema.isBetweenLength(1, 20),
     Schema.makeFilter((inputs) => new Set(inputs.map(contentInputKey)).size === inputs.length)
   ),
-  instruction: Schema.String.check(Schema.isMaxLength(10000)),
+  instruction: Schema.String.check(Schema.isMaxLength(studyNotesInstructionLimit)),
   language: Schema.Literals(['english', 'italian'])
 });
 

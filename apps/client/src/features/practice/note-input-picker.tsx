@@ -18,12 +18,14 @@ export function NoteInputPicker({
   project,
   inputs,
   onChange,
-  disabled
+  disabled,
+  onCapturePending
 }: {
   project: ProjectId;
   inputs: ContentInput[];
   onChange: Dispatch<SetStateAction<ContentInput[]>>;
   disabled: boolean;
+  onCapturePending: (pending: boolean) => void;
 }) {
   const { t } = useI18n();
   const [captures, setCaptures] = useState<ReadonlyMap<NoteId, NoteInput>>(() => new Map());
@@ -44,6 +46,14 @@ export function NoteInputPicker({
     return input;
   });
 
+  function captureNote(noteId: NoteId) {
+    onCapturePending(true);
+    void capture
+      .mutateAsync(noteId)
+      .catch(() => undefined)
+      .finally(() => onCapturePending(false));
+  }
+
   useCursorRecovery(window, notes.error);
 
   const change = (noteId: NoteId, checked: boolean, captured?: NoteInput) => {
@@ -53,7 +63,7 @@ export function NoteInputPicker({
       );
     } else if (checked && captured) {
       onChange((previous) => (previous.length < 20 ? [...previous, captured] : previous));
-    } else if (checked) capture.mutate(noteId);
+    } else if (checked) captureNote(noteId);
   };
 
   return (

@@ -347,6 +347,8 @@ export const english = Object.freeze({
   QuizNoMatchingQuestions:
     'This material has no questions of the selected type. Choose another type to start.',
   PracticeStudyNotes: 'Generate study notes',
+  PracticeStudyNotesInstructionLimit:
+    'Shorten the instructions to 10,000 characters to generate study notes.',
   PracticeStudyNotesGenerating: 'Generating study notes…',
   PracticeStudyNotesFailed:
     'Study notes could not be generated. You can retry using the same sources.',
@@ -630,6 +632,8 @@ export const english = Object.freeze({
   SidebarSettledValidation: 'Choose a whole number from 1 to 100.',
   SidebarSettingsError: 'Could not save sidebar settings.',
 
+  NoteDeletePracticeEvidence:
+    'This note is used by an exercise. Stop the practice session, cancel the active generation, or remove the exercise before deleting the note.',
   NoteDeleteFailed: 'Could not finish deleting this note',
   SubjectIconSymbols: 'Icons',
   SubjectIconEmojis: 'Emoji',

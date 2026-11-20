@@ -517,6 +517,7 @@ export {
   transformPublicationSchema,
   transformReportSchema,
   transformRequestSchema,
+  studyNotesInstructionLimit,
   studyNotesRequestSchema,
   transformSnapshotSchema
 } from './pages/transform.ts';

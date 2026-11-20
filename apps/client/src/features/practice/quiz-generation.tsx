@@ -1,6 +1,7 @@
 import {
   contentInputKey,
   defaultQuizSettings,
+  studyNotesInstructionLimit,
   practiceGenerationSettings,
   writtenExamTopicLimit
 } from '@study/contracts';
@@ -373,6 +374,7 @@ function useGeneration(
   const [kind, setKind] = useState<GenerationKind>('quiz');
   const submission = useDictationSubmission();
   const [instruction, setInstruction] = useState('');
+  const [capturePending, setCapturePending] = useState(false);
   const { pages, inputs, setInputs } = useGenerationPages(projectId);
   const isExam = kind === 'exam';
   const isStudyNotes = kind === 'study_notes';
@@ -389,10 +391,11 @@ function useGeneration(
     return result;
   });
   const busy = [start, exam, studyNotes].some((action) => action.isPending);
+  const instructionTooLong = isStudyNotes && instruction.length > studyNotesInstructionLimit;
   const option = generationKinds.find((entry) => entry.kind === kind)!;
   const canStart =
     readiness === 'ready' &&
-    !busy &&
+    ![busy, capturePending, instructionTooLong].some(Boolean) &&
     inputs.length > 0 &&
     inputs.length <= 20 &&
     (!needsQuizSettings || preferences.isSuccess);
@@ -440,6 +443,8 @@ function useGeneration(
     option,
     instruction,
     setInstruction,
+    setCapturePending,
+    instructionTooLong,
     pages,
     inputs,
     setInputs: (update: SetStateAction<ContentInput[]>) => {
@@ -527,6 +532,7 @@ function GenerationPanel({
                   inputs={model.inputs}
                   onChange={model.setInputs}
                   disabled={model.busy}
+                  onCapturePending={model.setCapturePending}
                 />
                 <MaterialInputPicker
                   project={projectId}
@@ -584,7 +590,7 @@ function GenerationInstructions({
             toolbarLabel={t('PracticeGeneratePrompt')}
             placeholder={t('PracticeGeneratePromptHint')}
             value={model.instruction}
-            maxLength={model.isStudyNotes ? 10000 : 100000}
+            maxLength={model.isStudyNotes ? studyNotesInstructionLimit : 100000}
             disabled={model.busy || !open}
             onValueChange={model.setInstruction}
           />
@@ -602,6 +608,11 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
 
   return (
     <>
+      {model.instructionTooLong && (
+        <Settings.Feedback role="status">
+          {t('PracticeStudyNotesInstructionLimit')}
+        </Settings.Feedback>
+      )}
       {model.inputs.length > 20 && (
         <Settings.Feedback role="status">{t('PracticeGenerateLimit')}</Settings.Feedback>
       )}
@@ -611,13 +622,7 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
       {hasGenerationError(model) && (
         <ErrorState
           layout="inline"
-          title={t(
-            model.isExam
-              ? 'WrittenExamStartError'
-              : model.isStudyNotes
-                ? 'PracticeStudyNotesFailed'
-                : 'QuizGenerateError'
-          )}
+          title={t(generationErrorLabel(model))}
           action={
             <RetryButton
               variant="outline"
@@ -634,6 +639,12 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
       )}
     </>
   );
+}
+
+function generationErrorLabel(model: GenerationModel) {
+  if (model.isExam) return 'WrittenExamStartError';
+
+  return model.isStudyNotes ? 'PracticeStudyNotesFailed' : 'QuizGenerateError';
 }
 
 function hasGenerationError(model: GenerationModel) {
@@ -694,8 +705,15 @@ function useGenerationPages(projectId?: ProjectId) {
         next.flatMap((input) => (input.kind === 'page' ? [input.versionId] : []))
       );
 
+      const excluded = new Set(current.excluded);
+
+      for (const id of available) {
+        if (selected.has(id)) excluded.delete(id);
+        else excluded.add(id);
+      }
+
       return {
-        excluded: new Set(available.filter((id) => !selected.has(id))),
+        excluded,
         additional: next.filter((input) => input.kind !== 'page')
       };
     });

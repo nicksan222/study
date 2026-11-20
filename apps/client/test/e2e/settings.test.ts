@@ -559,17 +559,23 @@ test.browser.stable(
     await expect(navigation).toHaveCSS('flex-direction', 'row');
     await expect(settings).toBeFocused();
 
-    const shortcuts = await Promise.all(
-      [copy.Notes, copy.SourcePage, copy.Practice, copy.Assistant].map((name) =>
-        navigation.getByRole('link', { name, exact: true }).boundingBox()
-      )
+    const shortcuts = [copy.Notes, copy.SourcePage, copy.Practice, copy.Assistant].map((name) =>
+      navigation.getByRole('link', { name, exact: true })
     );
-    const settingsBox = await settings.boundingBox();
 
-    expect(shortcuts.map((box) => box?.y)).toEqual(Array(4).fill(settingsBox?.y));
     await expectScreenshot('compact-navigation', {
       target: bottom,
-      ready: () => expect(navigation).toHaveCSS('flex-direction', 'row')
+      ready: () =>
+        expect
+          .poll(async () => {
+            const boxes = await Promise.all(
+              [...shortcuts, settings].map((item) => item.boundingBox())
+            );
+            const settingsBox = boxes.at(-1);
+
+            return !!settingsBox && boxes.every((box) => box?.y === settingsBox.y);
+          })
+          .toBe(true)
     });
     await page.reload();
     await expect(navigation).toHaveCSS('flex-direction', 'row');

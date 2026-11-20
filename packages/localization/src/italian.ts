@@ -354,6 +354,8 @@ export const italian = Object.freeze({
   QuizNoMatchingQuestions:
     'Questo materiale non contiene domande del tipo selezionato. Scegli un altro tipo per iniziare.',
   PracticeStudyNotes: 'Genera appunti',
+  PracticeStudyNotesInstructionLimit:
+    'Riduci le istruzioni a 10.000 caratteri per generare gli appunti.',
   PracticeStudyNotesGenerating: 'Generazione degli appunti…',
   PracticeStudyNotesFailed: 'Impossibile generare gli appunti. Puoi riprovare con le stesse fonti.',
   PracticeStudyNotesTitle: 'Appunti di studio',
@@ -645,6 +647,8 @@ export const italian = Object.freeze({
   SidebarSettledValidation: 'Scegli un numero intero da 1 a 100.',
   SidebarSettingsError: 'Impossibile salvare le impostazioni della barra.',
 
+  NoteDeletePracticeEvidence:
+    'Questa nota è usata da un esercizio. Interrompi la sessione di esercitazione, annulla la generazione in corso o elimina l’esercizio prima di eliminare la nota.',
   NoteDeleteFailed: 'Impossibile completare l’eliminazione della nota',
   SubjectIconSymbols: 'Icone',
   SubjectIconEmojis: 'Emoji',

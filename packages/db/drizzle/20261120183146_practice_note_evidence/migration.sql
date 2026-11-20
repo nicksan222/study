@@ -228,6 +228,11 @@ WHEN EXISTS(
   SELECT 1 FROM material_evidence_inputs i
   LEFT JOIN material_generation_requests r ON r.id=i.request_id
   WHERE i.note_context_id=OLD.request_id AND (i.version_id IS NOT NULL OR r.cancelled=0)
+) OR EXISTS(
+  SELECT 1 FROM learning_practice_inputs i
+  JOIN learning_practice_slots p ON p.id=i.slot_id
+  JOIN learning_practice_controls c ON c.project_id=p.project_id AND c.epoch=p.epoch
+  WHERE i.note_context_id=OLD.request_id AND p.status IN ('pending','ready') AND c.enabled=1
 )
 BEGIN SELECT RAISE(ABORT,'practice evidence pins the exact note context'); END;
 --> statement-breakpoint
@@ -239,6 +244,14 @@ WHEN EXISTS(
   LEFT JOIN material_generation_requests r ON r.id=i.request_id
   WHERE json_extract(m.value, '$.versionId')=CAST(OLD.id AS TEXT)
     AND (i.version_id IS NOT NULL OR r.cancelled=0)
+) OR EXISTS(
+  SELECT 1 FROM learning_practice_inputs i
+  JOIN learning_practice_slots p ON p.id=i.slot_id
+  JOIN learning_practice_controls a ON a.project_id=p.project_id AND a.epoch=p.epoch
+  JOIN note_run_contexts c ON c.request_id=i.note_context_id
+  JOIN json_each(c.snapshot, '$.messages') m
+  WHERE json_extract(m.value, '$.versionId')=CAST(OLD.id AS TEXT)
+    AND p.status IN ('pending','ready') AND a.enabled=1
 )
 BEGIN SELECT RAISE(ABORT,'practice evidence pins the exact note version'); END;
 --> statement-breakpoint
@@ -536,3 +549,32 @@ WHEN (NEW.id IS NOT OLD.id OR NEW.context_request_id IS NOT OLD.context_request_
       THEN json_set(OLD.request,'$.title','-','$.studyNotes.title','-','$.studyNotes.instruction','')
       ELSE json_set(OLD.request,'$.title','-') END)
 ) BEGIN SELECT RAISE(ABORT,'document transform intent and publication are immutable'); END;
+--> statement-breakpoint
+DROP TRIGGER learning_practice_slot_capture;
+--> statement-breakpoint
+CREATE TRIGGER learning_practice_slot_capture
+BEFORE INSERT ON learning_practice_slots
+WHEN NEW.status != 'pending' OR NEW.version_id IS NOT NULL OR NEW.attempt_id IS NOT NULL
+  OR NEW.kind IS NOT CASE WHEN NEW.ordinal % 3 = 2 THEN 'open' ELSE 'choice' END
+  OR NOT EXISTS (SELECT 1 FROM learning_practice_controls c WHERE c.project_id = NEW.project_id AND c.epoch = NEW.epoch AND c.enabled = 1)
+  OR (SELECT COUNT(*) FROM learning_practice_slots p WHERE p.project_id = NEW.project_id AND p.epoch = NEW.epoch AND p.status IN ('pending','ready')) >= 2
+  OR NEW.ordinal != (SELECT COALESCE(MAX(p.ordinal) + 1, 0) FROM learning_practice_slots p WHERE p.project_id = NEW.project_id AND p.epoch = NEW.epoch)
+  OR json_type(NEW.inputs) IS NOT 'array' OR json_array_length(NEW.inputs) NOT BETWEEN 1 AND 20
+  OR (SELECT COUNT(DISTINCT value) FROM json_each(NEW.inputs)) != json_array_length(NEW.inputs)
+  OR EXISTS(SELECT 1 FROM json_each(NEW.inputs) j WHERE
+    (json_extract(j.value,'$.kind')='page' AND NOT EXISTS(
+      SELECT 1 FROM "page_versions" v JOIN "pages" d ON d.id=v."page_id"
+      JOIN "project_pages" p ON p."page_id"=d.id AND p.project_id=NEW.project_id
+      WHERE CAST(v.id AS TEXT)=json_extract(j.value,'$.versionId') AND v.status='published' AND d.archived_at IS NULL
+      AND NOT EXISTS(SELECT 1 FROM "page_retirements" r WHERE r.version_id=v.id)))
+    OR (json_extract(j.value,'$.kind')='source' AND NOT EXISTS(
+      SELECT 1 FROM source_extraction_revisions e JOIN sources s ON s.id=e.source_id
+      WHERE CAST(e.source_id AS TEXT)=json_extract(j.value,'$.sourceId') AND CAST(e.revision AS TEXT)=json_extract(j.value,'$.revision')
+      AND CAST(e.snapshot_id AS TEXT)=json_extract(j.value,'$.snapshotId') AND s.project_id=NEW.project_id))
+    OR (json_extract(j.value,'$.kind')='note' AND NOT EXISTS(
+      SELECT 1 FROM note_run_contexts c JOIN project_notes p ON p.note_id=c.note_id
+      WHERE c.request_id=json_extract(j.value,'$.contextId') AND p.project_id=NEW.project_id
+      AND c.intent_key='study-evidence/'||c.request_id
+      AND NOT EXISTS(SELECT 1 FROM note_deletions d WHERE d.note_id=c.note_id)))
+    OR json_extract(j.value,'$.kind') IS NULL OR json_extract(j.value,'$.kind') NOT IN ('source','page','note'))
+BEGIN SELECT RAISE(ABORT, 'invalid or unbounded practice slot capture'); END;

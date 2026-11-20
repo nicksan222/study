@@ -296,6 +296,7 @@ test.browser.stable(
     await expect(mobileSave).toBeInViewport({ ratio: 1 });
     await expectScreenshot('editing-italian-short-viewport', {
       target: 'viewport',
+      scrollToEnd: localizedEditor.locator('.notebook-editor-body'),
       zoomPercent: 100,
       ready: () => expect(mobileText).toHaveValue(content + '\n\nCorrezione dal telefono.')
     });

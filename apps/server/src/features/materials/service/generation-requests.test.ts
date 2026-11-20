@@ -823,7 +823,10 @@ test.server.stable(
               );
             })
           );
-          expect((yield* Effect.flip(notes.deleteNote(note.id))).kind).toBeDefined();
+          const deletion = yield* Effect.flip(notes.deleteNote(note.id));
+
+          expect(deletion.kind).toBe('invalid_input');
+          expect(deletion.resource).toBe('note_practice_evidence');
           expect((yield* notes.note(note.id)).id).toBe(note.id);
         }).pipe(Effect.provide(services))
       );

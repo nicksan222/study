@@ -24,6 +24,7 @@ import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
+import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 
@@ -716,13 +717,38 @@ test.server.stable(
 
           assert.notStrictEqual(restarted.epoch, first.epoch);
           assert.strictEqual(restarted.slots.length, 2);
+          yield* learning.stopPractice({ projectId: project.id });
+          const notes = yield* Notes;
+          const note = yield* notes.createUntitledNote({ project: project.id });
+          const observation = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'Notebook evidence for the active slot',
+            requestReply: false
+          });
+          const input = yield* notes.captureStudyEvidence({
+            noteId: note.id,
+            projectId: project.id
+          });
+          const notebookPractice = yield* learning.startPractice({
+            projectId: project.id,
+            inputs: [input]
+          });
+
+          assert.strictEqual(notebookPractice.slots.length, 2);
+          expect((yield* Effect.flip(notes.deleteNote(note.id))).resource).toBe(
+            'note_practice_evidence'
+          );
+          yield* Effect.flip(notes.deleteMessage(observation.id));
+          yield* learning.stopPractice({ projectId: project.id });
+          yield* notes.deleteNote(note.id);
         }).pipe(
           Effect.provide(
             Learning.layer
               .pipe(
                 Layer.provideMerge(Settings.layer),
                 Layer.provideMerge(Materials.layer),
-                Layer.provideMerge(Pages.layer)
+                Layer.provideMerge(Pages.layer),
+                Layer.provideMerge(Notes.layer)
               )
               .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
           )
