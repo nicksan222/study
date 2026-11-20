@@ -3,7 +3,7 @@ import type { ProjectId, NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Loading, toastManager, WorkspaceCard, WorkspaceSurface } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import type { DragEvent, ClipboardEvent } from 'react';
+import type { DragEvent, ClipboardEvent, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -19,6 +19,20 @@ import { WorkspaceHeader } from './workspace-header';
 
 /** Keeps the starter and active notebook under the same context-panel owner. */
 export function NoteWorkspace({ id }: { id?: NoteId } = {}) {
+  return (
+    <WorkspaceCard.Provider>
+      {id ? (
+        <NoteBody key={String(id)} id={id} />
+      ) : (
+        <NoteUploadRedirect>
+          <NoteStart />
+        </NoteUploadRedirect>
+      )}
+    </WorkspaceCard.Provider>
+  );
+}
+
+function NoteUploadRedirect({ project, children }: { project?: ProjectId; children: ReactNode }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const search = useSearch({ from: '__root__' });
@@ -29,7 +43,11 @@ export function NoteWorkspace({ id }: { id?: NoteId } = {}) {
       type: 'info',
       actionProps: {
         children: t('UploadedMaterials'),
-        onClick: () => void navigate({ to: '/uploads', search: { project: search.project } })
+        onClick: () =>
+          void navigate({
+            to: '/uploads',
+            search: { project: project ? String(project) : search.project }
+          })
       }
     });
   const onDrop = (event: DragEvent) => {
@@ -47,17 +65,15 @@ export function NoteWorkspace({ id }: { id?: NoteId } = {}) {
   };
 
   return (
-    <WorkspaceCard.Provider>
-      <WorkspaceSurface.Container
-        onDragOver={(event) => {
-          if (event.dataTransfer.types.includes('Files')) event.preventDefault();
-        }}
-        onDrop={onDrop}
-        onPaste={onPaste}
-      >
-        {id ? <NoteBody key={String(id)} id={id} /> : <NoteStart />}
-      </WorkspaceSurface.Container>
-    </WorkspaceCard.Provider>
+    <WorkspaceSurface.Container
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+      }}
+      onDrop={onDrop}
+      onPaste={onPaste}
+    >
+      {children}
+    </WorkspaceSurface.Container>
   );
 }
 
@@ -91,6 +107,7 @@ function useNoteWorkspace(id: NoteId) {
   return {
     state,
     owner,
+    project,
     deleteDialogOpen,
     setDeleteDialogOpen,
     deletion,
@@ -101,11 +118,19 @@ function useNoteWorkspace(id: NoteId) {
 
 /** Keeps deletion ownership mounted while replacing completed notebooks with the starter. */
 function NoteBody({ id }: { id: NoteId }) {
-  const { state, owner, deleteDialogOpen, setDeleteDialogOpen, deletion, editable, completed } =
-    useNoteWorkspace(id);
+  const {
+    state,
+    owner,
+    project,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    deletion,
+    editable,
+    completed
+  } = useNoteWorkspace(id);
 
   return (
-    <>
+    <NoteUploadRedirect project={project}>
       <NoteDeleteDialog id={id} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
       {completed ? (
         <NoteStart />
@@ -125,7 +150,7 @@ function NoteBody({ id }: { id: NoteId }) {
           {editable && <NoteWorkbench id={id} onDelete={() => setDeleteDialogOpen(true)} />}
         </WorkspaceSurface.Root>
       )}
-    </>
+    </NoteUploadRedirect>
   );
 }
 

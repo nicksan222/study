@@ -47,10 +47,17 @@ test.browser.stable(
     await expect(compose).toHaveValue('Draft observation');
     await page.getByRole('button', { name: copy.NoteSaveNote, exact: true }).click();
     await expect(page).toHaveURL(/\/notes\/[^/?]+/);
+    const note = new URL(page.url()).pathname.replace(/^\/projects\/[^/]+/, '');
+
+    await page.goto(note);
     await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
     await expect(picker).toHaveCount(0);
+    await expect(materials).toBeHidden();
     await transferFile(compose, 'paste', fileName);
     await expect(toast.getByText(copy.NoteUploadFromMaterials, { exact: true })).toBeVisible();
     await expect(compose).toHaveValue('');
+    await materials.click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/uploads$`));
+    await expect(uploaded).toBeVisible();
   }
 );
