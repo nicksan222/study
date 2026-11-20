@@ -62,6 +62,14 @@ export const mergeRequestSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema)
 });
 
+export const improvePageSchema = Schema.Struct({
+  key: mergeRequestSchema.fields.key,
+  versionId: pageVersionIdSchema,
+  instruction: mergeRequestSchema.fields.instruction,
+  language: mergeRequestSchema.fields.language,
+  projectId: mergeRequestSchema.fields.projectId
+});
+
 /** Note captures and standalone page captures share the generation contract. */
 export const pageTransformContextSchema = Schema.Struct({
   ...runSelectionContextSchema.fields,
@@ -70,7 +78,8 @@ export const pageTransformContextSchema = Schema.Struct({
 
 export const storedTransformRequestSchema = Schema.Struct({
   ...transformRequestSchema.fields,
-  merge: Schema.optional(mergeRequestSchema)
+  merge: Schema.optional(mergeRequestSchema),
+  improvement: Schema.optional(improvePageSchema)
 });
 
 export const transformSnapshotSchema = Schema.Struct({

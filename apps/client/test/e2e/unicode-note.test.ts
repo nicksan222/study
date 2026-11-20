@@ -27,7 +27,7 @@ const original = [
 test.browser.stable(
   'Bilingual notes preserve Unicode edits search and locale changes',
   async ({ page, rpc, expectScreenshot, expectAccessibility, expect }) => {
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
@@ -87,7 +87,7 @@ test.browser.stable(
       }
     });
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     const initialSearch = page.getByRole('searchbox', { name: copy.Search, exact: true });
 
     await initialSearch.fill('lucciolacittà');
@@ -171,7 +171,7 @@ test.browser.stable(
       await expect.poll(() => body.textContent()).toBe(content);
     }
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await composer.fill('Second notebook: an independent English observation.');
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(page).toHaveURL(/\/notes\/.+/);

@@ -1,4 +1,11 @@
-import type { PageId, PageVersionId, ContentSnapshotId, NoteId, ProjectId } from '@study/contracts';
+import type {
+  PageId,
+  PageVersionId,
+  ContentSnapshotId,
+  NoteId,
+  ProjectId,
+  SourceId
+} from '@study/contracts';
 
 import {
   defineTable,
@@ -15,7 +22,7 @@ import {
 import { libraryContentColumns } from './column-types.ts';
 import { content_snapshots } from './content-snapshots.ts';
 import { notes } from './notes.ts';
-import { projects } from './sources.ts';
+import { projects, sources } from './sources.ts';
 
 /** Authored output identity, independent of sources, notes and learning materials. */
 export const pages = defineTable({
@@ -175,6 +182,25 @@ export const note_pages = defineTable({ role: 'contributes', entity: 'page' })(
       'note_pages_position_check',
       sql`typeof(${t.position}) = 'integer' AND ${t.position} >= 0`
     )
+  ]
+);
+
+/** Originals are shared with Materials and belong to the page across revisions. */
+export const page_attachments = defineTable({ role: 'contributes', entity: 'page' })(
+  'page_attachments',
+  {
+    page_id: integer()
+      .$type<PageId>()
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    source_id: integer()
+      .$type<SourceId>()
+      .notNull()
+      .references(() => sources.id, { onDelete: 'cascade' })
+  },
+  (t) => [
+    primaryKey({ columns: [t.page_id, t.source_id] }),
+    index('page_attachments_source_idx').on(t.source_id)
   ]
 );
 

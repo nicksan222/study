@@ -62,7 +62,7 @@ test.browser.stable(
       await reachableControls({ expect });
     }
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await expect(composer).toHaveValue('');
     await invalidDraft({ expect });
     await expectScreenshot('empty-validation', {
@@ -160,7 +160,7 @@ test.browser.stable(
       }
     });
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await expect(noteLinks).toHaveCount(1);
     await noteLinks.click();
     await expect(page).toHaveURL(identity);
@@ -170,7 +170,7 @@ test.browser.stable(
     await expect(text).toHaveCount(1);
     await expect(text).toHaveText(corrected);
     expect(await text.textContent()).toBe(corrected);
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await page.reload();
     await expect(noteLinks).toHaveCount(1);
     await noteLinks.click();

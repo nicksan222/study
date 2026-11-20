@@ -220,6 +220,7 @@ export function makePageReads({ db }: StoreResources) {
       .where(
         and(
           eq(s.page_versions.page_id, v.pageId),
+          v.publishedOnly ? eq(s.page_versions.status, 'published') : undefined,
           v.cursor === undefined
             ? undefined
             : sql`${s.page_versions.number} < (SELECT number FROM page_versions WHERE id=${v.cursor} AND page_id=${v.pageId})`,

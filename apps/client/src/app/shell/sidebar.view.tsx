@@ -739,7 +739,7 @@ function SidebarCreationControl({
       {metadata.section === 'pages' && (
         <NewBlankPage key={String(project)} project={project} compact disabled={disabled} />
       )}
-      {metadata.title === 'Notes' && (
+      {metadata.section === 'notes' && metadata.scope === 'project' && (
         <IconButton
           size="icon"
           variant="ghost-muted"

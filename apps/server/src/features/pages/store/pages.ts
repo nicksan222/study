@@ -4,7 +4,7 @@ import * as c from '@study/contracts';
 import * as e from '@study/contracts';
 import * as r from '@study/contracts';
 import { StudyError } from '@study/contracts';
-import { and, eq, note_pages, sql } from '@study/db';
+import { and, eq, gt, note_pages, page_attachments, sources, sql } from '@study/db';
 import { storeMutation, storeQuery } from '@study/server';
 import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
@@ -17,6 +17,35 @@ export function makePagesStore(resources: StoreResources) {
 
   return {
     queries: {
+      attachments: storeQuery({
+        role: 'collection',
+        input: r.pageAttachmentsSchema,
+        output: r.pageAttachmentListSchema,
+        run: ({ pageId, projectId, limit, cursor }) => {
+          if (!d.page(pageId).projectIds.includes(projectId))
+            throw new StudyError('not_found', 'Document is unavailable in this subject');
+
+          const rows = db.orm
+            .select({ id: sources.id, name: sources.name })
+            .from(page_attachments)
+            .innerJoin(sources, eq(sources.id, page_attachments.source_id))
+            .where(
+              and(
+                eq(page_attachments.page_id, pageId),
+                eq(sources.project_id, projectId),
+                cursor === undefined ? undefined : gt(sources.id, cursor)
+              )
+            )
+            .orderBy(sources.id)
+            .limit(limit + 1)
+            .all();
+
+          return {
+            items: rows.slice(0, limit),
+            nextCursor: rows.length > limit ? rows[limit - 1]!.id : null
+          };
+        }
+      }),
       count: storeQuery({
         role: 'required',
         input: r.pageCountInputSchema,
@@ -55,6 +84,42 @@ export function makePagesStore(resources: StoreResources) {
       })
     },
     mutations: {
+      setAttachment: storeMutation({
+        changes: ['pages'],
+        input: r.setPageAttachmentSchema,
+        output: Schema.Void,
+        run: ({ pageId, projectId, sourceId, attached }) => {
+          const page = d.page(pageId);
+
+          if (
+            page.archivedAt !== null ||
+            !page.projectIds.includes(projectId) ||
+            !db.orm
+              .select({ id: sources.id })
+              .from(sources)
+              .where(and(eq(sources.id, sourceId), eq(sources.project_id, projectId)))
+              .get()
+          )
+            throw new StudyError(
+              'not_found',
+              'Document or original is unavailable in this subject'
+            );
+
+          if (attached)
+            db.orm
+              .insert(page_attachments)
+              .values({ page_id: pageId, source_id: sourceId })
+              .onConflictDoNothing()
+              .run();
+          else
+            db.orm
+              .delete(page_attachments)
+              .where(
+                and(eq(page_attachments.page_id, pageId), eq(page_attachments.source_id, sourceId))
+              )
+              .run();
+        }
+      }),
       archiveNote: storeMutation({
         changes: ['pages'],
         input: Schema.Struct({

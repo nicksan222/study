@@ -4,13 +4,14 @@ import type * as t from '@study/contracts';
 import type { ProjectId } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import { publicationTransaction, transaction, useStore } from '@study/server';
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 
+import { PagesStore } from '#server/features/pages/store/index';
 import { PageMergesStore } from '#server/features/pages/store/merges';
 import { PageTransformsStore } from '#server/features/pages/store/transforms';
 import { Workflows } from '#server/features/workflows/index';
 
-import { mergeContext, requestMerge } from './merge.ts';
+import { standaloneTransformContext, requestImprovement, requestMerge } from './merge.ts';
 import { publishTransform, retryTransform } from './transforms.ts';
 
 export function* pageTransformOperations() {
@@ -38,24 +39,37 @@ export function* pageTransformOperations() {
       return [...pending, ...completed];
     }),
     merge: (v: typeof t.mergeRequestSchema.Type) => transaction((tx) => requestMerge(tx, v)),
-    mergeContext: (v: typeof t.transformKeySchema.Type) => transaction((tx) => mergeContext(tx, v)),
-    publishMerge: (v: typeof t.transformPublicationSchema.Type) =>
+    improvement: (v: typeof t.improvementScopeSchema.Type) =>
+      transaction((tx) => {
+        const page = tx.store(PagesStore).page({ id: v.pageId });
+
+        if (v.projectId !== undefined && !page.projectIds.includes(v.projectId))
+          throw new StudyError('not_found', 'Document is unavailable in this subject');
+
+        return Option.getOrNull(tx.store(PageTransformsStore).improvement(v));
+      }),
+    improve: (v: typeof t.improvePageSchema.Type) => transaction((tx) => requestImprovement(tx, v)),
+    standaloneTransformContext: (v: typeof t.transformKeySchema.Type) =>
+      transaction((tx) => standaloneTransformContext(tx, v)),
+    publishStandaloneTransform: (v: typeof t.transformPublicationSchema.Type) =>
       publicationTransaction((tx) => {
         const request = tx.store(PageTransformsStore).transform(v);
 
-        if (!request.merge) throw new StudyError('invalid_input', 'Not a page merge');
+        if (!request.merge && !request.improvement)
+          throw new StudyError('invalid_input', 'No standalone transform capture');
 
         return publishTransform(
           tx,
-          request.resultVersionId === null ? mergeContext(tx, v) : undefined,
+          request.resultVersionId === null ? standaloneTransformContext(tx, v) : undefined,
           v
         );
       }),
-    retryMerge: (v: { requestId: string; retryId: string }) =>
+    retryStandaloneTransform: (v: { requestId: string; retryId: string }) =>
       transaction((tx) => {
         const request = tx.store(PageTransformsStore).transform(v);
 
-        if (!request.merge) throw new StudyError('invalid_input', 'Not a page merge');
+        if (!request.merge && !request.improvement)
+          throw new StudyError('invalid_input', 'No standalone transform capture');
 
         return retryTransform(tx, v);
       }),

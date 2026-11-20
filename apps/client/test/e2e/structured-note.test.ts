@@ -32,7 +32,7 @@ const original = [
 test.browser.stable(
   'Structured lecture notes preserve edits and readable layout',
   async ({ page, expectScreenshot, expect, study }) => {
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
@@ -262,7 +262,7 @@ test.browser.stable(
       await expect(title).toBeVisible();
       await expect(editedText).toBeVisible();
 
-      await page.goto('/notes');
+      await page.goto('/notes?notebookDraft=1');
       await composer.fill('Second lecture: a separate note for navigation checks.');
       await page.getByRole('button', { name: copy.NoteSaveNote }).click();
       await expect(page).toHaveURL(/\/notes\/.+/);

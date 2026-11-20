@@ -1,8 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { Page } from '../pages/notes/page';
+import { pagesRouteDeps, pagesRouteLoader } from '../features/pages';
+import { DocumentsIndex } from '../pages/notes/page';
 
 export const Route = createFileRoute('/notes/')({
-  staticData: { title: 'Notes', section: 'notes', scope: 'project' },
-  component: Page
+  staticData: { title: 'Documents', section: 'notes', scope: 'project' },
+  loaderDeps: pagesRouteDeps,
+  loader: pagesRouteLoader,
+  component: DocumentsIndex
 });

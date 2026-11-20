@@ -15,8 +15,12 @@
 import { StudyError } from '@study/contracts';
 import { noteIdSchema } from '@study/contracts';
 import * as t from '@study/contracts';
-import { and, eq, lt, desc, inArray, or } from '@study/db';
-import { page_transform_requests as requests } from '@study/db';
+import { and, eq, lt, desc, inArray, or, sql } from '@study/db';
+import {
+  page_transform_requests as requests,
+  page_versions,
+  page_proposal_receipts
+} from '@study/db';
 import { defineStore, storeMutation, storeQuery, unixSeconds } from '@study/server';
 import { Schema, Option } from 'effect';
 
@@ -71,6 +75,36 @@ export const PageTransformsStore = defineStore({
               .get()
               ? Option.some(read(v))
               : Option.none()
+        }),
+        improvement: storeQuery({
+          role: 'optional',
+          input: t.improvementScopeSchema,
+          output: Schema.Option(t.transformSnapshotSchema),
+          run: ({ pageId, projectId }) => {
+            const row = db.orm
+              .select({
+                requestId: requests.id,
+                cancelled: requests.cancelled,
+                applied: sql<boolean>`EXISTS (SELECT 1 FROM ${page_proposal_receipts}
+                  WHERE ${page_proposal_receipts.request_id}=${requests.id}
+                  AND ${page_proposal_receipts.outcome}='applied')`
+              })
+              .from(requests)
+              .innerJoin(
+                page_versions,
+                sql`CAST(${page_versions.id} AS TEXT)=json_extract(${requests.request}, '$.improvement.versionId')`
+              )
+              .where(
+                and(
+                  eq(page_versions.page_id, pageId),
+                  sql`json_extract(${requests.request}, '$.improvement.projectId') IS ${projectId?.toString() ?? null}`
+                )
+              )
+              .orderBy(desc(sql`${requests}.rowid`))
+              .get();
+
+            return row && !row.cancelled && !row.applied ? Option.some(read(row)) : Option.none();
+          }
         }),
         transform: storeQuery({
           role: 'required',
@@ -231,7 +265,7 @@ export const PageTransformsStore = defineStore({
           run: (value) => {
             const old = read(value);
 
-            if (old.resultVersionId !== null) return old;
+            if (old.resultVersionId !== null && !(old.improvement && value.cancel)) return old;
 
             db.orm
               .update(requests)

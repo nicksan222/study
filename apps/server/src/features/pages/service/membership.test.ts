@@ -20,6 +20,7 @@ import { RpcTest } from 'effect/rpc';
 import { Notes } from '#server/features/notes/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { Projects } from '#server/features/projects/index';
+import { Sources } from '#server/features/sources/index';
 import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
@@ -53,10 +54,28 @@ test.server.stable(
             });
 
             assert.ok(document.version);
+            const source = yield* (yield* Sources).createSource({
+              projectId: a.id,
+              name: 'original.txt',
+              bytes: new TextEncoder().encode('An original shared with Materials.')
+            });
+            const attachment = { pageId: document.id, projectId: a.id, sourceId: source.id };
+
+            yield* rpc['pages.setAttachment']({ ...attachment, attached: true });
+            yield* rpc['pages.setAttachment']({ ...attachment, attached: true });
+            expect((yield* rpc['pages.attachments']({ ...attachment, limit: 30 })).items).toEqual([
+              { id: source.id, name: source.name }
+            ]);
             const link = { pageId: document.id, projectId: b.id };
 
             yield* rpc['pages.attachProject'](link);
             yield* rpc['pages.attachProject'](link);
+            expect((yield* rpc['pages.attachments']({ ...link, limit: 30 })).items).toEqual([]);
+            expect(
+              (yield* Effect.flip(
+                rpc['pages.setAttachment']({ ...link, sourceId: source.id, attached: true })
+              )).kind
+            ).toBe('not_found');
             expect((yield* rpc['pages.page']({ id: document.id })).projectIds).toStrictEqual([
               a.id,
               b.id

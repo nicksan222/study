@@ -32,7 +32,7 @@ export function useSidebarActions(
     try {
       await navigate({
         to: '/notes',
-        search: project ? { project: String(project) } : {}
+        search: { project: project?.toString(), notebookDraft: '1' }
       });
     } catch {
       setActionError(true);

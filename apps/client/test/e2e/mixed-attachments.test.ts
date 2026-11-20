@@ -131,7 +131,7 @@ test.browser.stable(
       await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
     }
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await expect(noteLinks).toHaveCount(0);
     await composer.fill(original);
     await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles([

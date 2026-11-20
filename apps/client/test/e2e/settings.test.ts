@@ -560,7 +560,7 @@ test.browser.stable(
     await expect(settings).toBeFocused();
 
     const shortcuts = await Promise.all(
-      [copy.Notes, copy.SourcePage, copy.Practice, copy.Assistant].map((name) =>
+      [copy.Documents, copy.Practice, copy.Assistant].map((name) =>
         navigation.getByRole('link', { name, exact: true }).boundingBox()
       )
     );
@@ -573,7 +573,7 @@ test.browser.stable(
     });
     await page.reload();
     await expect(navigation).toHaveCSS('flex-direction', 'row');
-    await navigation.getByRole('link', { name: copy.SourcePage, exact: true }).press('Enter');
+    await navigation.getByRole('link', { name: copy.Documents, exact: true }).press('Enter');
     await expect(page).toHaveURL(/\/pages$/);
 
     await openSidebarSettings();

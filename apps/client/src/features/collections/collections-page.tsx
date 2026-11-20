@@ -105,7 +105,7 @@ function Collection({
       </CollectionPanel.IdentityHeader>
       <CollectionPanel.Navigation>
         <Link to="/notes" search={{ project: String(project.id) }}>
-          <CollectionPanel.LinkText>{t('collections.notes')}</CollectionPanel.LinkText>
+          <CollectionPanel.LinkText>{t('Documents')}</CollectionPanel.LinkText>
         </Link>
       </CollectionPanel.Navigation>
       <CollectionPanel.RenameForm

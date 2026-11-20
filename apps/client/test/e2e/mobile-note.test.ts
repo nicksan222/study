@@ -262,7 +262,7 @@ async function phoneStarter({
   const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
 
   await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent }));
-  await page.goto('/notes');
+  await page.goto('/notes?notebookDraft=1');
   const capture = page.getByRole('textbox', { name: copy.NoteCompose });
   const context = page.getByRole('button', { name: copy.NoteActions, exact: true });
   const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });

@@ -28,7 +28,7 @@ test.browser.stable(
       await expect(control).toBeEnabled();
     };
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     const input = page.getByRole('textbox', { name: copy.NoteCompose });
     const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
     const notebook = page.locator('.workspace-desk');

@@ -24,7 +24,7 @@ export function sidebarContent(metadata: PageMetadata): SidebarContent {
 const contentRoutes = {
   workspace: '/notes',
   assistant: '/assistant',
-  pages: '/pages',
+  pages: '/notes',
   uploads: '/uploads',
   practice: '/practice'
 } as const;

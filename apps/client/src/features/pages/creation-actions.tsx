@@ -25,7 +25,7 @@ export function useNewBlankPage(project?: ProjectId) {
 
     try {
       const retained = created?.project === project ? created?.id : undefined;
-      const id = retained ?? (await creation.create(t('NoteNewPage')))?.id;
+      const id = retained ?? (await creation.create(t('DocumentUntitled')))?.id;
 
       if (id === undefined) return false;
 
@@ -73,13 +73,13 @@ export function NewBlankPage({
       <Button
         size={compact ? 'icon' : 'default'}
         variant={compact ? 'ghost-muted' : 'default'}
-        aria-label={t(compact ? 'NoteCreatePage' : 'PageNew')}
-        title={t(compact ? 'NoteCreatePage' : 'PageNew')}
+        aria-label={t(compact ? 'NoteCreatePage' : 'DocumentNew')}
+        title={t(compact ? 'NoteCreatePage' : 'DocumentNew')}
         disabled={disabled || creation.pending}
         onClick={() => void creation.create()}
       >
         <CreatePageIcon aria-hidden="true" />
-        {!compact && t('PageNew')}
+        {!compact && t('DocumentNew')}
       </Button>
       {creation.error && (
         <ErrorState

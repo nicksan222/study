@@ -13,14 +13,22 @@ type Outcome = typeof proposalOutcomeSchema.Type;
 /** Note result cards supply their committed request identity. */
 type ProposalView = ReturnType<typeof useProposalReview>;
 
-export function ProposalReview({ requestId }: { requestId: string }) {
+export function ProposalReview({
+  requestId,
+  dismiss,
+  disabled = false
+}: {
+  requestId: string;
+  dismiss?: () => void;
+  disabled?: boolean;
+}) {
   const view = useProposalReview({ requestId });
   const { t, comparison, outcome, busy, failed, attempt, run } = view;
 
   return (
     <DocumentEditing.Proposal>
       <h3>{t('PageProposal')}</h3>
-      <ProposalActions view={view} />
+      <ProposalActions view={view} dismiss={dismiss} disabled={disabled} />
       {comparison.isError && (
         <ErrorState
           title={t('ErrorStateTitle')}
@@ -64,29 +72,56 @@ function ProposalResult({ versionId }: { versionId: NonNullable<Outcome['resultV
   ) : null;
 }
 
-function ProposalActions({ view }: { view: ProposalView }) {
+function ProposalActions({
+  view,
+  dismiss,
+  disabled
+}: {
+  view: ProposalView;
+  dismiss?: () => void;
+  disabled: boolean;
+}) {
   const { t, comparison, busy, attempt, outcome, act } = view;
+  const value = comparison.data;
+
+  if (!comparison.isSuccess || !value) return null;
 
   return (
     <>
-      {comparison.isSuccess && comparison.data && (
-        <>
-          <ComparisonView value={comparison.data} />
-          <Button
-            disabled={busy || !!attempt || !!outcome}
-            onClick={() => void act('apply', comparison.data!)}
-          >
-            {t('PageApply')}
-          </Button>
-          <Button
-            variant="ghost"
-            disabled={busy || !!attempt || (!!outcome && outcome.outcome !== 'conflict')}
-            onClick={() => void act('keep', comparison.data!)}
-          >
-            {t('PageKeepNew')}
-          </Button>
-        </>
+      <ComparisonView value={value} expandProposal={!!dismiss} />
+      <Button
+        disabled={disabled || busy || !!attempt || !!outcome}
+        onClick={() => void act('apply', value)}
+      >
+        {t('PageApply')}
+      </Button>
+      {dismiss ? (
+        <Button variant="ghost" disabled={busy || !!attempt} onClick={dismiss}>
+          {t(outcome?.outcome === 'applied' ? 'Close' : 'DocumentDismiss')}
+        </Button>
+      ) : (
+        <KeepProposal view={view} value={value} />
       )}
     </>
+  );
+}
+
+function KeepProposal({
+  view,
+  value
+}: {
+  view: ProposalView;
+  value: NonNullable<ProposalView['comparison']['data']>;
+}) {
+  const { t, busy, attempt, outcome, act } = view;
+
+  return (
+    <Button
+      variant="ghost"
+      disabled={busy || !!attempt || (!!outcome && outcome.outcome !== 'conflict')}
+      onClick={() => void act('keep', value)}
+    >
+      {t('PageKeepNew')}
+    </Button>
   );
 }

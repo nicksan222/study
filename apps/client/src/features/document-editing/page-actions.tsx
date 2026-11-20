@@ -12,7 +12,13 @@ import { usePageEditor } from './document-editing.queries';
 
 type Comparison = typeof comparisonSchema.Type;
 
-export function ComparisonView({ value }: { value: Comparison }) {
+export function ComparisonView({
+  value,
+  expandProposal = false
+}: {
+  value: Comparison;
+  expandProposal?: boolean;
+}) {
   const { t } = useI18n();
 
   return (
@@ -21,6 +27,7 @@ export function ComparisonView({ value }: { value: Comparison }) {
       {(['before', 'proposed', 'current'] as const).map((kind) => (
         <Disclosure
           key={kind}
+          open={expandProposal && kind === 'proposed' ? true : undefined}
           summary={
             <>
               {t(

@@ -38,7 +38,8 @@ export const listSchema = Schema.Struct({
 export const versionsSchema = Schema.Struct({
   pageId: pageIdSchema,
   limit,
-  cursor: Schema.optional(pageVersionIdSchema)
+  cursor: Schema.optional(pageVersionIdSchema),
+  publishedOnly: Schema.optional(Schema.Boolean)
 });
 
 export const metadataSchema = Schema.Struct({
@@ -59,6 +60,35 @@ export const linkSchema = Schema.Struct({
 export const projectLinkSchema = Schema.Struct({
   pageId: pageIdSchema,
   projectId: projectIdSchema
+});
+
+const attachmentScopeSchema = Schema.Struct({
+  pageId: pageIdSchema,
+  projectId: projectIdSchema
+});
+
+export const pageAttachmentsSchema = Schema.Struct({
+  ...attachmentScopeSchema.fields,
+  limit,
+  cursor: Schema.optional(sourceIdSchema)
+});
+
+const pageAttachmentSchema = Schema.Struct({ id: sourceIdSchema, name: Schema.String });
+
+export const pageAttachmentListSchema = Schema.Struct({
+  items: Schema.Array(pageAttachmentSchema),
+  nextCursor: Schema.NullOr(sourceIdSchema)
+});
+
+export const improvementScopeSchema = Schema.Struct({
+  pageId: pageIdSchema,
+  projectId: Schema.optional(projectIdSchema)
+});
+
+export const setPageAttachmentSchema = Schema.Struct({
+  ...attachmentScopeSchema.fields,
+  sourceId: sourceIdSchema,
+  attached: Schema.Boolean
 });
 
 export const sourceCopySchema = Schema.Struct({
@@ -126,6 +156,34 @@ export const pagesEndpoints = {
       success: t.transformSnapshotSchema,
       error: failureSchema
     },
+    { changes: [dependency.pages] }
+  ),
+  attachments: liveQuery(
+    'pages.attachments',
+    {
+      payload: pageAttachmentsSchema,
+      success: pageAttachmentListSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  setAttachment: mutation(
+    'pages.setAttachment',
+    { payload: setPageAttachmentSchema, success: Schema.Void, error: failureSchema },
+    { changes: [dependency.pages] }
+  ),
+  improvement: liveQuery(
+    'pages.improvement',
+    {
+      payload: improvementScopeSchema,
+      success: Schema.NullOr(t.transformSnapshotSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  improve: mutation(
+    'pages.improve',
+    { payload: t.improvePageSchema, success: t.transformSnapshotSchema, error: failureSchema },
     { changes: [dependency.pages] }
   ),
   requestTransform: mutation(
