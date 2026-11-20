@@ -10,6 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { runCloudIntegrationTests } from './cloud.ts';
 import { runIntegrationTests } from './environment.ts';
 
 const controller = new AbortController();
@@ -23,7 +24,10 @@ const handlers = (['SIGINT', 'SIGTERM', 'SIGHUP'] as const).map((signal) => {
 });
 
 try {
-  process.exitCode = await runIntegrationTests(undefined, controller.signal);
+  const desktop = await runIntegrationTests(undefined, controller.signal);
+  const cloud = await runCloudIntegrationTests(controller.signal);
+
+  process.exitCode = desktop || cloud;
 } catch (error) {
   console.error(error);
   process.exitCode = controller.signal.aborted ? 130 : 1;

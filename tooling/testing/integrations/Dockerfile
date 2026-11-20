@@ -25,12 +25,8 @@ RUN architecture="$(dpkg --print-architecture)"; \
     && cd /opt && /tmp/obsidian.AppImage --appimage-extract >/dev/null \
     && mv squashfs-root obsidian && chmod -R a+rX /opt/obsidian && rm /tmp/obsidian.AppImage
 
-FROM rustfs/rustfs:1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74 AS integration-rustfs
-
 FROM integration-base AS integrations
 COPY --from=integration-obsidian /opt/obsidian /opt/obsidian
-COPY --from=integration-rustfs /usr/bin/rustfs /usr/bin/rc /opt/study-s3/
-COPY --chmod=755 tooling/testing/integrations/entrypoint.sh /usr/local/bin/study-integration-entrypoint
 
 RUN mkdir /workspace && chown bun:bun /workspace
 WORKDIR /workspace
@@ -51,5 +47,4 @@ USER bun
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY --chown=bun:bun . .
 RUN mkdir -p tooling/test-results
-ENTRYPOINT ["/usr/local/bin/study-integration-entrypoint"]
 CMD ["sleep", "infinity"]

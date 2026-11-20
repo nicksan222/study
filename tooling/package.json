@@ -16,6 +16,8 @@
     "typecheck": "bun --bun tsc --noEmit -p typescript/tooling.json && bun --bun tsc --noEmit -p typescript/browser-tests.json"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.1173.0",
+    "@azure/storage-blob": "12.34.0",
     "@effect/platform-bun": "4.0.7",
     "@study/contracts": "*",
     "@study/db": "*",
@@ -25,6 +27,7 @@
     "@study/theme": "*",
     "@stylistic/eslint-plugin": "5.10.0",
     "effect": "4.0.7",
+    "testcontainers": "12.2.2",
     "vite-plus": "1.4.0"
   }
 }
