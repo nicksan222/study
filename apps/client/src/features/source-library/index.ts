@@ -7,4 +7,8 @@ export { SourcePage } from './reader-page';
 export { SourceDeletion } from './deletion';
 export { SourceVersionDeletion } from './version-deletion';
 
-export { UploadedMaterialsPage } from './uploaded-materials';
+export {
+  UploadedMaterialsPage,
+  UploadedMaterialsSidebar,
+  UploadMaterialAction
+} from './uploaded-materials';

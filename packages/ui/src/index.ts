@@ -4,7 +4,12 @@ export { LoadMoreButton, RetryButton } from './components/action-button.tsx';
 export { ActionGroup } from './components/action-group.tsx';
 export { ActionTooltip } from './components/action-tooltip.tsx';
 export { AiActivity, AiButton, AiIcon } from './components/ai-button.tsx';
-export { AttachmentPreview, useAttachmentPreviewUrl } from './components/attachment-preview.tsx';
+export {
+  AttachmentPreview,
+  attachmentMediaKind,
+  attachmentReaderKind,
+  useAttachmentPreviewUrl
+} from './components/attachment-preview.tsx';
 export { Bubble, BubbleContent } from './components/bubble.tsx';
 export { Button } from './components/button.tsx';
 export {

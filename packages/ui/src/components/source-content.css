@@ -189,3 +189,185 @@
   inline-size: max-content;
   margin-inline: auto;
 }
+
+.source-reader-views {
+  padding: 0 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-reader-views .study-toggle-group {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.source-reader-original {
+  display: grid;
+  justify-items: center;
+  padding: 16px;
+}
+
+.source-reader-original :is(img, audio, video) {
+  max-width: 100%;
+}
+
+.source-reader-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.8125rem;
+}
+
+.source-reader-details > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  max-inline-size: 100%;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--muted);
+}
+
+.source-reader-details dt {
+  flex: none;
+  color: var(--muted-foreground);
+}
+
+.source-reader-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.study-content[data-section='uploads'] {
+  --material-gutter: 1.5rem;
+  background: var(--background);
+}
+
+.study-content[data-section='uploads'] > .study-workspace-header {
+  flex: none;
+  padding-inline: var(--material-gutter);
+  background: var(--background);
+}
+
+.study-content[data-section='uploads'] > .study-workspace-header > span:first-child {
+  max-inline-size: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-reader[data-materials-reader] {
+  padding: 0 var(--material-gutter) 1rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.source-reader[data-materials-reader] > .source-reader-header {
+  align-items: flex-start;
+  padding: 0 0 0.75rem;
+}
+
+.source-reader[data-materials-reader] .source-reader-views {
+  padding: 0 0 0.75rem;
+}
+
+.source-reader[data-materials-reader] .source-reader-pdf-viewport {
+  padding: 0;
+  background: var(--background);
+  scrollbar-gutter: auto;
+}
+
+.source-reader[data-materials-reader] .source-reader-pdf-controls {
+  padding-block: 0.375rem;
+  border: 0;
+}
+
+.source-reader[data-materials-reader] :is(.source-reader-original, .source-reader-details) {
+  padding: 1rem 0;
+}
+
+@media (max-width: 700px) {
+  .study-content[data-section='uploads'] {
+    --material-gutter: 1rem;
+  }
+}
+
+.source-reader[data-materials-reader] .source-reader-title {
+  font-size: clamp(1.25rem, 3vw, 1.875rem);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.source-reader-original-text {
+  margin: 0;
+  padding: 16px;
+  font-family: inherit;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.source-reader-original-text[data-code] {
+  font-family: var(--font-mono, monospace);
+}
+
+.source-reader[data-materials-reader] .source-reader-original-text {
+  max-width: 70ch;
+  padding: 1rem 0 2rem;
+}
+
+.source-reader[data-materials-reader] > .workspace-desk-editor {
+  flex: none;
+  width: min(100%, 52rem);
+  margin-top: 1rem;
+  padding: clamp(1rem, 2.5vw, 2rem);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+}
+
+.source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content,
+.source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content .tiptap {
+  min-height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  scrollbar-gutter: auto;
+}
+
+.source-reader[data-materials-reader] .workspace-desk-editor .tiptap {
+  max-width: 70ch;
+  text-align: start;
+}
+
+.source-reader[data-materials-reader] .tiptap > :first-child {
+  margin-block-start: 0;
+}
+
+.source-reader[data-materials-reader] .tiptap > :last-child {
+  margin-block-end: 0;
+}
+
+.source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content p {
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.source-reader-editor {
+  display: grid;
+  gap: 0.75rem;
+  padding-block: 0.5rem 1rem;
+}
+.source-reader-editor textarea {
+  min-height: min(24rem, 48dvh);
+  line-height: 1.6;
+}
+.source-reader-editor .source-reader-actions {
+  justify-content: flex-end;
+}

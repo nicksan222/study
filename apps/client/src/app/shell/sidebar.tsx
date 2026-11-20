@@ -4,6 +4,7 @@ import type { ComponentType, Ref } from 'react';
 import { LibraryList } from '#client/features/library/index.ts';
 import { PagesSidebar } from '#client/features/pages/index.ts';
 import { PracticeSidebarGenerations } from '#client/features/practice/index.ts';
+import { UploadedMaterialsSidebar } from '#client/features/source-library/index.ts';
 import type { SidebarContent } from '#client/lib/navigation/sidebar-config.ts';
 import { sidebarContent } from '#client/lib/navigation/sidebar-config.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
@@ -19,7 +20,15 @@ type PanelProps = { model: SidebarModel; ready: boolean };
 const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
   workspace: null,
   assistant: null,
-  uploads: null,
+  uploads: ({ model, ready }) =>
+    ready && model.project ? (
+      <UploadedMaterialsSidebar
+        key={String(model.project)}
+        project={model.project}
+        query={model.query}
+        onReselect={model.onToggle}
+      />
+    ) : null,
   pages: ({ model, ready }) =>
     ready ? (
       <PagesSidebar

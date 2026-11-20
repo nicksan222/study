@@ -1,6 +1,22 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 
+type MediaKind = 'image' | 'video' | 'audio';
+
+export function attachmentMediaKind(kind: string): MediaKind | undefined {
+  if (kind === 'image' || kind === 'video' || kind === 'audio') return kind;
+}
+
+export function attachmentReaderKind(kind: string) {
+  if (kind === 'pdf') return 'pdf';
+
+  if (kind === 'text' || kind === 'code') return 'text';
+
+  if (kind === 'slides' || kind === 'document' || kind === 'spreadsheet') return 'office';
+
+  return attachmentMediaKind(kind);
+}
+
 /** Shared local-media presentation; callers own URLs and revoke them after use. */
 export function AttachmentPreview({
   kind,
@@ -9,7 +25,7 @@ export function AttachmentPreview({
   label,
   fallback
 }: {
-  kind: 'image' | 'video' | 'audio' | 'file';
+  kind: MediaKind;
   src?: string;
   mime?: string;
   label: string;
@@ -17,7 +33,7 @@ export function AttachmentPreview({
 }) {
   const [failed, setFailed] = useState<string>();
 
-  if (!src || failed === src || kind === 'file') return fallback ?? null;
+  if (!src || failed === src) return fallback ?? null;
 
   const fail = () => setFailed(src);
 

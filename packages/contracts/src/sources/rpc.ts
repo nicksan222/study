@@ -43,6 +43,7 @@ export const correctBlockInputSchema = Schema.Struct({
 
 export const sourcePageInputSchema = Schema.Struct({
   uploadedFor: Schema.optional(projectIdSchema),
+  nameContains: Schema.optional(Schema.String.check(Schema.isMaxLength(255))),
   projectId: Schema.optional(projectIdSchema),
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(sourceIdSchema)

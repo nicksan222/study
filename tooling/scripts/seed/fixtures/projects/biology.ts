@@ -10,6 +10,8 @@ import {
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
 
+import { createMitosisMaterials } from './mitosis.ts';
+
 export function createBiology(seed: SeedHarness) {
   const project = createProject(seed, { name: 'Cell Biology', color: 'green', examInDays: 14 });
   const biologyNotes = createSource(
@@ -236,4 +238,5 @@ export function createBiology(seed: SeedHarness) {
     pages: [workbook],
     materials: [cards]
   });
+  createMitosisMaterials(project);
 }

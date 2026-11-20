@@ -1,17 +1,18 @@
-import { projectIdSchema } from '@study/contracts';
 import type { ProjectId, Source, SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { AddIcon, SourcesIcon } from '@study/icons';
 import {
   Button,
   ErrorState,
-  List,
+  IconButton,
+  Sidebar,
   Loading,
   RetryButton,
-  StatusMessage,
+  Spinner,
+  toastManager,
   SubjectWorkspace
 } from '@study/ui';
-import { Link, useSearch } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 
 import {
@@ -20,54 +21,41 @@ import {
   useCursorWindow
 } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { useNarrowLayout } from '#client/lib/viewport.ts';
 
 import { useSourceProcessingExecution } from './source-panel.queries';
 
 export function UploadedMaterialsPage() {
   const { project } = useSearch({ from: '__root__' });
   const { t } = useI18n();
-  const id = project ? projectIdSchema.make(BigInt(project)) : undefined;
-  const subject = rpc.projects.get.useQuery(id ? { id } : undefined);
 
   return (
-    <>
-      <SubjectWorkspace.Header>
-        <SubjectWorkspace.Identity>
-          <SubjectWorkspace.Title>{t('UploadedMaterials')}</SubjectWorkspace.Title>
-        </SubjectWorkspace.Identity>
-        {subject.data && !subject.isError && (
-          <SubjectWorkspace.Actions>
-            <UploadFiles key={String(subject.data.id)} project={subject.data.id} />
-          </SubjectWorkspace.Actions>
+    <SubjectWorkspace.Empty>
+      <SubjectWorkspace.EmptyContent>
+        <SubjectWorkspace.EmptyIcon>
+          <SourcesIcon aria-hidden="true" />
+        </SubjectWorkspace.EmptyIcon>
+        <SubjectWorkspace.EmptyTitle>
+          {t(project ? 'UploadedMaterialsChoose' : 'ChooseProject')}
+        </SubjectWorkspace.EmptyTitle>
+        {!project && (
+          <Button variant="outline" render={<Link to="/projects" search={{}} />}>
+            {t('Projects')}
+          </Button>
         )}
-      </SubjectWorkspace.Header>
-      {!id ? (
-        <Button variant="outline" render={<Link to="/projects" search={{}} />}>
-          {t('Projects')}
-        </Button>
-      ) : subject.isPending ? (
-        <Loading label={t('LoadingSubjects')} />
-      ) : subject.isError ? (
-        <ErrorState
-          title={t('SubjectsLoadError')}
-          action={<RetryButton label={t('Retry')} onClick={subject.retry} />}
-        />
-      ) : subject.data ? (
-        <UploadedFiles project={subject.data.id} />
-      ) : null}
-    </>
+      </SubjectWorkspace.EmptyContent>
+    </SubjectWorkspace.Empty>
   );
 }
 
-function UploadFiles({ project }: { project: ProjectId }) {
+export function UploadMaterialAction({ project }: { project: ProjectId }) {
   const { t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string[]>([]);
 
   async function upload(files: File[]) {
     setBusy(true);
-    setFailed([]);
+    const failed: string[] = [];
 
     for (const file of files) {
       try {
@@ -77,19 +65,36 @@ function UploadFiles({ project }: { project: ProjectId }) {
           projectId: project
         });
       } catch {
-        setFailed((names) => [...names, file.name]);
+        failed.push(file.name);
       }
     }
 
     setBusy(false);
+
+    if (failed.length)
+      toastManager.add({
+        type: 'error',
+        title: t('UploadedMaterialsUnconfirmed'),
+        description: failed.join(', ')
+      });
   }
 
   return (
-    <div>
-      <Button disabled={busy} onClick={() => input.current?.click()}>
-        <AddIcon aria-hidden="true" />
-        {t(busy ? 'NoteUploading' : 'UploadedMaterialsAdd')}
-      </Button>
+    <>
+      <IconButton
+        size="icon"
+        variant="ghost-muted"
+        label={t(busy ? 'NoteUploading' : 'UploadedMaterialsAdd')}
+        disabled={busy}
+        aria-busy={busy}
+        onClick={() => input.current?.click()}
+      >
+        {busy ? (
+          <Spinner size="xs" label={t('NoteUploading')} aria-hidden="true" />
+        ) : (
+          <AddIcon aria-hidden="true" />
+        )}
+      </IconButton>
       <input
         ref={input}
         type="file"
@@ -103,89 +108,118 @@ function UploadFiles({ project }: { project: ProjectId }) {
           if (files.length) void upload(files);
         }}
       />
-      {failed.length > 0 && (
-        <StatusMessage>
-          {t('UploadedMaterialsUnconfirmed')} {failed.join(', ')}
-        </StatusMessage>
-      )}
-    </div>
+    </>
   );
 }
 
-function UploadedFiles({ project }: { project: ProjectId }) {
+export function UploadedMaterialsSidebar({
+  project,
+  query,
+  onReselect
+}: {
+  project: ProjectId;
+  query: string;
+  onReselect: () => void;
+}) {
   const { t } = useI18n();
-  const window = useCursorWindow<SourceId>(String(project));
+  const { sourceId } = useParams({ strict: false });
+  const narrow = useNarrowLayout();
+  const nameContains = query.trim();
+  const window = useCursorWindow<SourceId>(nameContains);
   const state = rpc.sources.list.useQuery({
     uploadedFor: project,
+    nameContains: nameContains || undefined,
     limit: window.limit,
     before: window.cursor
   });
 
   useCursorRecovery(window, state.error);
 
-  if (state.isPending) return <Loading label={t('LoadingStudy')} />;
-
-  if (state.isError)
-    return (
-      <ErrorState
-        title={t('collections.readError')}
-        action={<RetryButton label={t('Retry')} onClick={state.retry} />}
-      />
-    );
-
-  if (!state.data?.items.length)
-    return <SubjectWorkspace.EmptyList>{t('UploadedMaterialsEmpty')}</SubjectWorkspace.EmptyList>;
-
   return (
-    <SubjectWorkspace.Section aria-label={t('UploadedMaterials')}>
-      <List bleed={false}>
-        {state.data.items.map((source) => (
-          <UploadedFile key={String(source.id)} source={source} project={project} />
-        ))}
-      </List>
+    <Sidebar.Items aria-label={t('UploadedMaterials')}>
+      {state.isPending && <Loading layout="sidebar" label={t('LoadingStudy')} />}
+      {state.isError && (
+        <ErrorState
+          layout="sidebar"
+          title={t('collections.readError')}
+          action={<RetryButton label={t('Retry')} onClick={state.retry} />}
+        />
+      )}
+      {state.data?.items.map((source) => (
+        <UploadedFile
+          key={String(source.id)}
+          source={source}
+          project={project}
+          active={sourceId === String(source.id)}
+          onReselect={narrow ? onReselect : undefined}
+        />
+      ))}
+      {state.isSuccess && !state.data?.items.length && (
+        <Sidebar.Message role="status">
+          {t(nameContains ? 'SearchNoResults' : 'UploadedMaterialsEmpty')}
+        </Sidebar.Message>
+      )}
       <CursorWindowActions
         {...window}
-        hasMore={state.data.next !== null}
+        hasMore={state.data?.next != null}
         pending={state.isFetching}
         more={() => window.more(state.data?.next)}
       />
-    </SubjectWorkspace.Section>
+    </Sidebar.Items>
   );
 }
 
-function UploadedFile({ source, project }: { source: Source; project: ProjectId }) {
+function UploadedFile({
+  source,
+  project,
+  active,
+  onReselect
+}: {
+  source: Source;
+  project: ProjectId;
+  active: boolean;
+  onReselect?: () => void;
+}) {
   const { t } = useI18n();
-  const state = useSourceProcessingExecution(source.id);
-  const execution = state.data;
-  const status = state.isError
-    ? 'UploadedMaterialsStatusUnavailable'
-    : execution?.outcome === 'failure'
-      ? 'UploadedMaterialsFailed'
-      : execution?.configurationWaitReason
-        ? 'UploadedMaterialsWaiting'
-        : execution?.outcome === 'success' || (!execution && state.documentId)
-          ? 'UploadedMaterialsReady'
-          : 'NotePending';
+  const status = materialStatus(useSourceProcessingExecution(source.id));
 
   return (
-    <List.Row
+    <Sidebar.Item
+      layout="compact"
+      descriptionBelow
+      label={source.name}
+      title={`${source.name} · ${t(`sourceKind.${source.kind}`)} · ${t(status)}`}
+      aria-description={status === 'UploadedMaterialsReady' ? t(status) : undefined}
+      description={status === 'UploadedMaterialsReady' ? undefined : t(status)}
+      icon={<SourcesIcon aria-hidden="true" />}
+      aria-current={active ? 'page' : undefined}
       render={
         <Link
           to="/sources/$sourceId"
           params={{ sourceId: String(source.id) }}
           search={{ project: String(project), fromUploads: '1' }}
+          onClick={active ? onReselect : undefined}
         />
       }
-    >
-      <List.Icon>
-        <SourcesIcon aria-hidden="true" />
-      </List.Icon>
-      <List.Main>
-        <List.Title>{source.name}</List.Title>
-        <List.Description>
-          {t(`sourceKind.${source.kind}`)} · {t(status)}
-        </List.Description>
-      </List.Main>
-    </List.Row>
+    />
   );
+}
+
+function materialStatus({
+  isError,
+  data,
+  documentId
+}: ReturnType<typeof useSourceProcessingExecution>) {
+  if (isError) return 'UploadedMaterialsStatusUnavailable';
+
+  if (!data) return documentId ? 'UploadedMaterialsReady' : 'NotePending';
+
+  if (data.outcome === 'failure')
+    return data.failureKind === 'unsupported' ? 'MaterialOriginalOnly' : 'UploadedMaterialsFailed';
+
+  if (data.configurationWaitReason) return 'UploadedMaterialsWaiting';
+
+  if (data.outcome === 'success') return 'UploadedMaterialsReady';
+
+  return 'NotePending';
 }

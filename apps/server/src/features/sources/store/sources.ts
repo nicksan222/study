@@ -90,6 +90,9 @@ export function makeSourceStore({ db, clock, timestampClock }: StoreResources) {
             .where(
               and(
                 uploadedFor(input.uploadedFor),
+                input.nameContains
+                  ? sql`instr(lower(${tables.sources.name}), lower(${input.nameContains})) > 0`
+                  : undefined,
                 input.before === undefined ? undefined : lt(tables.sources.id, input.before),
                 input.projectId === undefined
                   ? undefined

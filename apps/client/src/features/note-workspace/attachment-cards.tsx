@@ -3,6 +3,7 @@ import { rpc } from '@study/contracts/react';
 import { mediaSize } from '@study/localization';
 import {
   AttachmentPreview,
+  attachmentMediaKind,
   Notebook,
   WorkspaceAttachments,
   WorkspaceDeskSurface as Desk
@@ -205,11 +206,10 @@ function AttachmentMeta({
 
 function SourcePreview({ part }: { part: MessagePart }) {
   const { t } = useI18n();
-  const kind = part.sourceKind;
-  const enabled = kind === 'image' || kind === 'video' || kind === 'audio';
-  const media = useAttachmentMedia(part.sourceId, enabled);
+  const kind = attachmentMediaKind(part.sourceKind);
+  const media = useAttachmentMedia(part.sourceId, kind !== undefined);
 
-  if (!enabled) return null;
+  if (!kind) return null;
 
   return (
     <>

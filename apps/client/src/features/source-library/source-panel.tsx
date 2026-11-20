@@ -7,7 +7,7 @@ import type {
   Source
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { DownloadIcon, EditIcon, OptionsIcon, DeleteIcon, InfoIcon } from '@study/icons';
+import { DownloadIcon, CopyIcon, OptionsIcon, DeleteIcon, InfoIcon } from '@study/icons';
 import {
   RetryButton,
   Button,
@@ -39,13 +39,14 @@ import {
 import { SourceDeletion } from './deletion';
 import { SourceHistory } from './history';
 import { SourceHistoryRetirement } from './history-retirement';
+import { EditSourceButton } from './inline-source-editor';
+import { SourceAttachmentView } from './source-attachment-view';
 import { useSourceExport } from './source-export.queries';
 import {
   useSourceExtraction,
   useSourceProcessingExecution,
   useSourceCopy
 } from './source-panel.queries';
-import { SourcePdfPreview } from './source-pdf-preview';
 
 function SourceManagement({
   source,
@@ -192,9 +193,10 @@ function SourceBody({
 function originalRevision(
   exact: { revision: bigint } | undefined,
   current: { revision: bigint } | null | undefined,
-  kind: Source['kind'] | undefined
+  kind: Source['kind'] | undefined,
+  inMaterials: boolean
 ) {
-  return exact?.revision ?? (kind === 'pdf' ? undefined : current?.revision);
+  return exact?.revision ?? (inMaterials || kind === 'pdf' ? undefined : current?.revision);
 }
 
 function SourceExtractionNotes({ document }: { document?: typeof documentSchema.Type }) {
@@ -217,6 +219,49 @@ function SourceExtractionNotes({ document }: { document?: typeof documentSchema.
   );
 }
 
+function CopySourceAction({
+  copy,
+  inMaterials,
+  onCopy
+}: {
+  copy: ReturnType<typeof useSourceCopy>;
+  inMaterials: boolean;
+  onCopy: () => void;
+}) {
+  const { t } = useI18n();
+  const label = copy.page
+    ? 'PageEditAnotherCopy'
+    : inMaterials
+      ? 'MaterialCopyToPages'
+      : 'PageEditCopy';
+
+  function openCopy() {
+    if (copy.page) copy.acknowledge();
+
+    onCopy();
+  }
+
+  return (
+    <IconButton size="icon-sm" label={t(label)} disabled={copy.pending} onClick={openCopy}>
+      <CopyIcon aria-hidden="true" />
+    </IconButton>
+  );
+}
+
+function MaterialEditAction({
+  source,
+  pinned,
+  inMaterials
+}: {
+  source: Source | null | undefined;
+  pinned: boolean;
+  inMaterials: boolean;
+}) {
+  return inMaterials && !pinned && source?.kind === 'text' ? (
+    <EditSourceButton source={source} />
+  ) : null;
+}
+
 function SourceToolbar({
   sourceId,
   noteId,
@@ -227,6 +272,7 @@ function SourceToolbar({
   downloadRevision,
   onSelect,
   onCopy,
+  inMaterials,
   onDeleted
 }: {
   sourceId: SourceId;
@@ -238,9 +284,9 @@ function SourceToolbar({
   downloadRevision?: bigint;
   onSelect: (exact: { revision: bigint; snapshotId: ContentSnapshotId } | undefined) => void;
   onCopy: () => void;
+  inMaterials: boolean;
   onDeleted: () => void;
 }) {
-  const { t } = useI18n();
   const [menuContainer, setMenuContainer] = useState<HTMLDivElement | null>(null);
 
   return (
@@ -248,15 +294,9 @@ function SourceToolbar({
       {!noteId && source.data && <SourceReader.Title>{source.data.name}</SourceReader.Title>}
       <SourceReader.Actions ref={setMenuContainer}>
         <SourceOriginal sourceId={sourceId} revision={downloadRevision} />
-        {extraction.isSuccess && extraction.data && source.isSuccess && (
-          <IconButton
-            size="icon-sm"
-            label={t(copy.pending ? 'NoteSaving' : 'PageEditCopy')}
-            disabled={copy.pending}
-            onClick={onCopy}
-          >
-            <EditIcon aria-hidden="true" />
-          </IconButton>
+        <MaterialEditAction source={source.data} pinned={!!selected} inMaterials={inMaterials} />
+        {extraction.data && source.data && (
+          <CopySourceAction copy={copy} inMaterials={inMaterials} onCopy={onCopy} />
         )}
         <SourceHistory sourceId={sourceId} selected={selected} onSelect={onSelect} />
         <SourceExtractionNotes document={extraction.data?.document} />
@@ -292,6 +332,12 @@ function SourceReadErrors({
   );
 }
 
+function SourceReaderLoading() {
+  const { t } = useI18n();
+
+  return <Loading label={t('LoadingStudy')} />;
+}
+
 function SourcePanelContent({
   sourceId,
   source,
@@ -303,11 +349,9 @@ function SourcePanelContent({
   extraction: ReturnType<typeof useSourceExtraction>;
   pinned: boolean;
 }) {
-  if (!pinned && source.isSuccess && source.data?.kind === 'pdf')
-    return <SourcePdfPreview sourceId={sourceId} />;
-
   return (
     <>
+      {(source.isPending || extraction.isPending) && <SourceReaderLoading />}
       <SourceReadErrors source={source} extraction={extraction} />
       <SourceBody
         sourceId={pinned ? undefined : sourceId}
@@ -323,12 +367,14 @@ export function SourcePanel({
   sourceId,
   exact,
   noteId,
+  presentation,
   onOpenPage,
   onDeleted
 }: {
   sourceId: SourceId;
   exact?: { revision: bigint; snapshotId: ContentSnapshotId };
   noteId?: NoteId;
+  presentation?: 'materials';
   onOpenPage: (page: Page) => void;
   onDeleted?: () => void;
 }) {
@@ -344,45 +390,56 @@ export function SourcePanel({
 
   const copy = useSourceCopy(sourceId, noteId);
 
-  function editCopy() {
-    if (!state.isSuccess || !source.isSuccess || !state.data) return;
-
-    void copy.copy(state.data).then((page) => {
-      if (page) onOpenPage(page);
-    });
-  }
+  const mode = presentation ?? (noteId ? 'note' : 'citation');
+  const extraction = (
+    <SourcePanelContent
+      sourceId={sourceId}
+      source={source}
+      extraction={state}
+      pinned={!!selected}
+    />
+  );
 
   if (deleted) return <StatusMessage>{t('SourceDeletedNotice')}</StatusMessage>;
 
   return (
-    <SourceReader.Root>
+    <SourceReader.Root data-materials-reader={presentation === 'materials' || undefined}>
       <SourceToolbar
         sourceId={sourceId}
         noteId={noteId}
         source={source}
         extraction={state}
         copy={copy}
+        inMaterials={presentation === 'materials'}
         selected={selected}
-        downloadRevision={originalRevision(selected, state.data, source.data?.kind)}
+        downloadRevision={originalRevision(
+          selected,
+          state.data,
+          source.data?.kind,
+          mode === 'materials'
+        )}
         onSelect={setSelected}
-        onCopy={editCopy}
+        onCopy={() => void copy.open(state.data, onOpenPage)}
         onDeleted={() => {
           setDeleted(true);
           onDeleted?.();
         }}
       />
-      {copy.page && (
-        <Button variant="ghost" onClick={copy.acknowledge}>
-          {t('PageEditAnotherCopy')}
-        </Button>
+      {copy.error !== undefined && (
+        <ContentReadError error={copy.error} retry={() => void copy.open(state.data, onOpenPage)} />
       )}
-      {copy.error !== undefined && <ContentReadError error={copy.error} retry={editCopy} />}
-      <SourcePanelContent
-        sourceId={sourceId}
-        source={source}
-        extraction={state}
-        pinned={!!selected}
-      />
+      {source.data ? (
+        <SourceAttachmentView
+          source={source.data}
+          pinned={!!selected}
+          mode={mode}
+          extraction={state.data}
+        >
+          {extraction}
+        </SourceAttachmentView>
+      ) : (
+        extraction
+      )}
     </SourceReader.Root>
   );
 }

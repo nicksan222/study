@@ -96,5 +96,16 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
     if (current.page && !current.pending) setState({ pending: false });
   }
 
-  return { ...state, copy, acknowledge };
+  async function open(
+    extraction: Parameters<typeof copy>[0] | null | undefined,
+    onOpen: (page: Page) => void
+  ) {
+    if (!extraction) return;
+
+    const page = await copy(extraction);
+
+    if (page) onOpen(page);
+  }
+
+  return { ...state, copy, open, acknowledge };
 }

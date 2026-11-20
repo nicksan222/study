@@ -54,12 +54,16 @@ test.server.stable(
             bytes: new TextEncoder().encode('hello'),
             projectId: null
           };
-          const first = yield* sources.createSource(input);
+          const first = yield* sources.createSource({ ...input, name: 'older.txt' });
           const second = yield* sources.createSource(input);
           const page = yield* sources.sources({ limit: 1 });
 
           assert.strictEqual(page.next, second.id);
           assert.ok((yield* sources.sources({ limit: 1, before: page.next! })).next === null);
+          const named = yield* sources.sources({ limit: 1, nameContains: 'TEST.' });
+
+          expect(named.items.map((item) => item.id)).toEqual([second.id]);
+          expect(named.next).toBeNull();
           const state = yield* sources.sourceProcessing(first.id);
 
           assert.ok(

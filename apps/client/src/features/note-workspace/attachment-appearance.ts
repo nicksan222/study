@@ -38,7 +38,3 @@ export const appearances = {
   link: { icon: LinkSourceIcon, label: 'SourceLink', tone: 'blue' },
   other: { icon: FileSourceIcon, label: 'SourceOther', tone: 'neutral' }
 } satisfies Record<SourceKind, Appearance>;
-
-export function attachmentPreviewKind(kind: SourceKind) {
-  return kind === 'image' || kind === 'video' || kind === 'audio' ? kind : 'file';
-}

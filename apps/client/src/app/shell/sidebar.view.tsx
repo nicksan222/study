@@ -34,6 +34,7 @@ import {
   PracticeGenerationAction,
   ArchivedPracticeAction
 } from '#client/features/practice/index.ts';
+import { UploadMaterialAction } from '#client/features/source-library/index.ts';
 import { SubjectIdentity } from '#client/features/subjects/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#client/lib/navigation/search-results.ts';
@@ -464,6 +465,7 @@ function SidebarToolbar({
         query={query}
         setQuery={setQuery}
         clearSearch={clearSearch}
+        materials={metadata.section === 'uploads'}
       />
       <IconButton
         size="icon"
@@ -643,7 +645,8 @@ function SidebarSearchControl({
   project,
   query,
   setQuery,
-  clearSearch
+  clearSearch,
+  materials
 }: Pick<
   SidebarModel,
   | 'collapsed'
@@ -654,37 +657,32 @@ function SidebarSearchControl({
   | 'query'
   | 'setQuery'
   | 'clearSearch'
->) {
+> & { materials: boolean }) {
   const { t } = useI18n();
 
-  return (
-    <>
-      {' '}
-      {collapsed ? (
-        <IconButton
-          size="icon"
-          variant="ghost-muted"
-          label={t('Search')}
+  if (collapsed)
+    return (
+      <IconButton size="icon" variant="ghost-muted" label={t('Search')} onClick={openSearch}>
+        <SearchIcon aria-hidden="true" />
+      </IconButton>
+    );
 
-          onClick={openSearch}
-        >
-          <SearchIcon aria-hidden="true" />
-        </IconButton>
-      ) : (
-        <SidebarUI.Search
-          ref={searchRef}
-          aria-label={t(!global && project ? 'SearchThisSubject' : 'Search')}
-          placeholder={t('Search')}
-          value={query}
-          onValueChange={setQuery}
-          clearLabel={t('SearchClose')}
-          onClear={clearSearch}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') clearSearch();
-          }}
-        />
-      )}
-    </>
+  const subjectLabel = !global && project ? 'SearchThisSubject' : 'Search';
+
+  return (
+    <SidebarUI.Search
+      ref={searchRef}
+      aria-label={t(materials ? 'UploadedMaterialsSearch' : subjectLabel)}
+      maxLength={materials ? 255 : undefined}
+      placeholder={t(materials ? 'UploadedMaterialsSearch' : 'Search')}
+      value={query}
+      onValueChange={setQuery}
+      clearLabel={t('SearchClose')}
+      onClear={clearSearch}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') clearSearch();
+      }}
+    />
   );
 }
 
@@ -730,6 +728,9 @@ function SidebarCreationControl({
 
   return (
     <>
+      {metadata.section === 'uploads' && project && (
+        <UploadMaterialAction key={String(project)} project={project} />
+      )}
       {metadata.section === 'practice' && (
         <>
           <ArchivedPracticeAction key={String(project)} projectId={project} disabled={disabled} />

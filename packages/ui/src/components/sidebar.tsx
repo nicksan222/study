@@ -777,6 +777,7 @@ function Item({
   context,
   timestamp,
   description,
+  descriptionBelow,
   activity,
   selection,
   render,
@@ -789,6 +790,7 @@ function Item({
   context?: ReactNode;
   timestamp?: ReactNode;
   description?: ReactNode;
+  descriptionBelow?: boolean;
   activity?: AiActivityState;
   selection?: boolean;
 }) {
@@ -799,29 +801,55 @@ function Item({
       ...props,
       title: props.title ?? (typeof label === 'string' ? label : undefined),
       'data-layout': layout,
+      'data-description-below': (descriptionBelow && !!description) || undefined,
       'data-activity': activity,
       'data-selecting': selection !== undefined || undefined,
       'aria-pressed': selection,
       type: render ? undefined : 'button',
       className: cn('study-note-row', className),
-      children:
-        layout !== 'detailed' ? (
-          <>
-            <span className="study-note-row-icon">{icon}</span>{' '}
-            <span className="study-note-title">{label}</span>{' '}
-            {description && <span className="study-item-kind">{description}</span>} {timestamp}
-          </>
-        ) : (
-          <>
-            <span className="study-note-meta">
-              {icon} <span>{context}</span> {timestamp}
-            </span>{' '}
-            <span className="study-note-title">{label}</span>{' '}
-            {description && <span className="study-item-kind">{description}</span>}
-          </>
-        )
+      children: (
+        <ItemContent
+          compact={layout !== 'detailed'}
+          icon={icon}
+          label={label}
+          description={description}
+          context={context}
+          timestamp={timestamp}
+        />
+      )
     }
   });
+}
+
+function ItemContent({
+  compact,
+  icon,
+  label,
+  context,
+  description,
+  timestamp
+}: {
+  compact: boolean;
+  icon: ReactNode;
+  label: ReactNode;
+  context: ReactNode;
+  description: ReactNode;
+  timestamp: ReactNode;
+}) {
+  return (
+    <>
+      {compact ? (
+        <span className="study-note-row-icon">{icon}</span>
+      ) : (
+        <span className="study-note-meta">
+          {icon} <span>{context}</span> {timestamp}
+        </span>
+      )}{' '}
+      <span className="study-note-title">{label}</span>{' '}
+      {description && <span className="study-item-kind">{description}</span>}
+      {compact && <> {timestamp}</>}
+    </>
+  );
 }
 
 type PickerProps<T> = {
