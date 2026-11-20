@@ -482,6 +482,10 @@ export {
 export { exportPageInputSchema, pageFileSchema } from './pages/export.ts';
 export {
   archiveSchema,
+  pageAttachmentsSchema,
+  pageAttachmentListSchema,
+  improvementScopeSchema,
+  setPageAttachmentSchema,
   deleteSchema,
   exportSchema,
   historySchema,
@@ -510,6 +514,7 @@ export {
   versionSchema
 } from './pages/schemas.ts';
 export {
+  improvePageSchema,
   mergeRequestSchema,
   pageTransformContextSchema,
   storedTransformRequestSchema,

@@ -22,3 +22,5 @@ export { creationFlow } from './start.queries';
 export { useRegenerateNoteTitle } from './note-title.queries';
 
 export { NoteMergeDialog } from './merge';
+
+export { useNoteList } from './note-reads';

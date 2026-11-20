@@ -2,6 +2,7 @@
 
 import type * as e from '@study/contracts';
 import { StudyError } from '@study/contracts';
+import type { Transaction } from '@study/server';
 import { publicationTransaction, transaction, useStore } from '@study/server';
 import { Option } from 'effect';
 
@@ -27,25 +28,30 @@ export function* pageProposalOperations() {
       }),
     applyProposal: (v: typeof e.applyProposalSchema.Type) =>
       transaction((tx) => {
-        if (Option.isSome(tx.store(PageTransformsStore).findTransform(v)))
-          throw new StudyError(
-            'unsupported',
-            'Note proposal application requires captured context coordination'
-          );
+        assertProposalAuthority(tx, v, 'apply');
 
         return proposalCommitted(tx, tx.store(PageProposalsStore).applyProposal(v));
       }),
     keepProposal: (v: typeof e.keepProposalSchema.Type) =>
       transaction((tx) => {
-        if (Option.isSome(tx.store(PageTransformsStore).findTransform(v)))
-          throw new StudyError(
-            'unsupported',
-            'Note proposal retention requires captured context coordination'
-          );
+        assertProposalAuthority(tx, v, 'keep');
 
         return proposalCommitted(tx, tx.store(PageProposalsStore).keepProposal(v));
       }),
     proposeGenerated: (v: typeof e.publishSchema.Type) =>
       publicationTransaction((tx) => tx.store(PageProposalsStore).proposeGenerated(v))
   };
+}
+
+function assertProposalAuthority(
+  tx: Transaction,
+  value: typeof e.proposalKeySchema.Type,
+  operation: 'apply' | 'keep'
+) {
+  const request = Option.getOrNull(tx.store(PageTransformsStore).findTransform(value));
+
+  if (request?.cancelled) throw new StudyError('cancelled', 'Proposal generation is unavailable');
+
+  if (request && (!request.improvement || operation === 'keep'))
+    throw new StudyError('unsupported', 'Proposal requires captured context coordination');
 }

@@ -34,6 +34,8 @@ export function notePageProposalOperations() {
           if (request.cancelled)
             throw new StudyError('cancelled', 'Proposal generation is unavailable');
 
+          if (request.improvement) return Pages.applyProposalInTransaction(tx, value, true);
+
           const context = readCapturedContext(tx, request.contextRequestId);
 
           relevantValid =
@@ -60,7 +62,7 @@ export function notePageProposalOperations() {
           if (request.cancelled)
             throw new StudyError('cancelled', 'Proposal generation is unavailable');
 
-          readCapturedContext(tx, request.contextRequestId);
+          if (!request.improvement) readCapturedContext(tx, request.contextRequestId);
         }
 
         return Pages.keepProposalInTransaction(tx, value);

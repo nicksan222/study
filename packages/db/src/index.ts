@@ -108,6 +108,7 @@ export { page_retirements } from './schema.ts';
 export { page_transform_requests } from './schema.ts';
 export { page_version_parents } from './schema.ts';
 export { page_versions } from './schema.ts';
+export { page_attachments } from './schema.ts';
 export { pages } from './schema.ts';
 export { preferences } from './schema.ts';
 export { project_materials } from './schema.ts';

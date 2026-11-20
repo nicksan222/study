@@ -21,7 +21,7 @@ test.browser.stable(
   'Dictation preserves a note through recording failure retry and cancellation',
   async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const original = 'Before the dictated words. After the dictated words.';
 
@@ -203,7 +203,7 @@ test.browser.stable(
     const modelLabel = text('english', 'VoiceActiveModel', { model: model.name });
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
     await composer.fill('A private draft stays intact while voice is configured.');
@@ -321,7 +321,7 @@ test.browser.stable(
       })
     );
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
 
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const draft = 'Field notes.';
@@ -540,7 +540,7 @@ test.browser.stable(
   'A recognition result completed after cancellation cannot change the note',
   async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
     await composer.fill('Keep this draft.');

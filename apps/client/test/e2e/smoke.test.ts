@@ -12,7 +12,7 @@ test.browser.stable(
         `Paragraph ${i + 1}: a durable notebook entry with enough text to exercise scrolling and editing.`
     ).join('\n\n');
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await page.getByRole('textbox', { name: copy.NoteCompose }).fill(content);
     await expectScreenshot('starter-draft', {
       target: 'viewport',

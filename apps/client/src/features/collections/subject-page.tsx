@@ -73,7 +73,7 @@ function SubjectContents({ project }: { project: Project }) {
           </Button>
           <Button render={<Link to="/notes" search={search} />}>
             <AddIcon aria-hidden="true" />
-            {t('NewNote')}
+            {t('Documents')}
           </Button>
         </SubjectWorkspace.Actions>
       </SubjectWorkspace.Header>

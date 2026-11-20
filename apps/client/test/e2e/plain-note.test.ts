@@ -15,7 +15,7 @@ const original = ['River garden field notebook', ...paragraphs].join('\n\n');
 test.browser.stable(
   'Create edit and reopen a plain note',
   async ({ page, expectScreenshot, expect }) => {
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
@@ -257,7 +257,7 @@ test.browser.stable(
     await editing.getByRole('button', { name: copy.NoteBackToNotebook }).click();
     await expect(editing).toBeHidden();
     await page.setViewportSize({ width: 2560, height: 1440 });
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await expect(
       page.getByRole('navigation', { name: copy.Notes, exact: true }).locator('a[href^="/notes/"]')
     ).toHaveCount(1);

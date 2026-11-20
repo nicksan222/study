@@ -212,10 +212,18 @@ function ShellContent() {
   const { t } = useI18n();
   const { metadata, header, pathname } = useShellRoute();
   const { title, section } = metadata;
-  const notes = title === 'Notes';
-  const notebook = ['Notes', 'Assistant'].includes(title);
+  const draft = useSearch({
+    from: '__root__',
+    select: (search) => search.notebookDraft === '1'
+  });
+  const notes = title === 'Notes' || (title === 'Documents' && section === 'notes' && draft);
+  const notebook = notes || section === 'assistant';
   const layout = usePageLayout(notes, section === 'pages', header === 'workspace');
-  const navigation = useNavigation(pathname, notebook, section === 'practice');
+  const navigation = useNavigation(
+    pathname,
+    notebook || title === 'Documents',
+    section === 'practice'
+  );
   const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.visible);
   const context = useSidebarContext(metadata);
   const { project, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);

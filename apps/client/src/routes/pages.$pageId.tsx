@@ -8,7 +8,7 @@ import { sidebarOwner } from '../lib/study-client/sidebar-owner.queries';
 
 export const Route = createFileRoute('/pages/$pageId')({
   staticData: {
-    title: 'SourcePage',
+    title: 'Documents',
     section: 'pages',
     scope: 'project',
     sidebar: {

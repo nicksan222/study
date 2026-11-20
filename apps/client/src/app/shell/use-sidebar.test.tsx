@@ -303,7 +303,9 @@ test.unit.stable(
         { name: en.NewNote }
       )
     );
-    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes'));
+    await waitFor(() =>
+      expect(location.pathname + location.search).toBe('/projects/1/notes?notebookDraft=1')
+    );
     expect(api.createNote).not.toHaveBeenCalled();
     expect(await screen.findByRole('textbox', { name: en.NoteCompose })).toHaveValue('');
     expect(screen.getByRole('button', { name: en.NoteSaveNote })).toBeDisabled();
@@ -336,7 +338,7 @@ test.unit.stable(
         }
       )
     );
-    await waitFor(() => expect(location.pathname + location.search).toBe('/notes'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/notes?notebookDraft=1'));
     expect(api.createNote).not.toHaveBeenCalled();
   }
 );
@@ -383,7 +385,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'closes desktop navigation when a phone enters Notes from another route',
+  'closes desktop navigation when a phone enters Documents from another route',
   async ({ vi, userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
     vi.stubGlobal('innerWidth', 390);
     history.replaceState(null, '', '/projects');
@@ -400,9 +402,11 @@ test.unit.stable(
       expect(notes).toBeDefined();
       await userEvent.setup().click(notes!);
       await waitFor(() => expect(location.pathname).toBe('/notes'));
-      expect(await screen.findByRole('button', { name: en.ToggleSidebar })).toHaveAttribute(
-        'aria-expanded',
-        'false'
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: en.ToggleSidebar })).toHaveAttribute(
+          'aria-expanded',
+          'false'
+        )
       );
     } finally {
       vi.unstubAllGlobals();
@@ -550,8 +554,8 @@ test.unit.stable(
     );
     await user.click(flashcards);
     await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
-    await user.click(screen.getByRole('link', { name: new RegExp(`^${en.Notes}(?: \\d+)?$`) }));
-    await user.click(await screen.findByRole('link', { name: /Cell division/ }));
+    await user.click(screen.getByRole('link', { name: new RegExp(`^${en.Documents}(?: \\d+)?$`) }));
+    await user.click((await screen.findAllByRole('link', { name: /Cell division/ }))[0]!);
     await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes/42'));
   }
 );
@@ -885,17 +889,17 @@ test.unit.stable.for(['/pages/10', '/projects/2/pages/10'])(
 
     expect(document).toHaveAttribute('aria-current', 'page');
     expect(
-      screen.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+      screen.getByRole('link', { name: new RegExp(`^${en.Documents}(?: \\d+)?$`) })
     ).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
     await user.click(screen.getByLabelText('Biology'));
     await user.click(await screen.findByRole('option', { name: 'History' }));
-    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/pages'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/notes'));
   }
 );
 
 test.unit.stable(
-  'opens Pages with a pages-only sidebar and keeps subject sections in order',
+  'opens one Documents index and keeps subject sections in order',
   async ({ userEvent, within, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.pages.mockResolvedValue({
       items: [
@@ -926,19 +930,17 @@ test.unit.stable(
         .getAllByRole('link')
         .slice(0, 4)
         .map((link) => link.querySelector('.study-sidebar-navigation-label')?.textContent)
-    ).toEqual([en.Notes, en.SourcePage, en.UploadedMaterials, en.Practice]);
+    ).toEqual([en.Documents, en.UploadedMaterials, en.Practice, en.Assistant]);
     await user.click(
-      navigation.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+      navigation.getByRole('link', { name: new RegExp(`^${en.Documents}(?: \\d+)?$`) })
     );
-    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/pages'));
-    await sidebar.findByRole('link', { name: /Cell notes/ });
-    expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
-    expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: en.PagesOverviewTitle, level: 2 })).toBeVisible();
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes'));
+    expect(await sidebar.findByRole('link', { name: /Cell division/ })).toBeVisible();
+    expect(screen.getByRole('heading', { name: en.Documents, level: 2 })).toBeVisible();
     await user.type(sidebar.getByRole('searchbox'), 'missing');
     expect(await sidebar.findByText(en.SearchNoResults)).toBeVisible();
     await user.clear(sidebar.getByRole('searchbox'));
-    await user.click(await sidebar.findByRole('link', { name: /Cell notes/ }));
+    await user.click(await screen.findByRole('link', { name: /Cell notes/ }));
     await waitFor(() => expect(location.pathname).toBe('/projects/1/pages/10'));
     expect(await sidebar.findByRole('link', { name: /Cell notes/ })).toHaveAttribute(
       'aria-current',

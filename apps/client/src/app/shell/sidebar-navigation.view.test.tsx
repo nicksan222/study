@@ -17,9 +17,9 @@ test.unit.stable(
         onNavigate={onNavigate}
       />
     );
-    const pages = await screen.findByRole('link', { name: catalogs.english.SourcePage });
+    const pages = await screen.findByRole('link', { name: catalogs.english.Documents });
 
-    expect(pages).toHaveAttribute('href', '/pages?project=9007199254740993');
+    expect(pages).toHaveAttribute('href', '/notes?project=9007199254740993');
     expect(pages).toHaveAttribute('aria-current', 'page');
     expect(
       screen.queryByRole('link', { name: catalogs.english.SidebarLibrary })
@@ -45,15 +45,11 @@ test.unit.stable(
         onNavigate={() => {}}
       />
     );
-    const notes = await screen.findByRole('link', { name: `${catalogs.english.Notes} 12` });
-    const pages = screen.getByRole('link', { name: `${catalogs.english.SourcePage} 34` });
+    const documents = await screen.findByRole('link', { name: `${catalogs.english.Documents} 46` });
     const practice = screen.getByRole('link', { name: `${catalogs.english.Practice} 0` });
 
-    expect(notes).toHaveTextContent('12');
-    expect(notes.querySelector('[data-unresolved]')).toHaveTextContent('12');
-    expect(notes).not.toHaveAttribute('data-unresolved');
-    expect(pages).toHaveTextContent('34');
-    expect(pages.querySelector('[data-unresolved]')).toBeNull();
+    expect(documents.querySelector('[data-unresolved]')).toHaveTextContent('46');
+    expect(documents).not.toHaveAttribute('data-unresolved');
     expect(practice).toHaveTextContent('0');
   }
 );

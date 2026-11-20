@@ -16,6 +16,7 @@ import type { exactInputSchema } from '@study/contracts';
 import type { pageTransformContextSchema } from '@study/contracts';
 import * as t from '@study/contracts';
 import type { Transaction } from '@study/server';
+import { Schema } from 'effect';
 
 import { intentHash } from '#server/features/pages/decoders/intent';
 import { validatePageTransform } from '#server/features/pages/decoders/page-transform';
@@ -112,28 +113,7 @@ export function publishTransform(
 
   validatePageTransform(context, value, request.editTargetVersionId);
   const common = publicationContent(request, context, value);
-  let versionId;
-
-  if (request.editTargetVersionId !== undefined) {
-    const base = tx.store(PageVersionsStore).version({ id: request.editTargetVersionId });
-    const result = tx.store(PageProposalsStore).proposeGenerated({
-      ...common,
-      pageId: base.pageId,
-      expectedVersionId: base.id,
-      key: `transform:${intentHash(t.transformKeySchema, value)}`
-    });
-
-    versionId = result.proposedVersionId;
-  } else {
-    const result = tx.store(PagesStore).createGenerated({
-      ...common,
-      title: request.title,
-      noteId: context.noteId ?? undefined,
-      projectId: request.merge?.projectId
-    });
-
-    versionId = result.version.id;
-  }
+  const versionId = publishCapturedVersion(tx, request, context, common);
 
   archiveMergeInputs(tx, request);
 
@@ -149,6 +129,31 @@ export function publishTransform(
   });
 
   return versionId;
+}
+
+function publishCapturedVersion(
+  tx: Transaction,
+  request: typeof t.transformSnapshotSchema.Type,
+  context: Context,
+  common: ReturnType<typeof publicationContent>
+) {
+  if (request.editTargetVersionId === undefined)
+    return tx.store(PagesStore).createGenerated({
+      ...common,
+      title: request.title,
+      noteId: context.noteId ?? undefined,
+      projectId: request.merge?.projectId
+    }).version.id;
+
+  const base = tx.store(PageVersionsStore).version({ id: request.editTargetVersionId });
+
+  return tx.store(PageProposalsStore).proposeGenerated({
+    ...common,
+    ...(request.improvement ? preserveDocumentEvidence(base, common) : {}),
+    pageId: base.pageId,
+    expectedVersionId: base.id,
+    key: `transform:${intentHash(t.transformKeySchema, { requestId: request.id })}`
+  }).proposedVersionId;
 }
 
 export function retryTransform(tx: Transaction, value: { requestId: string; retryId: string }) {
@@ -202,4 +207,42 @@ function archiveMergeInputs(tx: Transaction, request: typeof t.transformSnapshot
 
       tx.store(PagesStore).archive({ id: version.pageId, archived: true });
     }
+}
+
+/** Preserve original evidence and managed illustrations in a proposed revision. */
+function preserveDocumentEvidence(
+  base: typeof t.versionSchema.Type,
+  generated: ReturnType<typeof publicationContent>
+) {
+  const sameInput = Schema.toEquivalence(t.exactInputSchema);
+  const inputs = [
+    ...generated.inputs,
+    ...base.inputs.filter((input) => !generated.inputs.some((other) => sameInput(input, other)))
+  ];
+  const markers = new Set(generated.citations.map((citation) => citation.marker));
+  let marker = Math.max(0, ...markers, ...base.citations.map((citation) => citation.marker));
+  const citations = [
+    ...generated.citations,
+    ...base.citations.map((citation) =>
+      markers.has(citation.marker) ? { ...citation, marker: ++marker } : citation
+    )
+  ];
+  const generatedBlocks = new Map(generated.document.blocks.map((block) => [block.id, block]));
+  const illustrations = base.document.blocks.filter(
+    (block) =>
+      block.content.type === 'image' && generatedBlocks.get(block.id)?.content.type !== 'image'
+  );
+  const illustrationIds = new Set(illustrations.map((block) => block.id));
+
+  return {
+    inputs,
+    citations,
+    document: {
+      ...generated.document,
+      blocks: [
+        ...generated.document.blocks.filter((block) => !illustrationIds.has(block.id)),
+        ...illustrations
+      ]
+    }
+  };
 }

@@ -1,5 +1,5 @@
 import type { ProjectId } from '@study/contracts';
-import { NoteIcon, PageIcon, QuizIcon, AssistantIcon, SourcesIcon } from '@study/icons';
+import { PageIcon, QuizIcon, AssistantIcon, SourcesIcon } from '@study/icons';
 import { Sidebar } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
@@ -10,8 +10,7 @@ import { SettingsMenu } from '#client/pages/settings/menu.tsx';
 import type { useSidebarCounts } from './sidebar-counts.queries';
 
 const sections = [
-  ['/notes', 'notes', NoteIcon, 'Notes'],
-  ['/pages', 'pages', PageIcon, 'SourcePage'],
+  ['/notes', 'notes', PageIcon, 'Documents'],
   ['/uploads', 'uploads', SourcesIcon, 'UploadedMaterials'],
   ['/practice', 'practice', QuizIcon, 'Practice']
 ] as const;
@@ -45,13 +44,25 @@ export function SidebarNavigation({
             <Sidebar.NavigationItem
               key={to}
               label={t(label)}
-              count={currentSection === 'uploads' ? undefined : counts?.[currentSection].count}
+              count={
+                currentSection === 'notes'
+                  ? documentCount(counts)
+                  : currentSection === 'practice'
+                    ? counts?.practice.count
+                    : undefined
+              }
               unresolved={currentSection === 'notes' && counts?.notes.unresolved}
               render={
                 <Link
                   to={to}
                   search={project ? { project } : {}}
-                  aria-current={!settings && section === currentSection ? 'page' : undefined}
+                  aria-current={
+                    !settings &&
+                    (section === currentSection ||
+                      (currentSection === 'notes' && section === 'pages'))
+                      ? 'page'
+                      : undefined
+                  }
                   onClick={onNavigate}
                 />
               }
@@ -78,4 +89,11 @@ export function SidebarNavigation({
       </Sidebar.Footer>
     </Sidebar.NavigationGroup>
   );
+}
+
+function documentCount(counts?: ReturnType<typeof useSidebarCounts>) {
+  const notes = counts?.notes.count;
+  const pages = counts?.pages.count;
+
+  return notes === undefined || pages === undefined ? undefined : notes + pages;
 }

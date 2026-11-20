@@ -139,7 +139,7 @@ test.browser.stable(
     await capture(
       captureContext,
       'pages',
-      `/pages${subject}`,
+      `/notes${subject}`,
       main.getByRole('link', { name: savedPage.title, exact: false })
     );
     await capture(
@@ -201,10 +201,10 @@ test.browser.stable(
       zoomPercent: 100,
       ready: () => expect(drawer).toBeInViewport()
     });
-    await drawer.getByRole('link', { name: copy.SourcePage, exact: false }).tap();
-    await expect(page).toHaveURL(/\/pages/);
+    await drawer.getByRole('link', { name: copy.Documents, exact: false }).tap();
+    await expect(page).toHaveURL(/\/notes/);
     await expect(drawer).toBeHidden();
-    await expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport();
+    await expect(main.getByRole('heading', { name: copy.Documents })).toBeInViewport();
     await page.keyboard.press('ControlOrMeta+k');
     await expect(drawer.getByRole('searchbox', { name: copy.Search, exact: true })).toBeFocused();
     await closeDrawer.tap();
@@ -212,13 +212,12 @@ test.browser.stable(
     await expect(mainElement).toHaveJSProperty('inert', false);
     await expect(reveal).toBeFocused();
     await page.setViewportSize({ width: 320, height: 640 });
-    await expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport();
+    await expect(main.getByRole('heading', { name: copy.Documents })).toBeInViewport();
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
     await expectScreenshot('pages-small-phone', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () =>
-        expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport()
+      ready: () => expect(main.getByRole('heading', { name: copy.Documents })).toBeInViewport()
     });
     await page.setViewportSize(phone);
 

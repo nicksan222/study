@@ -40,7 +40,10 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
   const files = { data: useAtomValue(startFiles(startDraftKey(project))) };
   const flow = { data: useAtomValue(creationFlow) };
   const owner = subjects.find((subject) => String(subject.id) === project);
-  const active = /^\/notes\/?$/.test(location.pathname) && search.project === project;
+  const active =
+    /^\/notes\/?$/.test(location.pathname) &&
+    search.project === project &&
+    search.notebookDraft === '1';
   const label = draftLabel(draft.data, files.data, t('NewNote'));
   const blocked = [flow.data.pending, flow.data.uncertain, flow.data.id].some(Boolean);
 
@@ -59,7 +62,7 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
         description={t('SidebarDraft')}
         aria-current={active ? 'page' : undefined}
         title={label}
-        render={<Link to="/notes" search={project ? { project } : {}} />}
+        render={<Link to="/notes" search={{ project, notebookDraft: '1' }} />}
       />
       <Sidebar.NoteRowActions>
         <Sidebar.SettleAction
@@ -69,7 +72,7 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
           onClick={() => {
             dismissStartDraft(cache, project);
 
-            if (active) void navigate({ to: '/notes', search: project ? { project } : {} });
+            if (active) void navigate({ to: '/notes', search: { project, notebookDraft: '1' } });
           }}
         >
           <CloseIcon aria-hidden="true" />

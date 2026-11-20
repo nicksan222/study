@@ -19,7 +19,7 @@ async function checkFeedbackTiming(
   >,
   timing: 'end' | 'immediate'
 ) {
-  await page.goto('/notes');
+  await page.goto('/notes?notebookDraft=1');
   await page.getByRole('button', { name: copy.Settings, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: copy.Settings });
 

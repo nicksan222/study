@@ -77,7 +77,13 @@ function usePageVersionNavigation(
 ) {
   const window = useCursorWindow<PageVersionId>(String(pageId));
   const limit = window.limit;
-  const query = rpc.pages.versions.useQuery({ pageId, limit, cursor: window.cursor });
+  const publishedOnly = version?.status !== 'draft';
+  const query = rpc.pages.versions.useQuery({
+    pageId,
+    limit,
+    cursor: window.cursor,
+    publishedOnly
+  });
 
   useCursorRecovery(window, query.error);
   const versions = query.data?.items ?? [];
@@ -101,9 +107,10 @@ function usePageVersionNavigation(
 
     if (!hasMore) return;
 
-    const result = await rpc.pages.versions.read(
-      olderWindowInput(pageId, window, query.data?.nextCursor)
-    );
+    const result = await rpc.pages.versions.read({
+      ...olderWindowInput(pageId, window, query.data?.nextCursor),
+      publishedOnly
+    });
 
     window.more(query.data?.nextCursor);
     const older = followingVersion(result.items, version?.id, limit >= 100);

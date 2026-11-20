@@ -1,6 +1,6 @@
 /** @file Owns library within this feature. */
 
-import type { exportPageInputSchema } from '@study/contracts';
+import type { exportPageInputSchema, setPageAttachmentSchema } from '@study/contracts';
 import { transaction, useStore } from '@study/server';
 
 import {
@@ -30,6 +30,8 @@ export function* pageLibraryOperations() {
   return {
     ...docs,
     count: docs.count,
+    setAttachment: (v: typeof setPageAttachmentSchema.Type) =>
+      transaction((tx) => tx.store(PagesStore).setAttachment(v)),
     ...versions,
     ...exports,
     exportFile: (v: typeof exportPageInputSchema.Type) =>

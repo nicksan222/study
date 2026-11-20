@@ -44,9 +44,9 @@ test.unit.stable(
     const project = projectIdSchema.make(2n);
 
     render(<NewBlankPage project={project} />);
-    await userEvent.click(screen.getByRole('button', { name: 'PageNew' }));
+    await userEvent.click(screen.getByRole('button', { name: 'DocumentNew' }));
     expect(api.owner).toHaveBeenCalledWith({ kind: 'project', projectId: project });
-    expect(api.create).toHaveBeenCalledExactlyOnceWith('NoteNewPage');
+    expect(api.create).toHaveBeenCalledExactlyOnceWith('DocumentUntitled');
     await waitFor(() =>
       expect(api.navigate).toHaveBeenCalledWith({
         to: '/pages/$pageId',
@@ -63,7 +63,7 @@ test.unit.stable(
   async ({ render, userEvent, screen, waitFor, expect }) => {
     api.navigate.mockRejectedValueOnce(new Error('Navigation unavailable'));
     render(<NewBlankPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'PageNew' }));
+    await userEvent.click(screen.getByRole('button', { name: 'DocumentNew' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(api.navigate).toHaveBeenCalledTimes(2));
     expect(api.create).toHaveBeenCalledTimes(1);

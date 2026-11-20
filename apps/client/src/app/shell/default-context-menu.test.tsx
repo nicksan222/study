@@ -29,10 +29,10 @@ test.unit.stable(
 
     fireEvent.contextMenu(await screen.findByText('Workspace'));
     expect(await screen.findByRole('menuitem', { name: en.NewNote })).toBeEnabled();
-    expect(screen.getByRole('menuitem', { name: en.PageNew })).toBeEnabled();
-    expect(screen.getByRole('menuitem', { name: en.SourcePage })).toHaveAttribute(
+    expect(screen.getByRole('menuitem', { name: en.DocumentNew })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: en.Documents })).toHaveAttribute(
       'href',
-      '/pages?project=2'
+      '/notes?project=2'
     );
     expect(screen.getByRole('menuitem', { name: en.Projects })).toHaveAttribute(
       'href',

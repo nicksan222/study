@@ -19,15 +19,18 @@ import { PagesStore, PageVersionsStore } from '#server/features/pages/store/inde
 import { PageTransformsStore } from '#server/features/pages/store/transforms';
 
 /** Exact immutable versions are the durable capture; no synthetic note is created. */
-export function mergeContext(
+export function standaloneTransformContext(
   tx: Transaction,
   v: typeof t.transformKeySchema.Type
 ): typeof t.pageTransformContextSchema.Type {
   const request = tx.store(PageTransformsStore).transform(v);
 
-  if (!request.merge) throw new StudyError('invalid_input', 'Not a page merge');
+  const capture = request.merge ?? request.improvement;
 
-  const inputs = request.merge.versions.map((id) => {
+  if (!capture) throw new StudyError('invalid_input', 'No standalone transform capture');
+
+  const versions = request.improvement ? [request.improvement.versionId] : request.merge!.versions;
+  const inputs = versions.map((id) => {
     const version = tx.store(PageVersionsStore).version({ id });
     const doc = tx.store(PagesStore).page({ id: version.pageId });
 
@@ -81,9 +84,9 @@ export function mergeContext(
   return {
     requestId: request.contextRequestId,
     noteId: null,
-    intentKey: request.merge.key,
+    intentKey: capture.key,
     instruction: request.instruction,
-    preferences: { language: request.merge.language },
+    preferences: { language: capture.language },
     selectionRevision: 0n,
     inputs,
     messages: [],
@@ -107,7 +110,7 @@ export function requestMerge(tx: Transaction, input: typeof t.mergeRequestSchema
 
   if (Option.isSome(old)) return result.request;
 
-  const context = mergeContext(tx, { requestId: result.request.id });
+  const context = standaloneTransformContext(tx, { requestId: result.request.id });
 
   for (const input of context.inputs) {
     const page = tx.store(PagesStore).page({ id: input.pageId! });
@@ -119,15 +122,53 @@ export function requestMerge(tx: Transaction, input: typeof t.mergeRequestSchema
       throw new StudyError('invalid_input', 'Select current, active page versions');
   }
 
+  emitStandaloneRequested(tx, result.request);
+
+  return result.request;
+}
+
+function emitStandaloneRequested(tx: Transaction, request: typeof t.transformSnapshotSchema.Type) {
   tx.emit({
     type: 'PageGenerationRequested',
-    eventId: result.request.eventId,
+    eventId: request.eventId,
     causationId: null,
-    correlationId: result.request.id,
+    correlationId: request.id,
     inputVersion: 1,
     depth: 0,
-    requestId: result.request.id
+    requestId: request.id
   });
+}
+
+export function requestImprovement(tx: Transaction, input: typeof t.improvePageSchema.Type) {
+  const version = tx.store(PageVersionsStore).version({ id: input.versionId });
+  const page = tx.store(PagesStore).page({ id: version.pageId });
+  const store = tx.store(PageTransformsStore);
+  const contextRequestId = `improve/${input.key}`;
+  const old = store.findTransform({ requestId: `document/${contextRequestId}` });
+  const result = store.requestTransform({
+    contextRequestId,
+    title: Option.isSome(old) ? old.value.title : page.title,
+    operations: ['clarity', 'grammar'],
+    noteId: null,
+    editTargetVersionId: version.id,
+    instruction: input.instruction,
+    improvement: input
+  });
+
+  if (result.created) {
+    if (
+      page.headVersionId !== version.id ||
+      page.archivedAt !== null ||
+      (input.projectId !== undefined && !page.projectIds.includes(input.projectId))
+    )
+      throw new StudyError(
+        'invalid_input',
+        'Improvement requires a current document in this subject'
+      );
+
+    standaloneTransformContext(tx, { requestId: result.request.id });
+    emitStandaloneRequested(tx, result.request);
+  }
 
   return result.request;
 }

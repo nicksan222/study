@@ -13,7 +13,7 @@ async function attachPdf(
   filename: string,
   buffer: Buffer
 ) {
-  await page.goto('/notes');
+  await page.goto('/notes?notebookDraft=1');
   await page.getByRole('textbox', { name: copy.NoteCompose }).fill('River survey lecture');
   await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles({
     name: filename,

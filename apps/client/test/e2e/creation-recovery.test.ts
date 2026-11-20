@@ -19,7 +19,7 @@ const updated = `${original}\n\nFOLLOW-UP OBSERVATION: the afternoon river gauge
 test.browser.stable(
   'Recover a committed creation after losing its receipt',
   async ({ page, expectScreenshot, loseCreationResponse, expect }) => {
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const save = page.getByRole('button', { name: copy.NoteSaveNote });
     const loss = loseCreationResponse();
@@ -45,7 +45,7 @@ test.browser.stable(
     await composer.press('ControlOrMeta+Enter');
     await composer.press('ControlOrMeta+Enter');
     await expect(composer).toHaveValue(original);
-    await expect(page).toHaveURL(/\/notes$/);
+    await expect(page).toHaveURL(/\/notes\?notebookDraft=1$/);
     const committed = page
       .getByRole('navigation', { name: copy.Notes })
       .locator(`a[href="${savedPath}"]`);
@@ -69,11 +69,11 @@ test.browser.stable(
     await composer.press('ControlOrMeta+Enter');
 
     // In-app navigation retains the volatile draft and uncertainty fence.
-    await page.getByRole('link', { name: copy.SourcePage }).click();
-    await expect(page).toHaveURL(/\/pages\/?$/);
+    await page.getByRole('link', { name: copy.Documents }).click();
+    await expect(page).toHaveURL(/\/notes\/?$/);
     await expect(composer).toBeHidden();
     await page.goBack();
-    await expect(page).toHaveURL(/\/notes$/);
+    await expect(page).toHaveURL(/\/notes\?notebookDraft=1$/);
     await expect(page.getByText(copy.NoteCreationUncertain, { exact: true })).toBeVisible();
     await expect(composer).toHaveValue(original);
     await expect(save).toBeDisabled();

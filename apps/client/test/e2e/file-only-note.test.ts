@@ -227,7 +227,7 @@ test.browser.stable(
     }
 
     for (const [index, file] of files.entries()) {
-      await page.goto('/notes');
+      await page.goto('/notes?notebookDraft=1');
       await expect(noteLinks).toHaveCount(index);
       await expect(composer).toHaveValue('');
       await expect(save).toBeDisabled();
@@ -326,7 +326,7 @@ test.browser.stable(
 
     const oldest = files[0]!;
 
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await expect(noteLinks).toHaveCount(3);
     await page.locator(`a[href="${new URL(urls[0]!).pathname}"]`).click();
     await expect(page).toHaveURL(urls[0]!);
@@ -381,7 +381,7 @@ test.browser.stable(
       .getByRole('menuitem', { name: italian.SourceHistoryPrune, exact: true })
       .press('Escape');
     await expect(actions).toBeFocused();
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     await page.reload();
     await expect(noteLinks).toHaveCount(3);
   }

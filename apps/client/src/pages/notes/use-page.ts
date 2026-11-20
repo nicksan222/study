@@ -28,3 +28,7 @@ export function usePage() {
 
   return { id: noteId };
 }
+
+export function useNotebookDraft() {
+  return useSearch({ from: '__root__', select: (search) => search.notebookDraft === '1' });
+}

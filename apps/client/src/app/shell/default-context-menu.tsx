@@ -5,7 +5,6 @@ import {
   OpenProjectIcon,
   QuizIcon,
   HelpIcon,
-  NoteIcon,
   SettingsIcon,
   CreateNoteIcon
 } from '@study/icons';
@@ -26,8 +25,7 @@ import { useNewBlankPage } from '#client/features/pages/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 const destinations = [
-  ['/notes', 'Notes', NoteIcon],
-  ['/pages', 'SourcePage', PageIcon],
+  ['/notes', 'Documents', PageIcon],
   ['/practice', 'Practice', QuizIcon]
 ] as const;
 
@@ -72,14 +70,14 @@ export function DefaultContextMenu({
       <ContextMenuPopup aria-label={t('WorkspaceShortcuts')}>
         <ContextMenuItem
           disabled={disabled}
-          onClick={() => void navigate({ to: '/notes', search })}
+          onClick={() => void navigate({ to: '/notes', search: { ...search, notebookDraft: '1' } })}
         >
           <CreateNoteIcon aria-hidden="true" />
           {t('NewNote')}
         </ContextMenuItem>
         <ContextMenuItem disabled={disabled || page.pending} onClick={() => void createPage()}>
           <CreatePageIcon aria-hidden="true" />
-          {t('PageNew')}
+          {t('DocumentNew')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         {destinations.map(([to, label, Icon]) => (

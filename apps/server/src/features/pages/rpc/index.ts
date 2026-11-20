@@ -26,6 +26,10 @@ export const PagesRpcLive = defineRpc(
   ({ pages, notes }) => ({
     'pages.merges': pages.merges,
     'pages.merge': pages.merge,
+    'pages.improve': pages.improve,
+    'pages.improvement': pages.improvement,
+    'pages.attachments': pages.attachments,
+    'pages.setAttachment': pages.setAttachment,
     'pages.requestTransform': (v) =>
       Option.isSome(notes)
         ? notes.value.requestPageTransform(v)
@@ -35,7 +39,7 @@ export const PagesRpcLive = defineRpc(
     'pages.retryTransform': Effect.fnUntraced(function* (v) {
       const request = yield* pages.transform(v);
 
-      if (request.merge) return yield* pages.retryMerge(v);
+      if (request.merge || request.improvement) return yield* pages.retryStandaloneTransform(v);
 
       return yield* Option.isSome(notes)
         ? notes.value.retryPageTransform(v)

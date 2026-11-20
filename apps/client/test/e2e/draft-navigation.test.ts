@@ -34,7 +34,7 @@ const removed = 'river-removed.md';
 test.browser.stable(
   'Scoped drafts survive navigation and save to their own projects',
   async ({ page, expectScreenshot, expect }) => {
-    await page.goto('/notes');
+    await page.goto('/notes?notebookDraft=1');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const composeRegion = page.getByRole('region', { name: copy.NoteCompose, exact: true });
     const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
@@ -60,7 +60,7 @@ test.browser.stable(
       scope: (typeof scopes)[number],
       filenames: string[]
     ) {
-      await expect(page).toHaveURL(`${projects.get(scope.name)}/notes`);
+      await expect(page).toHaveURL(`${projects.get(scope.name)}/notes?notebookDraft=1`);
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
       await expect(composer).toHaveValue(scope.text);
@@ -83,13 +83,13 @@ test.browser.stable(
       await page.getByRole('option', { name: scope.name, exact: true }).click();
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
-      await navigation.getByRole('link', { name: copy.Notes }).click();
+      await navigation.getByRole('link', { name: copy.Documents }).click();
       await page.getByRole('link', { name: scope.title }).click();
     }
 
     async function visitOtherRoutes({ expect }: Pick<test.browser.Context, 'expect'>) {
-      await navigation.getByRole('link', { name: copy.SourcePage }).click();
-      await expect(page).toHaveURL(/\/pages$/);
+      await navigation.getByRole('link', { name: copy.Documents }).click();
+      await expect(page).toHaveURL(/\/notes$/);
       await page.getByRole('button', { name: copy.Settings, exact: true }).click();
       const dialog = page.getByRole('dialog', { name: copy.Settings });
 
@@ -118,9 +118,10 @@ test.browser.stable(
       await expect(dialog).toBeHidden();
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
-      await navigation.getByRole('link', { name: copy.Notes }).click();
+      await navigation.getByRole('link', { name: copy.Documents }).click();
       await expect(page).toHaveURL(/\/projects\/[^/]+\/notes$/);
       projects.set(scope.name, page.url().replace(/\/notes$/, ''));
+      await page.getByRole('link', { name: copy.NewNote, exact: true }).click();
       await expect(composer).toHaveValue('');
       await expect(composeRegion.locator('li')).toHaveCount(0);
       await composer.fill(scope.text);

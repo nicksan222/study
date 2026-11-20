@@ -11,6 +11,7 @@ let authoredPage: typeof __MockType0.authoredPage;
 let AuthoredPageReader: typeof __MockType1.AuthoredPageReader;
 
 test.unit.beforeEach(async ({ mock }) => {
+  mock('#client/features/pages/improve-document', () => ({ ImproveDocument: () => null }));
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
     useWorkspacePreferences: () => ({ autosaveIntervalSeconds: 3600 })

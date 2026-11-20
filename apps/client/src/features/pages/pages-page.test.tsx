@@ -65,6 +65,8 @@ test.unit.stable(
       Promise.resolve({ items: archived ? [] : pages, nextCursor: null })
     );
     const harness = rpcTestTransport(async (tag, input) => {
+      if (tag === 'notes.list') return { items: [], next: null };
+
       if (tag === 'pages.pages')
         return api.pages(
           typeof input === 'object' && input !== null && 'archived' in input
@@ -91,6 +93,8 @@ test.unit.stable(
   async ({ rpcTestTransport, userEvent, render, screen, expect }) => {
     api.pages.mockResolvedValue({ items: [], nextCursor: null });
     const harness = rpcTestTransport(async (tag, input) => {
+      if (tag === 'notes.list') return { items: [], next: null };
+
       if (tag === 'pages.pages')
         return api.pages(
           typeof input === 'object' && input !== null && 'archived' in input

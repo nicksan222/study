@@ -38,6 +38,7 @@ export type AppSearch = {
   sourceRevision?: string;
   sourceSnapshot?: string;
   fromUploads?: string;
+  notebookDraft?: '1';
 };
 
 function decimalId(value: unknown): value is string {
@@ -70,12 +71,21 @@ export function validateSearch(search: Record<string, unknown>): AppSearch {
     throw new Error('Incomplete source extraction identity');
 
   return {
-    ...(search.fromUploads === '1' ? { fromUploads: '1' } : {}),
+    ...navigationFlags(search),
     ...(sourceSnapshot && sourceRevision ? { sourceSnapshot, sourceRevision } : {}),
     ...(pageVersion ? { pageVersion } : {}),
     ...(decimalId(search.project) ? { project: search.project } : {}),
     ...(decimalId(search.id) ? { id: search.id } : {}),
     ...(version ? { version } : {}),
     ...(attempt ? { attempt } : {})
+  };
+}
+
+function navigationFlags(
+  search: Record<string, unknown>
+): Pick<AppSearch, 'notebookDraft' | 'fromUploads'> {
+  return {
+    ...(search.notebookDraft === '1' ? { notebookDraft: '1' } : {}),
+    ...(search.fromUploads === '1' ? { fromUploads: '1' } : {})
   };
 }

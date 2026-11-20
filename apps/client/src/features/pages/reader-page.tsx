@@ -12,7 +12,12 @@ export function PageReaderPage() {
 
   return (
     <Desk.PageReaderPage>
-      <AuthoredPageReader key={String(id)} id={id} initialVersion={search.pageVersion} />
+      <AuthoredPageReader
+        key={String(id)}
+        id={id}
+        initialVersion={search.pageVersion}
+        project={search.project}
+      />
     </Desk.PageReaderPage>
   );
 }

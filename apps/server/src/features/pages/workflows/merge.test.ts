@@ -11,6 +11,7 @@ import { createBlock } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
+import type { Database } from '@study/server';
 import { reconcileCancellation, decodeEvent, workflowStore } from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
@@ -341,6 +342,118 @@ test.server.stable(
           yield* service.cancelTransform({ requestId: request.id });
           expect((yield* service.merges({})).map((item) => item.id)).not.toContain(request.id);
         }).pipe(Effect.provide(fixture.domain()))
+      );
+    } finally {
+      await fixture.close();
+    }
+  }
+);
+
+test.server.stable(
+  'improvement stages a proposal, preserves newer manual edits, and applies to the same document',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const fixture = await pageTransformFixture(databases);
+
+    try {
+      const run = <A, E>(effect: Effect.Effect<A, E, typeof Pages.Identifier | Database>) =>
+        Effect.runPromise(effect.pipe(Effect.provide(fixture.domain())));
+      const { doc, request } = await run(
+        Effect.gen(function* () {
+          const pages = yield* Pages;
+          const doc = yield* pages.create({
+            title: 'My document',
+            createKey: crypto.randomUUID(),
+            document: content(),
+            inputs: [],
+            citations: []
+          });
+
+          assert.ok(doc.version);
+          const input = {
+            key: crypto.randomUUID(),
+            versionId: doc.version.id,
+            instruction: 'Clarify the observation',
+            language: 'english' as const
+          };
+          const request = yield* pages.improve(input);
+
+          expect(yield* pages.improve(input)).toEqual(request);
+          expect((yield* pages.improvement({ pageId: doc.id }))?.id).toBe(request.id);
+
+          return { doc, request };
+        })
+      );
+
+      async function suggest(requestId: string) {
+        reply(fixture);
+
+        return fixture.executeAuthored(
+          eventFor({ assert }, fixture, requestId),
+          crypto.randomUUID()
+        );
+      }
+
+      const proposed = await suggest(request.id);
+
+      await fixture.reopen();
+      const next = await run(
+        Effect.gen(function* () {
+          const pages = yield* Pages;
+
+          expect((yield* pages.version({ id: proposed })).status).toBe('draft');
+          expect((yield* pages.improvement({ pageId: doc.id }))?.resultVersionId).toBe(proposed);
+          expect((yield* pages.page({ id: doc.id })).headVersionId).toBe(
+            request.editTargetVersionId
+          );
+          const edit = yield* pages.save({
+            pageId: doc.id,
+            expectedVersionId: request.editTargetVersionId!,
+            key: crypto.randomUUID(),
+            document: {
+              ...content(),
+              blocks: [
+                createBlock({
+                  type: 'paragraph',
+                  inlines: [{ type: 'text', text: 'New manual alpha edit', marks: [] }]
+                })
+              ]
+            }
+          });
+          const result = yield* pages.applyProposal({
+            requestId: request.id,
+            expectedVersionId: request.editTargetVersionId!,
+            key: crypto.randomUUID()
+          });
+
+          expect(result.outcome).toBe('conflict');
+          expect((yield* pages.page({ id: doc.id })).headVersionId).toBe(edit.submittedVersionId);
+
+          return yield* pages.improve({
+            key: crypto.randomUUID(),
+            versionId: edit.submittedVersionId,
+            instruction: '',
+            language: 'english'
+          });
+        })
+      );
+
+      await suggest(next.id);
+      await run(
+        Effect.gen(function* () {
+          const pages = yield* Pages;
+          const applied = yield* pages.applyProposal({
+            requestId: next.id,
+            expectedVersionId: next.editTargetVersionId!,
+            key: crypto.randomUUID()
+          });
+
+          expect(applied.outcome).toBe('applied');
+          expect((yield* pages.page({ id: doc.id })).headVersionId).toBe(applied.resultVersionId);
+          expect(
+            (yield* pages.version({ id: next.editTargetVersionId! })).document.blocks[0]?.text
+          ).toBe('New manual alpha edit');
+        })
       );
     } finally {
       await fixture.close();
