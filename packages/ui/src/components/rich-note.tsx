@@ -37,7 +37,12 @@ import {
 import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { Button } from './button';
-import { captureEditorSelection, restoreEditorNodeSelection } from './editor-selection';
+import {
+  captureEditorSelection,
+  readNativeTextSelection,
+  reconcileEnterSelection,
+  restoreEditorNodeSelection
+} from './editor-selection';
 import type { RichNoteSelection } from './editor-selection';
 import { insertEditorText } from './editor-text';
 import type { EditorTextOptions } from './editor-text';
@@ -242,6 +247,7 @@ export function RichNoteEditor({
     editable: !disabled,
     shouldRerenderOnTransaction: false,
     editorProps: {
+      handleDOMEvents: { keydown: reconcileEnterSelection },
       attributes: {
         role: 'textbox',
         'aria-label': label,
@@ -266,22 +272,9 @@ export function RichNoteEditor({
 
         if (captured.kind === 'node') return captured;
 
-        const selection = window.getSelection();
-        const root = editor.view.dom;
+        const selection = readNativeTextSelection(editor.view);
 
-        if (
-          selection?.anchorNode &&
-          selection.focusNode &&
-          root.contains(selection.anchorNode) &&
-          root.contains(selection.focusNode)
-        )
-          return {
-            kind: 'text',
-            anchor: editor.view.posAtDOM(selection.anchorNode, selection.anchorOffset),
-            head: editor.view.posAtDOM(selection.focusNode, selection.focusOffset)
-          };
-
-        return captured;
+        return selection ? { kind: 'text', ...selection } : captured;
       },
       restoreSelection: (selection, { focus } = { focus: true }) => {
         if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection, focus);
