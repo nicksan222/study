@@ -28,6 +28,10 @@ function Recovery(props: ComponentProps<'section'>) {
   return <section {...props} className="note-start-recovery" />;
 }
 
+function Feedback(props: ComponentProps<'div'>) {
+  return <div {...props} className="note-start-feedback" />;
+}
+
 function Actions(props: ComponentProps<'div'>) {
   return <ActionGroup {...props} className="note-actions" />;
 }
@@ -43,6 +47,7 @@ export const NoteStarter = {
   Attachment,
   Kind,
   Recovery,
+  Feedback,
   Actions,
   Notes
 };

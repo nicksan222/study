@@ -2,10 +2,29 @@ import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite-plus';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { defineConfig, normalizePath } from 'vite-plus';
+
+const pdfPackage = Bun.pathToFileURL(Bun.resolveSync('pdfjs-dist/package.json', import.meta.dir));
+
+const reactPdfPackage = Bun.pathToFileURL(
+  Bun.resolveSync('react-pdf/package.json', import.meta.dir)
+);
+
+const pdfAsset = (entry: string) => normalizePath(Bun.fileURLToPath(new URL(entry, pdfPackage)));
+
+const pdfAssets = ['cmaps', 'iccs', 'standard_fonts', 'wasm'].map((folder) => ({
+  src: pdfAsset(folder),
+  dest: `pdf-assets/${folder}`,
+  rename: { stripBase: true } as const
+}));
 
 export default defineConfig({
   root: Bun.fileURLToPath(new URL('.', import.meta.url)),
+  // The shared client also runs in system webviews that can lag modern browsers.
+  resolve: {
+    alias: [{ find: /^pdfjs-dist$/, replacement: pdfAsset('legacy/build/pdf.mjs') }]
+  },
   plugins: [
     tanstackRouter({
       target: 'react',
@@ -15,7 +34,18 @@ export default defineConfig({
       autoCodeSplitting: true
     }),
     react(),
-    tailwindcss()
+    tailwindcss(),
+    viteStaticCopy({
+      targets: [
+        ...pdfAssets,
+        { src: pdfAsset('LICENSE'), dest: 'pdf-assets', rename: { stripBase: true } },
+        {
+          src: normalizePath(Bun.fileURLToPath(new URL('LICENSE', reactPdfPackage))),
+          dest: 'pdf-assets',
+          rename: { stripBase: true, name: 'LICENSE_REACT_PDF' }
+        }
+      ]
+    })
   ],
   clearScreen: false,
   server: {

@@ -45,6 +45,7 @@ import {
   useSourceProcessingExecution,
   useSourceCopy
 } from './source-panel.queries';
+import { SourcePdfPreview } from './source-pdf-preview';
 
 function SourceManagement({
   source,
@@ -190,9 +191,10 @@ function SourceBody({
 
 function originalRevision(
   exact: { revision: bigint } | undefined,
-  current: { revision: bigint } | null | undefined
+  current: { revision: bigint } | null | undefined,
+  kind: Source['kind'] | undefined
 ) {
-  return exact?.revision ?? current?.revision;
+  return exact?.revision ?? (kind === 'pdf' ? undefined : current?.revision);
 }
 
 function SourceExtractionNotes({ document }: { document?: typeof documentSchema.Type }) {
@@ -222,6 +224,7 @@ function SourceToolbar({
   extraction,
   copy,
   selected,
+  downloadRevision,
   onSelect,
   onCopy,
   onDeleted
@@ -232,6 +235,7 @@ function SourceToolbar({
   extraction: ReturnType<typeof useSourceExtraction>;
   copy: ReturnType<typeof useSourceCopy>;
   selected?: { revision: bigint; snapshotId: ContentSnapshotId };
+  downloadRevision?: bigint;
   onSelect: (exact: { revision: bigint; snapshotId: ContentSnapshotId } | undefined) => void;
   onCopy: () => void;
   onDeleted: () => void;
@@ -243,10 +247,7 @@ function SourceToolbar({
     <SourceReader.Header>
       {!noteId && source.data && <SourceReader.Title>{source.data.name}</SourceReader.Title>}
       <SourceReader.Actions ref={setMenuContainer}>
-        <SourceOriginal
-          sourceId={sourceId}
-          revision={originalRevision(selected, extraction.data)}
-        />
+        <SourceOriginal sourceId={sourceId} revision={downloadRevision} />
         {extraction.isSuccess && extraction.data && source.isSuccess && (
           <IconButton
             size="icon-sm"
@@ -287,6 +288,33 @@ function SourceReadErrors({
       {extraction.error && (
         <ContentReadError error={extraction.error} retry={() => void extraction.refetch()} />
       )}
+    </>
+  );
+}
+
+function SourcePanelContent({
+  sourceId,
+  source,
+  extraction,
+  pinned
+}: {
+  sourceId: SourceId;
+  source: ReturnType<typeof rpc.sources.get.useQuery>;
+  extraction: ReturnType<typeof useSourceExtraction>;
+  pinned: boolean;
+}) {
+  if (!pinned && source.isSuccess && source.data?.kind === 'pdf')
+    return <SourcePdfPreview sourceId={sourceId} />;
+
+  return (
+    <>
+      <SourceReadErrors source={source} extraction={extraction} />
+      <SourceBody
+        sourceId={pinned ? undefined : sourceId}
+        document={extraction.data?.document}
+        snapshotId={extraction.data?.snapshotId}
+        failed={!extraction.isSuccess || !source.isSuccess}
+      />
     </>
   );
 }
@@ -335,6 +363,7 @@ export function SourcePanel({
         extraction={state}
         copy={copy}
         selected={selected}
+        downloadRevision={originalRevision(selected, state.data, source.data?.kind)}
         onSelect={setSelected}
         onCopy={editCopy}
         onDeleted={() => {
@@ -342,18 +371,17 @@ export function SourcePanel({
           onDeleted?.();
         }}
       />
-      <SourceReadErrors source={source} extraction={state} />
       {copy.page && (
         <Button variant="ghost" onClick={copy.acknowledge}>
           {t('PageEditAnotherCopy')}
         </Button>
       )}
       {copy.error !== undefined && <ContentReadError error={copy.error} retry={editCopy} />}
-      <SourceBody
-        sourceId={selected ? undefined : sourceId}
-        document={state.data?.document}
-        snapshotId={state.data?.snapshotId}
-        failed={!state.isSuccess || !source.isSuccess}
+      <SourcePanelContent
+        sourceId={sourceId}
+        source={source}
+        extraction={state}
+        pinned={!!selected}
       />
     </SourceReader.Root>
   );

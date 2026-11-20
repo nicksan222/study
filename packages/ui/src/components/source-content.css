@@ -133,3 +133,59 @@
   max-width: none;
   margin: 8px 12px;
 }
+
+.source-reader-pdf,
+.source-reader-pdf > .react-pdf__Document {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.source-reader-pdf-controls {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 4px 12px;
+  border-block-end: 1px solid var(--border);
+}
+
+.source-reader-pdf-controls > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.source-reader-pdf-controls output {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.source-reader-pdf-controls [aria-label] + output {
+  min-inline-size: 3ch;
+}
+
+.source-reader-pdf-viewport {
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  background: var(--muted);
+  scrollbar-gutter: stable;
+}
+
+.source-reader-pdf-viewport:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.source-reader-pdf-viewport > .react-pdf__Page {
+  inline-size: max-content;
+  margin-inline: auto;
+}

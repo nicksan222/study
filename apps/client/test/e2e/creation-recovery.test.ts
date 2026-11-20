@@ -32,6 +32,14 @@ test.browser.stable(
 
     await expect(save).toBeDisabled();
     await expect(save).toHaveAttribute('aria-busy', 'true');
+    const opening = page.getByRole('status').filter({ hasText: copy.NoteStarting });
+    const captureBox = await page.getByRole('region', { name: copy.NoteCompose }).boundingBox();
+    const openingBox = await opening.boundingBox();
+
+    if (!captureBox || !openingBox) throw new Error('The pending capture has no layout box');
+
+    expect(openingBox.x).toBeGreaterThanOrEqual(captureBox.x);
+    expect(openingBox.x + openingBox.width).toBeLessThanOrEqual(captureBox.x + captureBox.width);
     // Disabled buttons still receive ordinary keyboard attempts without forced activation.
     await save.press('Enter');
     await composer.press('ControlOrMeta+Enter');
