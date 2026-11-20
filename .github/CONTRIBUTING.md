@@ -324,30 +324,26 @@ desktop permission, and shared runner tests. Server fixtures use Vitest lifecycl
 hooks to close resources before deleting SQLite files. Test-runner imports stay out
 of production modules.
 
-Run `bun run integrations:e2e` with Docker available to run the real provider tests.
-The launcher prepares one shared disposable environment and invokes Vitest once.
-Ordinary `*.integration.test.ts` files under `tooling/testing/integrations/providers`
-report the behavior being checked, with native assertion failures, exit codes and JUnit
-results. Every provider's tests are discovered on every run; no matrix or shard is used.
+Run `bun run integrations:e2e` with a local Docker engine and OpenSSL. The launcher
+runs the Obsidian and cloud backup Vitest suites with separate JUnit reports.
 
-Each test owns fresh application processes, profiles, vaults, a database and RPC server.
-Provider software and its pinned install remain in the shared
-`tooling/testing/integrations/Dockerfile`. Release downloads use bounded retries and
-verify checksums. The test environment has no network and mounts no host vault,
-credentials, dependencies or profile.
+The Obsidian suite installs the pinned release in the shared
+`tooling/testing/integrations/Dockerfile`. It runs in a disposable container with no
+network or host profiles. The Bun launcher collects its reports and removes the
+container and image. Setup output is in `tooling/test-results/integrations/setup.log`.
 
-The Bun launcher uses the Docker CLI directly. It collects native JUnit reports and
-failure logs, stops and removes the container and removes its image on success, failure
-and handled interruption. Setup output stays in
-`tooling/test-results/integrations/setup.log`; normal console output shows the tests.
-Provider logs are retained for failed tests. CI uploads `tooling/test-results/`,
-including `vitest/integrations.xml`. The launcher preserves the test exit code and fails
-if environment setup, report collection or cleanup fails.
+The cloud suite uses Testcontainers to run digest-pinned RustFS, Azurite, and rclone
+WebDAV. Each test has an isolated database, ephemeral credentials, and an HTTPS
+endpoint on a random loopback port. The fixtures share a private CA trusted only by
+the test process and mount only the temporary TLS files. Each test publishes seven
+rotating copies through Study RPC and restores a copy retrieved from the provider.
+The OAuth contract tests for Google Drive, Dropbox, and OneDrive use simulated provider responses.
 
-Adding a provider requires its executable in `providers.json`, ordinary
-`providers/<provider>/*.integration.test.ts` files and a matching installation stage in
-the shared image. Oxlint enforces the shared installation and test coverage. Keep
-infrastructure lifecycle tests in the normal server suite, separate from provider behavior.
+CI retains provider logs and both `vitest/integrations.xml` and
+`vitest/cloud-integrations.xml` under `tooling/test-results/`. Register new desktop
+providers in `providers.json` and install them in the shared image. Cloud storage
+fixtures live with their tests under `tooling/testing/integrations/providers`.
+Keep infrastructure lifecycle tests in the normal server suite, separate from provider behavior.
 
 ### Release size reports
 
@@ -456,8 +452,8 @@ and explicitly scoped updates. Native runner outputs live under `apps/client/tes
 its HTML report lives under `apps/client/test-results/report`. Playwright clears its previous
 run outputs at the start of the next run and retains test artifacts only for failures.
 CI also enables Vitest's built-in JUnit reporter. Every package writes under its own
-`test-results/vitest/` directory; integration runs use `integrations.xml` alongside unit
-`junit.xml`. CI retains reports for JavaScript, server, database and integration jobs even on failures.
+`test-results/vitest/` directory. Integrations write `integrations.xml` and
+`cloud-integrations.xml`. CI retains reports for JavaScript, server, database and integration jobs even on failures.
 Turbo caches restore report files with deterministic test results. Use `CI=true` for the
 same reporters locally; ordinary local runs keep console output only.
 

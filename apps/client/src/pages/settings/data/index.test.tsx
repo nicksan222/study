@@ -19,6 +19,9 @@ test.unit.beforeEach(async ({ mock }) => {
     ...(await load<typeof MockModule0>()),
     useDataSettings: mock.fn()
   }));
+  mock('#client/pages/settings/data/automatic-backups.tsx', () => ({
+    AutomaticBackups: () => null
+  }));
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({
       t: (key: string) => key,

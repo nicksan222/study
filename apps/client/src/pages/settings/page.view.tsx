@@ -254,7 +254,19 @@ const sections = [
     id: 'data',
     label: 'DataSettingsTitle',
     Icon: DataStorageIcon,
-    keywords: ['DataCreate', 'DataImport', 'DataPreview']
+    keywords: [
+      'DataCreate',
+      'DataImport',
+      'DataPreview',
+      'DataAutoBackupTitle',
+      'DataAutoBackupOneDrive',
+      'DataAutoBackupFolder',
+      'DataBackupGoogle',
+      'DataBackupDropbox',
+      'DataBackupS3',
+      'DataBackupWebDav',
+      'DataBackupAzure'
+    ]
   },
   {
     id: 'integrations',

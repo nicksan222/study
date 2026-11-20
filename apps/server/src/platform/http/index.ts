@@ -16,9 +16,14 @@
  */
 
 import { StudyError } from '@study/contracts';
-import { Clock, Effect, Stream } from 'effect';
-import type { HttpClientResponse } from 'effect/http';
-import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from 'effect/http';
+import { Clock, Effect, Option, Stream } from 'effect';
+import {
+  FetchHttpClient,
+  HttpBody,
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse
+} from 'effect/http';
 
 import { liveClock } from '#server/platform/time/index';
 
@@ -185,6 +190,7 @@ export function streamingFetch(
     maxBytes: number;
     fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
     clock?: Clock.Clock;
+    sensitive?: boolean;
   }
 ): Promise<Response> {
   const cancellation = new AbortController();
@@ -222,20 +228,31 @@ export function streamingFetch(
           new StudyError('transient', 'HTTP response exceeds the size limit')
         );
 
-        const noBody = [204, 205, 304].includes(response.status);
+        const source = Option.getOrUndefined(HttpClientResponse.toWeb(response));
+
+        if (!source)
+          return yield* Effect.fail(new StudyError('transient', 'HTTP response body unavailable'));
+
+        const upstream = source.body;
 
         resolve(
-          new Response(noBody ? null : body, {
+          new Response(upstream ? body : null, {
             status: response.status,
             headers: response.headers
           })
         );
         settled = true;
 
-        if (!noBody) {
+        if (upstream) {
+          const chunks = Stream.fromReadableStream({
+            evaluate: () => upstream,
+            onError: (cause) =>
+              new StudyError('transient', 'HTTP response stream failed', { cause })
+          });
+
           yield* Stream.runForEach(
             limitResponseBytes(
-              response.stream,
+              chunks,
               options.maxBytes,
               new StudyError('transient', 'HTTP response exceeds the size limit')
             ),
@@ -249,7 +266,11 @@ export function streamingFetch(
       Effect.provideService(Clock.Clock, options.clock ?? liveClock())
     );
 
-    void runHttpPromise(program, { signal }).catch((error: unknown) => {
+    const request = options.sensitive
+      ? program.pipe(Effect.provideService(HttpClient.TracerDisabledWhen, () => true))
+      : program;
+
+    void runHttpPromise(request, { signal }).catch((error: unknown) => {
       if (settled) {
         if (!cancellation.signal.aborted) output?.error(error);
       } else reject(signal.aborted ? signal.reason : error);

@@ -4,6 +4,12 @@ import { failureSchema } from '../errors.ts';
 import { projectIdSchema } from '../ids.ts';
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import {
+  automaticBackupConfigurationSchema,
+  automaticBackupStatusSchema,
+  backupOAuthInputSchema,
+  backupSignInIdSchema
+} from './automatic-backups.ts';
+import {
   backupInputSchema,
   backupManifestSchema,
   backupBytesSchema,
@@ -35,6 +41,48 @@ export const healthSchema = Schema.Struct({
 });
 
 export const systemEndpoints = {
+  automaticBackup: liveQuery(
+    'system.automaticBackup',
+    { payload: Schema.Struct({}), success: automaticBackupStatusSchema, error: failureSchema },
+    { dependencies: [dependency.system], refresh: 'database' }
+  ),
+  configureAutomaticBackup: mutation(
+    'system.configureAutomaticBackup',
+    { payload: automaticBackupConfigurationSchema, success: Schema.Void, error: failureSchema },
+    { changes: [dependency.system] }
+  ),
+  runAutomaticBackup: mutation(
+    'system.runAutomaticBackup',
+    { payload: Schema.Struct({}), success: Schema.Void, error: failureSchema },
+    { changes: [dependency.system] }
+  ),
+  beginBackupSignIn: mutation(
+    'system.beginBackupSignIn',
+    {
+      payload: backupOAuthInputSchema,
+      success: Schema.Struct({ id: backupSignInIdSchema, url: Schema.String }),
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
+  finishBackupSignIn: mutation(
+    'system.finishBackupSignIn',
+    {
+      payload: Schema.Struct({ id: backupSignInIdSchema }),
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.system] }
+  ),
+  cancelBackupSignIn: mutation(
+    'system.cancelBackupSignIn',
+    {
+      payload: Schema.Struct({ id: backupSignInIdSchema }),
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
   createBackup: mutation(
     'system.createBackup',
     {

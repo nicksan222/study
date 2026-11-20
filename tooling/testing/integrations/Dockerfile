@@ -4,7 +4,7 @@ RUN useradd --create-home --uid 1000 bun
 
 # This image is private test infrastructure; no host desktop or user vault is mounted.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl dbus-x11 xvfb xauth zlib1g-dev \
+    ca-certificates curl openssl dbus-x11 xvfb xauth zlib1g-dev \
     libgtk-3-0t64 libnss3 libasound2t64 libgbm1 libdrm2 libxss1 \
     libatk-bridge2.0-0t64 libcups2t64 libx11-xcb1 libxcomposite1 \
     libxdamage1 libxfixes3 libxrandr2 \

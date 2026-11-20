@@ -559,14 +559,18 @@ test.browser.stable(
     await expect(navigation).toHaveCSS('flex-direction', 'row');
     await expect(settings).toBeFocused();
 
-    const shortcuts = await Promise.all(
-      [copy.Notes, copy.SourcePage, copy.Practice, copy.Assistant].map((name) =>
-        navigation.getByRole('link', { name, exact: true }).boundingBox()
-      )
-    );
-    const settingsBox = await settings.boundingBox();
+    const controls = navigation.getByRole('link').or(settings);
 
-    expect(shortcuts.map((box) => box?.y)).toEqual(Array(4).fill(settingsBox?.y));
+    await expect(controls).toHaveCount(5);
+    const buttons = await controls.all();
+
+    await expect
+      .poll(async () => {
+        const boxes = await Promise.all(buttons.map((button) => button.boundingBox()));
+
+        return boxes.every((box) => box !== null && box.y === boxes[0]?.y);
+      })
+      .toBe(true);
     await expectScreenshot('compact-navigation', {
       target: bottom,
       ready: () => expect(navigation).toHaveCSS('flex-direction', 'row')
@@ -2355,6 +2359,7 @@ test.browser.stable(
       target: dialog,
       zoomPercent: 100,
       center: zoom,
+      centerWithin: dialog.locator('.settings-scroll'),
       ready: () => expect(zoom).toHaveValue('100')
     });
 

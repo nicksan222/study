@@ -4,8 +4,6 @@ import { preferences, sql } from '@study/db';
 import { catalogIdentitiesSchema, defineStore, storeMutation, storeQuery } from '@study/server';
 import { Schema } from 'effect';
 
-import { writePreference } from './write-preference.ts';
-
 const snapshot = Schema.Struct({
   catalog: modelCatalogSchema,
   chatAccount: Schema.optionalKey(Schema.NullOr(Schema.String)),
@@ -33,6 +31,8 @@ export function accountCatalog(state: Snapshot, account: string | null | undefin
 const encode = Schema.encodeSync(Schema.fromJsonString(snapshot));
 
 const decode = Schema.decodeUnknownSync(Schema.fromJsonString(snapshot));
+
+import { writePreference } from './write-preference.ts';
 
 const scope = 'model-catalog';
 

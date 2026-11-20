@@ -24,9 +24,10 @@ import {
 } from '@study/server';
 import type { AiRuntimeAdapters } from '@study/server';
 import type { VoiceRuntimeAdapters } from '@study/server';
-import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
+import { Cause, Clock, Effect, Exit, Fiber, Queue, Scope } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
+import { System } from '#server/features/system/index';
 
 import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';
@@ -47,6 +48,7 @@ export class App {
   readonly nativeRuntime: ReturnType<typeof createNativeRuntime>;
   readonly workers: Workers;
   private readonly scope: Scope.Closeable;
+  private readonly backupSchedule: Fiber.Fiber<never, StudyError>;
 
   private constructor(
     store: ServerContext,
@@ -54,7 +56,8 @@ export class App {
     native: ReturnType<typeof nativeLayers>,
     nativeRuntime: ReturnType<typeof createNativeRuntime>,
     workers: Workers,
-    scope: Scope.Closeable
+    scope: Scope.Closeable,
+    backupSchedule: Fiber.Fiber<never, StudyError>
   ) {
     this.store = store;
     this.auth = auth;
@@ -62,6 +65,7 @@ export class App {
     this.nativeRuntime = nativeRuntime;
     this.workers = workers;
     this.scope = scope;
+    this.backupSchedule = backupSchedule;
   }
 
   static async open(options: {
@@ -256,7 +260,15 @@ export class App {
           catch: (cause) => cause
         });
 
-        return new App(store, auth, native, runtime, workers, scope);
+        const backupSchedule = runtime.runFork(
+          System.use((system) => system.scheduledBackup()).pipe(
+            Effect.ignore,
+            Effect.andThen(Effect.sleep('1 minute')),
+            Effect.forever
+          )
+        );
+
+        return new App(store, auth, native, runtime, workers, scope, backupSchedule);
       }
 
       const result = yield* Effect.exit(
@@ -310,6 +322,7 @@ export class App {
   private async release(stopped: Promise<void>) {
     const errors: unknown[] = [];
 
+    await runNative(Fiber.interrupt(this.backupSchedule));
     await this.native.backups.close();
 
     try {

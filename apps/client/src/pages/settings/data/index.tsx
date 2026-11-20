@@ -17,6 +17,7 @@ import { useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
+import { AutomaticBackups } from './automatic-backups.tsx';
 import { useDataSettings } from './use-data';
 
 type BackupDeletion = { id: BackupId } | 'recovery';
@@ -56,9 +57,10 @@ export function DataSettings() {
 
   return (
     <>
-      <BackupControls {...view} />
-      <SavedBackups {...view} setDeletion={setDeletion} />
       <RestoreStatus {...view} setDeletion={setDeletion} />
+      <BackupFeedback state={state} owner={owner} />
+      <AutomaticBackups mutable={mutable} />
+      <ManualBackups {...view} setDeletion={setDeletion} />
       <RestoreDialog {...view} />
       <DeletionDialog {...view} deletion={deletion} setDeletion={setDeletion} />
     </>
@@ -66,13 +68,13 @@ export function DataSettings() {
 }
 
 /** Keep imports and creation behind the same capacity and mutation gates. */
-function BackupControls({ state, owner, mutable }: DataView) {
+function ManualBackups({ state, owner, busy, mutable, setDeletion }: DataView & DeletionControl) {
   const { t, number } = useI18n();
   const fileInput = useRef<HTMLInputElement>(null);
 
   return (
     <Settings.Section
-      title={t('DataSettingsTitle')}
+      title={t('DataSavedBackups')}
       actions={
         <Button
           size="sm"
@@ -87,111 +89,116 @@ function BackupControls({ state, owner, mutable }: DataView) {
         </Button>
       }
     >
-      <DataManagement.Description>{t('DataSettingsDescription')}</DataManagement.Description>
-      <BackupFeedback state={state} owner={owner} />
-      <Settings.Group>
-        <Settings.Row
-          title={t('DataLocalBackups')}
-          description={t('DataBackupCapacity', {
-            count: number(state.backups.length),
-            limit: number(MAX_MANAGED_BACKUPS)
-          })}
-        >
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
-            onClick={() => void owner.create()}
+      <DataManagement.Groups>
+        <Settings.Group>
+          <Settings.Row
+            title={t('DataLocalBackups')}
+            description={t('DataBackupCapacity', {
+              count: number(state.backups.length),
+              limit: number(MAX_MANAGED_BACKUPS)
+            })}
           >
-            {t('DataCreate')}
-          </Button>
-        </Settings.Row>
-        <Settings.Row title={t('DataImport')} description={t('DataImportHelp')}>
-          <DataManagement.File
-            ref={fileInput}
-            type="file"
-            accept=".studybackup"
-            aria-label={t('DataImport')}
-            disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
-            tabIndex={-1}
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
+              onClick={() => void owner.create()}
+            >
+              {t('DataCreate')}
+            </Button>
+          </Settings.Row>
+          <Settings.Row title={t('DataImport')} description={t('DataImportHelp')}>
+            <DataManagement.File
+              ref={fileInput}
+              type="file"
+              accept=".studybackup"
+              aria-label={t('DataImport')}
+              disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
+              tabIndex={-1}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
 
-              event.currentTarget.value = '';
+                event.currentTarget.value = '';
 
-              if (file) void owner.importFile(file);
-            }}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
-            onClick={() => fileInput.current?.click()}
-          >
-            <UploadIcon size={14} aria-hidden="true" />
-            {t('DataChooseFile')}
-          </Button>
-        </Settings.Row>
-      </Settings.Group>
+                if (file) void owner.importFile(file);
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
+              onClick={() => fileInput.current?.click()}
+            >
+              <UploadIcon size={14} aria-hidden="true" />
+              {t('DataChooseFile')}
+            </Button>
+          </Settings.Row>
+        </Settings.Group>
+        <SavedBackups {...{ state, owner, busy, mutable, setDeletion }} />
+      </DataManagement.Groups>
     </Settings.Section>
   );
 }
 
 /** Render stable backup identities while recovery blocks mutations. */
-function SavedBackups({ state, owner, busy, mutable, setDeletion }: DataView & DeletionControl) {
+function SavedBackups({
+  state,
+  owner,
+  busy,
+  mutable,
+  setDeletion
+}: Omit<DataView, 'canDiscard'> & DeletionControl) {
   const { t, date, locale } = useI18n();
 
   return (
-    <Settings.Section title={t('DataSavedBackups')}>
-      <Settings.Group>
-        {state.loaded && !state.backups.length && (
-          <Settings.Empty title={t('DataEmptyTitle')} icon={<ArchiveIcon aria-hidden="true" />}>
-            {t('DataEmpty')}
-          </Settings.Empty>
-        )}
-        {state.backups.map((backup) => (
-          <Settings.Row
-            key={backup.id}
-            title={date(backup.createdAtMs / 1000)}
-            description={mediaSize(locale, backup.bytes)}
-          >
-            <DataManagement.Actions>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void owner.download(backup.id)}
-              >
-                <DownloadIcon size={14} aria-hidden="true" />
-                {t('DataDownload')}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!mutable}
-                onClick={() => {
-                  void owner.preview(backup.id);
-                }}
-              >
-                {t('DataPreview')}
-              </Button>
-              <IconButton
-                size="icon-sm"
-                variant="ghost-destructive"
-                label={t('DataDelete')}
+    <Settings.Group>
+      {state.loaded && !state.backups.length && (
+        <Settings.Empty icon={<ArchiveIcon aria-hidden="true" />}>
+          {t('DataEmptyTitle')}
+        </Settings.Empty>
+      )}
+      {state.backups.map((backup) => (
+        <Settings.Row
+          key={backup.id}
+          title={date(backup.createdAtMs / 1000)}
+          description={mediaSize(locale, backup.bytes)}
+        >
+          <DataManagement.Actions>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void owner.download(backup.id)}
+            >
+              <DownloadIcon size={14} aria-hidden="true" />
+              {t('DataDownload')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!mutable}
+              onClick={() => {
+                void owner.preview(backup.id);
+              }}
+            >
+              {t('DataPreview')}
+            </Button>
+            <IconButton
+              size="icon-sm"
+              variant="ghost-destructive"
+              label={t('DataDelete')}
 
-                disabled={!mutable}
-                onClick={() => {
-                  setDeletion({ id: backup.id });
-                }}
-              >
-                <DeleteIcon size={14} aria-hidden="true" />
-              </IconButton>
-            </DataManagement.Actions>
-          </Settings.Row>
-        ))}
-      </Settings.Group>
-    </Settings.Section>
+              disabled={!mutable}
+              onClick={() => {
+                setDeletion({ id: backup.id });
+              }}
+            >
+              <DeleteIcon size={14} aria-hidden="true" />
+            </IconButton>
+          </DataManagement.Actions>
+        </Settings.Row>
+      ))}
+    </Settings.Group>
   );
 }
 
@@ -201,7 +208,7 @@ function RestoreStatus({ state, canDiscard, setDeletion }: DataView & DeletionCo
 
   return (
     <>
-      {state.status && (
+      {state.status && (state.status.state !== 'idle' || state.status.recoveryCopy) && (
         <Settings.Section title={t('DataStatus')}>
           <Settings.Group>
             <Settings.Row

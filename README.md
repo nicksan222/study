@@ -51,9 +51,32 @@ recording formats.
 ## Your privacy
 
 Only what the models need goes to OpenAI, through your own ChatGPT plan: the pages to read
-and the passages that answers and study material come from. Your recordings and your
-database never leave your computer. Speech-to-text and search models download only when you
+and the passages that answers and study material come from. Your recordings and database
+stay on your computer by default. Speech-to-text and search models download only when you
 choose to.
+
+You can turn on daily backups in **Settings → Data & backups**. Study rotates through seven
+backup names for the active installation. Turning backups off leaves existing copies in
+the destination. Provider version history and retention policies may keep older versions.
+Cloud copies are unencrypted Study backup files with sign-in credentials removed. Download
+a `.studybackup` file from the destination and import it in the same settings panel.
+
+| Destination                  | Setup                                                                                                                                                                                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| This device or synced folder | Save locally, or choose an existing folder managed by a sync client such as iCloud Drive.                                                                                                                                                                                                  |
+| OneDrive Personal            | Use an [Entra public client registration][onedrive-registration] for personal accounts. Add the mobile and desktop redirect `http://localhost/study-backup` and delegated Graph permission `Files.ReadWrite.AppFolder`. Paste the client ID. Files appear under **Apps**.                  |
+| Google Drive                 | Enable the Drive API and create a [Desktop OAuth client][google-registration]. Paste its ID and secret. Study requests `drive.file` and writes to **My Drive**. An external app in Testing issues refresh tokens that expire after seven days. Publishing can require Google verification. |
+| Dropbox                      | Create a [scoped App Folder app][dropbox-registration] with `files.content.write`. Register `http://localhost:42819/study-backup` and paste its app key. Files appear under **Apps**. Dropbox has separate rules for distributing a shared registration.                                   |
+| S3-compatible storage        | Enter a bucket, signing region, and access keys with write access. Leave endpoint blank for AWS or supply an HTTPS service endpoint for Cloudflare R2, Backblaze B2, Wasabi, MinIO, or Google Cloud Storage with HMAC interoperability. An object prefix is optional.                      |
+| WebDAV                       | Enter the HTTPS URL of an existing folder, a username, and an app password. The folder must allow uploading and renaming files. Use a server such as Nextcloud or ownCloud.                                                                                                                |
+| Azure Blob Storage           | Enter the HTTPS URL of an existing container and a write-capable SAS token. An object prefix is optional.                                                                                                                                                                                  |
+
+After restoring a backup, configure the destination again. Copies from the previous
+backup rotation remain in its destination.
+
+[onedrive-registration]: https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app
+[google-registration]: https://developers.google.com/identity/protocols/oauth2/native-app
+[dropbox-registration]: https://developers.dropbox.com/oauth-guide
 
 ## Contribute
 
