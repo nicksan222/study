@@ -1,10 +1,7 @@
 import { test } from '@study/testing';
 
-test.unit.stable(
-  'leaves the practice workspace empty for selection from the sidebar',
-  async ({ page, expect, screen }) => {
-    await page.open('/practice');
-    expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
-    expect(screen.getByRole('complementary', { name: 'Study navigation' })).toBeInTheDocument();
-  }
-);
+test.unit.stable('shows study notes as a section of Practice', async ({ page, expect, screen }) => {
+  await page.open('/practice');
+  expect(await screen.findByRole('heading', { name: 'Study notes' })).toBeVisible();
+  expect(screen.getByRole('complementary', { name: 'Study navigation' })).toBeInTheDocument();
+});

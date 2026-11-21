@@ -30,6 +30,7 @@ import { useWorkspacePreferences } from '#client/lib/study-client/workspace-pref
 import { isNoteSubmit } from './draft';
 import { useNoteList } from './note-reads';
 import { NoteWindowNavigation } from './note-window-navigation';
+import { NotebookHeading } from './notebook-heading';
 import {
   startDraftKey,
   startDraft,
@@ -184,12 +185,7 @@ export function NoteStart() {
               <Desk.Board>
                 <Desk.BoardBody>
                   <Notebook.History aria-label={t('NoteNotebook')}>
-                    <Notebook.NotesHeading>
-                      <Notebook.PageHeading>
-                        <h1>{t('NoteNotesTitle')}</h1>
-                        <p>{t('NoteNotesHelp')}</p>
-                      </Notebook.PageHeading>
-                    </Notebook.NotesHeading>
+                    <NotebookHeading />
                     <WorkspaceSurface.Heading>
                       <h3>{t('NoteNotesEmpty')}</h3>
                       <p>{t('NoteStartHelp')}</p>

@@ -1,7 +1,14 @@
 import { plainBlock } from '@study/contracts';
 
-import { assetFile, document, heading, paragraph, table } from '#tooling/seed/builders/content';
-import { createSource } from '#tooling/seed/harnesses/index';
+import {
+  assetFile,
+  document,
+  heading,
+  paragraph,
+  table,
+  textFile
+} from '#tooling/seed/builders/content';
+import { createNote, createPage, createSource } from '#tooling/seed/harnesses/index';
 import type { ProjectHarness } from '#tooling/seed/harnesses/scope';
 
 const phases = [
@@ -22,6 +29,37 @@ const counts = table([
 
 /** Representative originals can be opened side by side in one subject. */
 export function createMitosisMaterials(project: ProjectHarness) {
+  const fieldNotes = createSource(
+    project,
+    textFile(new URL('../files/mitosis/field-notes.txt', import.meta.url))
+  );
+
+  createNote(project, {
+    title: 'Mitosi · osservazioni al microscopio',
+    daysAgo: 2,
+    exchanges: [
+      [
+        'Sul vetrino B ho contato 14 cellule in metafase e 5 in anafase.',
+        'In metafase cerca una fila centrale di cromosomi. In anafase cerca due gruppi separati.'
+      ]
+    ],
+    sources: [fieldNotes]
+  });
+  createPage(project, {
+    title: 'Mitosi · ripasso per l’esame',
+    description: 'Come riconoscere le fasi della divisione e interpretare i conteggi dei vetrini.',
+    blocks: [
+      ...phases,
+      heading('Confronta i preparati'),
+      counts,
+      paragraph(
+        'I conteggi descrivono questo campione. Per confrontare i vetrini, calcola la quota di cellule in ciascuna fase sul totale dello stesso vetrino.'
+      ),
+      heading('Verifica la comprensione'),
+      paragraph('Come distingueresti metafase e anafase osservando un preparato sconosciuto?')
+    ]
+  });
+
   for (const [name, blocks] of [
     ['mitosis.pdf', phases],
     ['division.mp4', phases],

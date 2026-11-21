@@ -28,6 +28,7 @@ export const NotesRpcLive = defineRpc(NotesRpc, { notes: Notes }, ({ notes }) =>
   'notes.setItemArchived': notes.setItemArchived,
   'notes.noteSelection': notes.noteSelection,
   'notes.updateNoteSelection': notes.updateNoteSelection,
+  'notes.captureStudyEvidence': notes.captureStudyEvidence,
   'notes.captureNoteContext': notes.captureNoteContext,
   'notes.inspectNoteContext': notes.inspectNoteContext,
   'notes.noteContext': notes.noteContext,

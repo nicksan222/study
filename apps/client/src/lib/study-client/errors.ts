@@ -9,7 +9,8 @@ export function toStudyError(cause: unknown): StudyError {
   if (isFailure(cause))
     return new StudyError(cause.kind, cause.message, {
       cause,
-      retryAfterMs: cause.retryAfterMs
+      retryAfterMs: cause.retryAfterMs,
+      resource: cause.resource
     });
 
   return new StudyError('transient', 'Browser transport failed', { cause });

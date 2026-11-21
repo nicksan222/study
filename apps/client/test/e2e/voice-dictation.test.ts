@@ -466,7 +466,7 @@ test.browser.stable(
     const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
 
     await expect(save).toBeDisabled();
-    await expect(page.getByRole('button', { name: copy.NoteWritePage })).toBeDisabled();
+    await expect(page.getByRole('button', { name: copy.NoteWritePage })).toHaveCount(0);
     await composer.press('ControlOrMeta+Enter');
     await expect(composer).toHaveValue(delivered);
     await expectScreenshot('partial-transcript-before-cancel', {

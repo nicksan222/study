@@ -27,6 +27,7 @@ import { Route as PracticeIndexRouteImport } from './routes/practice.index'
 import { Route as PracticeMaterialIdRouteImport } from './routes/practice.$materialId'
 import { Route as PracticeWrittenExamRouteImport } from './routes/practice.written-exam'
 import { Route as SourcesSourceIdRouteImport } from './routes/sources.$sourceId'
+import { Route as PracticeStudyNotesPageIdRouteImport } from './routes/practice.study-notes.$pageId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -118,6 +119,12 @@ const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
   path: '/sources/$sourceId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PracticeStudyNotesPageIdRoute =
+  PracticeStudyNotesPageIdRouteImport.update({
+    id: '/practice/study-notes/$pageId',
+    path: '/practice/study-notes/$pageId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/notes/': typeof NotesIndexRoute
   '/pages/': typeof PagesIndexRoute
   '/practice/': typeof PracticeIndexRoute
+  '/practice/study-notes/$pageId': typeof PracticeStudyNotesPageIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -157,6 +165,7 @@ export interface FileRoutesByTo {
   '/notes': typeof NotesIndexRoute
   '/pages': typeof PagesIndexRoute
   '/practice': typeof PracticeIndexRoute
+  '/practice/study-notes/$pageId': typeof PracticeStudyNotesPageIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -178,6 +187,7 @@ export interface FileRoutesById {
   '/notes/': typeof NotesIndexRoute
   '/pages/': typeof PagesIndexRoute
   '/practice/': typeof PracticeIndexRoute
+  '/practice/study-notes/$pageId': typeof PracticeStudyNotesPageIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/notes/'
     | '/pages/'
     | '/practice/'
+    | '/practice/study-notes/$pageId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/pages'
     | '/practice'
+    | '/practice/study-notes/$pageId'
   id:
     | '__root__'
     | '/'
@@ -239,6 +251,7 @@ export interface FileRouteTypes {
     | '/notes/'
     | '/pages/'
     | '/practice/'
+    | '/practice/study-notes/$pageId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -258,6 +271,7 @@ export interface RootRouteChildren {
   FlashcardsIndexRoute: typeof FlashcardsIndexRoute
   PagesIndexRoute: typeof PagesIndexRoute
   PracticeIndexRoute: typeof PracticeIndexRoute
+  PracticeStudyNotesPageIdRoute: typeof PracticeStudyNotesPageIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -388,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SourcesSourceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/practice/study-notes/$pageId': {
+      id: '/practice/study-notes/$pageId'
+      path: '/practice/study-notes/$pageId'
+      fullPath: '/practice/study-notes/$pageId'
+      preLoaderRoute: typeof PracticeStudyNotesPageIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -420,6 +441,7 @@ const rootRouteChildren: RootRouteChildren = {
   FlashcardsIndexRoute: FlashcardsIndexRoute,
   PagesIndexRoute: PagesIndexRoute,
   PracticeIndexRoute: PracticeIndexRoute,
+  PracticeStudyNotesPageIdRoute: PracticeStudyNotesPageIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

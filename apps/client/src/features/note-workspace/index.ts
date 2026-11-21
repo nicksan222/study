@@ -1,13 +1,10 @@
 export { NoteWorkspace } from './workspace';
 export { NoteDeleteDialog, NoteBatchDeleteDialog } from './deletion';
 
-export { NotePageDialog } from './page-creation-dialog';
-
-export type { SelectedNote } from './page-creation-dialog';
+export type { SelectedNote } from './selected-note';
 
 export { PageMetadataDialog } from './note-page-metadata';
 
-export { useBlankPageCreation } from './note-page.queries';
 export { NotePagePanel } from './note-page-panel';
 
 export { startDrafts, startDraft, startDraftKey, dismissStartDraft } from './start-drafts.queries';

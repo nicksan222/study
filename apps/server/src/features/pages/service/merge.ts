@@ -34,21 +34,7 @@ export function mergeContext(
     if (version.status !== 'published')
       throw new StudyError('invalid_input', 'Merge requires published pages');
 
-    const excerpts = version.document.blocks.flatMap((block, blockOrdinal) =>
-      block.text.trim()
-        ? [
-            {
-              blockId: block.id,
-              blockOrdinal,
-              start: 0,
-              end: block.text.length,
-              text: block.text,
-              anchor: block.anchor,
-              content: block.content
-            }
-          ]
-        : []
-    );
+    const excerpts = wholeDocumentExcerpts(version.document);
 
     if (!excerpts.length) throw new StudyError('invalid_input', 'Merge input has no text');
 
@@ -130,4 +116,22 @@ export function requestMerge(tx: Transaction, input: typeof t.mergeRequestSchema
   });
 
   return result.request;
+}
+
+export function wholeDocumentExcerpts(document: typeof t.documentSchema.Type) {
+  return document.blocks.flatMap((block, blockOrdinal) =>
+    block.text.trim()
+      ? [
+          {
+            blockId: block.id,
+            blockOrdinal,
+            start: 0,
+            end: block.text.length,
+            text: block.text,
+            anchor: block.anchor,
+            content: block.content
+          }
+        ]
+      : []
+  );
 }

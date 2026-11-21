@@ -1,7 +1,5 @@
 import type { ProjectId } from '@study/contracts';
 import {
-  CreatePageIcon,
-  PageIcon,
   OpenProjectIcon,
   QuizIcon,
   HelpIcon,
@@ -14,20 +12,17 @@ import {
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem,
-  ContextMenuSeparator,
-  toastManager
+  ContextMenuSeparator
 } from '@study/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useContext } from 'react';
 
 import { ReplayContext } from '#client/features/onboarding/index.tsx';
-import { useNewBlankPage } from '#client/features/pages/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 const destinations = [
   ['/notes', 'Notes', NoteIcon],
-  ['/pages', 'SourcePage', PageIcon],
   ['/practice', 'Practice', QuizIcon]
 ] as const;
 
@@ -49,14 +44,7 @@ export function DefaultContextMenu({
   const { t } = useI18n();
   const navigate = useNavigate();
   const replay = useContext(ReplayContext);
-  const page = useNewBlankPage(project);
   const search = project ? { project: String(project) } : {};
-
-  async function createPage() {
-    if (!(await page.create())) {
-      toastManager.add({ type: 'error', title: t('NoteActionErrorTitle') });
-    }
-  }
 
   return (
     <ContextMenu>
@@ -76,10 +64,6 @@ export function DefaultContextMenu({
         >
           <CreateNoteIcon aria-hidden="true" />
           {t('NewNote')}
-        </ContextMenuItem>
-        <ContextMenuItem disabled={disabled || page.pending} onClick={() => void createPage()}>
-          <CreatePageIcon aria-hidden="true" />
-          {t('PageNew')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         {destinations.map(([to, label, Icon]) => (

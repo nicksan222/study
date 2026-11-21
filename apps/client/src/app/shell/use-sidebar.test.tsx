@@ -857,8 +857,8 @@ test.unit.stable(
   }
 );
 
-test.unit.stable.for(['/pages/10', '/projects/2/pages/10'])(
-  'uses route-owned document context and shows only pages in the sidebar: %s',
+test.unit.stable.for(['/practice/study-notes/10', '/projects/2/pages/10'])(
+  'uses route-owned document context and shows study notes in Practice: %s',
   async (url, { userEvent, expect, screen, waitFor, render, rpcTestTransport }) => {
     history.replaceState(null, '', url);
     api.pages.mockResolvedValue({
@@ -885,17 +885,17 @@ test.unit.stable.for(['/pages/10', '/projects/2/pages/10'])(
 
     expect(document).toHaveAttribute('aria-current', 'page');
     expect(
-      screen.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+      screen.getByRole('link', { name: new RegExp(`^${en.Practice}(?: \\d+)?$`) })
     ).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
     await user.click(screen.getByLabelText('Biology'));
     await user.click(await screen.findByRole('option', { name: 'History' }));
-    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/pages'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/practice'));
   }
 );
 
 test.unit.stable(
-  'opens Pages with a pages-only sidebar and keeps subject sections in order',
+  'opens Practice with study notes and keeps subject sections in order',
   async ({ userEvent, within, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.pages.mockResolvedValue({
       items: [
@@ -926,21 +926,23 @@ test.unit.stable(
         .getAllByRole('link')
         .slice(0, 4)
         .map((link) => link.querySelector('.study-sidebar-navigation-label')?.textContent)
-    ).toEqual([en.Notes, en.SourcePage, en.UploadedMaterials, en.Practice]);
+    ).toEqual([en.Notes, en.UploadedMaterials, en.Practice, en.Assistant]);
     await user.click(
-      navigation.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+      navigation.getByRole('link', { name: new RegExp(`^${en.Practice}(?: \\d+)?$`) })
     );
-    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/pages'));
-    await sidebar.findByRole('link', { name: /Cell notes/ });
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
+    const studyNotes = within(await sidebar.findByRole('navigation', { name: en.SourcePage }));
+
+    await studyNotes.findByRole('link', { name: /Cell notes/ });
     expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
     expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: en.PagesOverviewTitle, level: 2 })).toBeVisible();
     await user.type(sidebar.getByRole('searchbox'), 'missing');
-    expect(await sidebar.findByText(en.SearchNoResults)).toBeVisible();
+    expect(await studyNotes.findByText(en.SearchNoResults)).toBeVisible();
     await user.clear(sidebar.getByRole('searchbox'));
-    await user.click(await sidebar.findByRole('link', { name: /Cell notes/ }));
-    await waitFor(() => expect(location.pathname).toBe('/projects/1/pages/10'));
-    expect(await sidebar.findByRole('link', { name: /Cell notes/ })).toHaveAttribute(
+    await user.click(await studyNotes.findByRole('link', { name: /Cell notes/ }));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/practice/study-notes/10'));
+    expect(await studyNotes.findByRole('link', { name: /Cell notes/ })).toHaveAttribute(
       'aria-current',
       'page'
     );

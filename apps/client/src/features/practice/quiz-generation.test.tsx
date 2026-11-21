@@ -4,6 +4,8 @@ import {
   materialVersionDetailSchema,
   summarySchema,
   projectSchema,
+  noteSchema,
+  studyNotesInstructionLimit,
   defaultQuizSettings
 } from '@study/contracts';
 import type { StudyClient } from '@study/contracts/react/testing';
@@ -113,6 +115,10 @@ function rpcFixture({ vi }: Pick<test.unit.Context, 'vi'>, linked = true) {
 
   return {
     ...rpc,
+    'notes.notes': () => Effect.succeed({ items: [], next: null }),
+    'sources.sources': vi
+      .fn<StudyClient['sources.sources']>()
+      .mockReturnValue(Effect.succeed({ items: [], next: null })),
     'settings.quizSettings': vi
       .fn<StudyClient['settings.quizSettings']>()
       .mockReturnValue(
@@ -614,5 +620,127 @@ test.unit.stable(
         })
       )
     );
+  }
+);
+
+test.unit.stable(
+  'waits for the selected notebook before starting a quiz with the other sources',
+  async ({ userEvent, screen, within, expect, waitFor, vi, render, rpcHandlersTransport }) => {
+    const pending = Promise.withResolvers<void>();
+    const input = { kind: 'note' as const, contextId: 'be1f8dca-8824-4f7a-81ee-14bac106e224' };
+    const notebook = noteSchema.make({
+      id: Schema.decodeUnknownSync(noteSchema.fields.id)(7n),
+      title: 'Field notebook',
+      titleSource: 'user',
+      archivedAt: null,
+      createdAt: 1n,
+      updatedAt: 1n,
+      projectIds: []
+    });
+    const rpc = {
+      ...rpcFixture({ vi }),
+      'notes.notes': () => Effect.succeed({ items: [notebook], next: null }),
+      'notes.captureStudyEvidence': () => Effect.promise(() => pending.promise.then(() => input))
+    };
+    const user = userEvent.setup();
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = within(await screen.findByRole('dialog', { name: en.PracticeGenerate }));
+    const start = dialog.getByRole('button', { name: en.PracticeGenerateStart });
+
+    await waitFor(() => expect(start).toBeEnabled());
+    await user.click(await dialog.findByRole('switch', { name: notebook.title }));
+    expect(start).toBeDisabled();
+    expect(dialog.getByRole('switch', { name: 'Prime numbers notes' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    await user.click(start);
+    expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
+
+    pending.resolve();
+    await waitFor(() => expect(start).toBeEnabled());
+    await user.click(start);
+    await waitFor(() => expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledOnce());
+    expect(rpc['materials.requestMaterialGeneration'].mock.calls[0]?.[0].inputs).toContainEqual(
+      input
+    );
+  }
+);
+
+test.unit.stable(
+  'explains why a retained quiz instruction is too long for study notes',
+  async ({
+    userEvent,
+    fireEvent,
+    screen,
+    within,
+    expect,
+    waitFor,
+    vi,
+    render,
+    rpcHandlersTransport
+  }) => {
+    const rpc = rpcFixture({ vi });
+    const user = userEvent.setup();
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = within(await screen.findByRole('dialog', { name: en.PracticeGenerate }));
+    const start = dialog.getByRole('button', { name: en.PracticeGenerateStart });
+
+    await user.click(dialog.getByText(en.PracticeCustomize));
+    const instruction = dialog.getByRole('textbox', { name: en.PracticeGeneratePrompt });
+
+    fireEvent.change(instruction, {
+      target: { value: 'a'.repeat(studyNotesInstructionLimit + 1) }
+    });
+    await user.click(dialog.getByRole('radio', { name: en.PracticeStudyNotes }));
+    expect(start).toBeDisabled();
+    expect(dialog.getByText(en.PracticeStudyNotesInstructionLimit)).toBeVisible();
+    fireEvent.change(instruction, { target: { value: 'Organize by topic.' } });
+    await waitFor(() => expect(start).toBeEnabled());
+  }
+);
+
+test.unit.stable(
+  'keeps page deselections when changing another page on the next window',
+  async ({ userEvent, screen, within, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
+    const original = rpc['pages.pages'].getMockImplementation()!;
+    const other = Schema.decodeUnknownSync(summarySchema)({
+      id: 9n,
+      projectIds: [1n],
+      title: 'Second window page',
+      description: null,
+      createdAt: 1n,
+      updatedAt: 1n,
+      archivedAt: null,
+      headVersionId: 9n
+    });
+
+    rpc['pages.pages'].mockImplementation((input) =>
+      input.cursor
+        ? Effect.succeed({ items: [other], nextCursor: null })
+        : original(input).pipe(Effect.map((page) => ({ ...page, nextCursor: other.id })))
+    );
+    const user = userEvent.setup();
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = within(await screen.findByRole('dialog', { name: en.PracticeGenerate }));
+
+    await user.click(await dialog.findByRole('switch', { name: 'Prime numbers notes' }));
+
+    for (const limit of [60, 90, 100]) {
+      await user.click(await dialog.findByRole('button', { name: en.LibraryMore }));
+      expect(rpc['pages.pages']).toHaveBeenCalledWith(expect.objectContaining({ limit }));
+    }
+
+    await user.click(await dialog.findByRole('button', { name: en.LibraryMore }));
+    await user.click(await dialog.findByRole('switch', { name: other.title }));
+    await user.click(dialog.getByRole('button', { name: en.LibraryPrevious }));
+    expect(await dialog.findByRole('switch', { name: 'Prime numbers notes' })).not.toBeChecked();
   }
 );

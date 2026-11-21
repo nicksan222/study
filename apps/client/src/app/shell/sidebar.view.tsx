@@ -29,7 +29,6 @@ import {
 import { Link } from '@tanstack/react-router';
 import type { ReactNode, Ref } from 'react';
 
-import { NewBlankPage } from '#client/features/pages/index.ts';
 import {
   PracticeGenerationAction,
   ArchivedPracticeAction
@@ -736,9 +735,6 @@ function SidebarCreationControl({
           <ArchivedPracticeAction key={String(project)} projectId={project} disabled={disabled} />
           <PracticeGenerationAction projectId={project} disabled={disabled} />
         </>
-      )}
-      {metadata.section === 'pages' && (
-        <NewBlankPage key={String(project)} project={project} compact disabled={disabled} />
       )}
       {metadata.title === 'Notes' && (
         <IconButton

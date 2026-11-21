@@ -34,6 +34,7 @@ import { MessageDeletion } from './message-deletion';
 import { NoteSummary } from './note-editor';
 import { NotePageCard } from './note-page-card';
 import { useThreadPage } from './note-reads';
+import { NotebookHeading } from './notebook-heading';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
 import { NotebookNavigation } from './notebook-navigation';
 import { PendingMessageWork } from './pending-message-work';
@@ -47,7 +48,6 @@ type Message = typeof chatMessageSchema.Type;
 
 type HistoryProps = {
   id: NoteId;
-  onPage?: () => void;
   onOpen?: (message: Message) => void;
   activePage?: string;
   pages?: readonly PageSummary[];
@@ -72,7 +72,6 @@ function HistoryRead(props: HistoryProps) {
 
 function HistoryContent({
   id,
-  onPage,
   onOpen,
   activePage,
   pages = [],
@@ -104,17 +103,7 @@ function HistoryContent({
       }
     >
       <Notebook.History aria-label={t('NoteNotebook')}>
-        <Notebook.NotesHeading>
-          <Notebook.PageHeading>
-            <h1>{t('NoteNotesTitle')}</h1>
-            <p>{t('NoteNotesHelp')}</p>
-          </Notebook.PageHeading>
-          {onPage && (
-            <Button variant="outline" size="sm" onClick={onPage}>
-              {t('NoteWritePage')}
-            </Button>
-          )}
-        </Notebook.NotesHeading>
+        <NotebookHeading />
         <NotebookHistoryFeedback
           state={state}
           messageCount={messages.length}

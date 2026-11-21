@@ -270,9 +270,8 @@ export const english = Object.freeze({
   AgentRulesIntro:
     'Choose a task and describe how Study should work. Changes apply to future runs. Leave a field empty to use the defaults. Your preferences supplement the task instructions; required formats and source accuracy still apply.',
   AgentRulesTask: 'Task',
-  AgentRulesPages: 'Pages',
-  AgentRulesPagesHelp:
-    'Guide page generation and rewrites: structure, headings, tone and level of detail. For example: start with an overview and keep worked examples.',
+  AgentRulesPages: 'Study notes and revisions',
+  AgentRulesPagesHelp: 'Set default instructions for generated study notes and AI revisions.',
   AgentRulesTitles: 'Titles',
   AgentRulesTitlesHelp:
     'Guide automatically generated note and study material titles. For example: use concise, descriptive titles without emojis.',
@@ -346,10 +345,24 @@ export const english = Object.freeze({
   QuizImportedSource: 'Imported source',
   QuizNoMatchingQuestions:
     'This material has no questions of the selected type. Choose another type to start.',
-  QuizChooseInputs: 'Source material',
-  QuizChooseInputsHelp: 'Choose up to 20 pages from Pages. All pages are selected by default.',
+  PracticeStudyNotes: 'Generate study notes',
+  PracticeStudyNotesInstructionLimit:
+    'Shorten the instructions to 10,000 characters to generate study notes.',
+  PracticeStudyNotesGenerating: 'Generating study notes…',
+  PracticeStudyNotesFailed:
+    'Study notes could not be generated. You can retry using the same sources.',
+  PracticeStudyNotesEvidenceLimit: 'Select fewer sources or shorter notes and try again.',
+  PracticeStudyNotesActivity: 'Generation activity',
+  PracticeStudyNotesCustomTitle: 'Study notes title',
+  PracticeStudyNotesTitle: 'Study notes',
+  PracticeStudyNotesHelp: 'Turn your selected sources into editable study notes.',
+  PracticeOpenStudyNotes: 'Open study notes',
+  PracticeMaterialNeedsExtraction: 'Extracted text is required',
+  QuizChooseInputs: 'Sources',
+  QuizChooseInputsHelp:
+    'Choose up to 20 sources from your notes, materials, and saved study notes.',
   QuizInputsError: 'Could not load source material. Try again.',
-  QuizNoProjectInputs: 'This subject has no pages yet. Add one from Pages first.',
+  QuizNoProjectInputs: 'This subject has no saved study notes yet.',
   QuizInputUnavailable:
     'This source is not ready to use. Wait for processing to finish and try again.',
   QuizGenerateName: 'Title (optional)',
@@ -563,10 +576,9 @@ export const english = Object.freeze({
   SidebarSelectedCount: '{count} selected',
   SidebarDeleteSelected: 'Delete selected',
   SidebarShowMore: 'Show {count} more',
-  PagesOverviewTitle: 'Your pages',
-  PagesOverviewDescription:
-    'A place for your finished notes, worked examples and study guides. Pick up where you left off, or start a new page.',
-  PagesSaved: 'Saved pages',
+  PagesOverviewTitle: 'Study notes',
+  PagesOverviewDescription: 'Review and edit study notes generated from your sources.',
+  PagesSaved: 'Saved study notes',
   PagesSelect: 'Select pages',
   PagesSelectionHelp: 'Select 2 to 20 pages to merge.',
   PagesSelected: '{count} selected',
@@ -592,9 +604,9 @@ export const english = Object.freeze({
   PagesMergeCancel: 'Cancel merge',
   PagesSelectAll: 'Select loaded pages',
   PagesCancelSelection: 'Cancel selection',
-  PagesEmptyTitle: 'Make room for your next idea',
+  PagesEmptyTitle: 'No study notes yet',
   PagesOverviewEmpty:
-    'Create a page or turn a note into one. Your writing will be collected here, ready to read and refine.',
+    'Choose Generate in Practice and select the notes and materials you want to study.',
   PagesFromNotes: 'From notes',
   PagesSelectNotesHelp:
     'Choose one or more notes to turn into a page. You can set instructions and options next.',
@@ -607,7 +619,7 @@ export const english = Object.freeze({
     'Choose a note for questions, summaries or rewrites. This page version will be added to its context; your other selected context stays in place.',
   PageOpenAI: 'Open note',
   PageDeleteAction: 'Delete page…',
-  PagesEmpty: 'Your finished pages will appear here.',
+  PagesEmpty: 'Generated study notes will appear here.',
   PagesLoadError: 'Could not load your pages.',
   SidebarSettled: 'Settled',
   SidebarReady: 'Ready',
@@ -622,6 +634,8 @@ export const english = Object.freeze({
   SidebarSettledValidation: 'Choose a whole number from 1 to 100.',
   SidebarSettingsError: 'Could not save sidebar settings.',
 
+  NoteDeletePracticeEvidence:
+    'This note is used by an exercise. Stop the practice session, cancel the active generation, or remove the exercise before deleting the note.',
   NoteDeleteFailed: 'Could not finish deleting this note',
   SubjectIconSymbols: 'Icons',
   SubjectIconEmojis: 'Emoji',
@@ -1766,7 +1780,7 @@ export const english = Object.freeze({
   StartupFailed: 'Could not finish measuring this computer. Try again.',
   StartupSkip: 'Continue without it',
   OnboardingNotebookDescription:
-    'Keep your notes and files together in a note. Save a thought, attach your material, or choose Ask Study when you need an answer.',
+    'Capture lecture notes, observations and questions as you learn. Upload original files in Materials.',
   OnboardingExample: 'A peek inside a note',
   OnboardingNotebookQuestion: 'Why does the Krebs cycle stop without oxygen?',
   OnboardingNotebookHint: 'Ask Study answers from your material, with citations you can follow.',
@@ -1781,23 +1795,23 @@ export const english = Object.freeze({
   OnboardingWelcomeSimple: 'A calm place for your notes, your material and everything you learn.',
   OnboardingSubjectsTitle: 'Subjects keep things together',
   OnboardingSubjectsDescription:
-    'Create a subject for a course, an exam or a topic. Its notes and pages stay together. Switch subjects in the sidebar when you move on to something else.',
-  OnboardingPagesTitle: 'Pages give your ideas a lasting shape',
+    'Create a subject for a course, an exam or a topic. Its notes, materials and practice stay together. Switch subjects in the sidebar.',
+  OnboardingPagesTitle: 'Study notes stay in Practice',
   OnboardingPagesDescription:
-    'A page is an editable space for a clear explanation, a worked example or a study guide. Write one from scratch, or make one from your notes. Find it again in Pages.',
-  OnboardingWorkflowTitle: 'From note to page',
+    'Open a study note in Practice to review it, edit it and revisit earlier versions.',
+  OnboardingWorkflowTitle: 'Generate study notes from your sources',
   OnboardingWorkflowDescription:
-    'Capture freely in a note while you learn. When you want a clear page to return to, choose Transform note. Study uses saved notes and selected sources to create a page. You can include several notes and choose how to organize, explain or summarize the material.',
+    'In Practice, choose Generate study notes and select notes or materials. Add a title or instructions if you want, then open the result in Practice.',
   OnboardingSampleSubject: 'Biology',
   OnboardingSampleMonogram: 'BIO',
   OnboardingSampleNote: 'Cellular respiration · lecture notes',
   OnboardingSamplePageTitle: 'How cells release energy',
   OnboardingSamplePageBody:
     'The **Krebs cycle** takes place in the mitochondria. Its reactions transfer energy to electron carriers.\n\n- **NADH and FADH₂** carry electrons to the transport chain.\n- **Oxygen** accepts electrons at the end of that chain.\n- Without oxygen, the carriers cannot be recycled and the cycle stalls.',
-  OnboardingExamplePage: 'Example page',
-  OnboardingExampleTransformation: 'Example transformation',
-  OnboardingPreviewTransform: 'See the example page',
-  OnboardingPreviewNotes: 'Back to the example notes',
+  OnboardingExamplePage: 'Example study note',
+  OnboardingExampleTransformation: 'Example study-note generation',
+  OnboardingPreviewTransform: 'See the example study note',
+  OnboardingPreviewNotes: 'Back to the example sources',
   OnboardingSkip: 'Skip',
   OnboardingNext: 'Continue',
   OnboardingStart: 'Get started',
@@ -2115,9 +2129,9 @@ export const english = Object.freeze({
   AlertDeleteCard: 'Delete this card?',
   ConfirmDeleteCard: 'Its review history goes with it.',
   AddCard: 'Add a card',
-  PracticeSourcePages: 'Source pages',
-  PracticeNoSourcePages: 'No pages are linked to this material.',
-  PracticeGenerateFromPages: 'Generate from pages',
+  PracticeEvidence: 'Sources used',
+  PracticeNoEvidence: 'This exercise has no linked sources.',
+  PracticeGenerateFromPages: 'Generate practice from sources',
   PracticeGenerateAutomaticTitle:
     'Study will create a title automatically. Your defaults come from Settings → Study.',
   PracticeClearSelection: 'Clear selection',
@@ -2129,8 +2143,7 @@ export const english = Object.freeze({
   PracticeNextQuestion: 'Next',
   PracticeOverallResults: 'Overall results',
   PracticeGenerate: 'Generate practice',
-  PracticeGenerateHelp:
-    'Create practice exercises and flashcards from your pages. All pages are selected; deselect any you want to leave out.',
+  PracticeGenerateHelp: 'Create exercises or study notes from your notes, materials, and pages.',
   WrittenExam: 'Written exam',
   WrittenExamHelp:
     'Talk through one concept with a professor who asks follow-up questions. Ask for a hint if you get stuck.',
@@ -2167,8 +2180,7 @@ export const english = Object.freeze({
   PracticeGeneratePrompt: 'What should it focus on? (optional)',
   PracticeGeneratePromptHint:
     'For example: quiz me on transaction isolation, or make flashcards for key definitions.',
-  PracticeGenerateLimit:
-    'Choose up to 20 pages to generate practice. Deselect some pages to continue.',
+  PracticeGenerateLimit: 'Choose up to 20 sources. Deselect some sources to continue.',
   PracticeGenerateStart: 'Generate',
   PracticeChooseSubject: 'Choose a subject before generating practice.',
   PracticeOpenGenerated: 'Open practice',
@@ -2585,7 +2597,7 @@ export const english = Object.freeze({
   SourcePdf: 'PDFs',
   SourceText: 'Text files',
   SourceCode: 'Code and web files',
-  SourcePage: 'Pages',
+  SourcePage: 'Study notes',
   SourceDocument: 'Documents',
   SourceSpreadsheet: 'Spreadsheets',
   SourceSlides: 'Slides',

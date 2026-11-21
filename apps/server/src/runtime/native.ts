@@ -126,6 +126,7 @@ export function nativeLayers(
     Pages.layer,
     Integrations.layer,
     Materials.deletionParticipantsLayer({ Learning }),
+    Notes.mergeMaterialsLayer(Materials.attachInTransaction),
     Notes.layer,
     Learning.layer.pipe(Layer.provide(Layer.mergeAll(Settings.layer, Materials.layer))),
     Projects.layer,

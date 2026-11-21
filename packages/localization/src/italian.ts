@@ -278,9 +278,9 @@ export const italian = Object.freeze({
   AgentRulesIntro:
     'Scegli un’attività e descrivi come deve lavorare Study. Le modifiche si applicano alle esecuzioni future. Lascia un campo vuoto per usare le impostazioni predefinite. Le tue preferenze integrano le istruzioni dell’attività; i formati richiesti e la fedeltà alle fonti restano validi.',
   AgentRulesTask: 'Attività',
-  AgentRulesPages: 'Pagine',
+  AgentRulesPages: 'Appunti di studio e revisioni',
   AgentRulesPagesHelp:
-    'Guida la generazione e la riscrittura delle pagine: struttura, titoli, tono e livello di dettaglio. Ad esempio: inizia con una panoramica e conserva gli esempi svolti.',
+    'Imposta le istruzioni predefinite per gli appunti di studio generati e le revisioni con IA.',
   AgentRulesTitles: 'Titoli',
   AgentRulesTitlesHelp:
     'Guida i titoli generati automaticamente per note e materiale di studio. Ad esempio: usa titoli brevi e descrittivi, senza emoji.',
@@ -353,11 +353,22 @@ export const italian = Object.freeze({
   QuizImportedSource: 'Fonte importata',
   QuizNoMatchingQuestions:
     'Questo materiale non contiene domande del tipo selezionato. Scegli un altro tipo per iniziare.',
-  QuizChooseInputs: 'Materiale di partenza',
-  QuizChooseInputsHelp:
-    'Scegli fino a 20 pagine dalla pagina Pagine. Tutte le pagine sono selezionate inizialmente.',
+  PracticeStudyNotes: 'Genera appunti',
+  PracticeStudyNotesInstructionLimit:
+    'Riduci le istruzioni a 10.000 caratteri per generare gli appunti.',
+  PracticeStudyNotesGenerating: 'Generazione degli appunti…',
+  PracticeStudyNotesFailed: 'Impossibile generare gli appunti. Puoi riprovare con le stesse fonti.',
+  PracticeStudyNotesEvidenceLimit: 'Seleziona meno fonti o note più brevi e riprova.',
+  PracticeStudyNotesActivity: 'Attività di generazione',
+  PracticeStudyNotesCustomTitle: 'Titolo degli appunti di studio',
+  PracticeStudyNotesTitle: 'Appunti di studio',
+  PracticeStudyNotesHelp: 'Crea appunti di studio modificabili dalle fonti selezionate.',
+  PracticeOpenStudyNotes: 'Apri gli appunti',
+  PracticeMaterialNeedsExtraction: 'Serve il testo estratto',
+  QuizChooseInputs: 'Fonti',
+  QuizChooseInputsHelp: 'Scegli fino a 20 fonti tra note, materiali e appunti di studio salvati.',
   QuizInputsError: 'Impossibile caricare il materiale di partenza. Riprova.',
-  QuizNoProjectInputs: 'Questa materia non ha ancora pagine. Aggiungine una da Pagine.',
+  QuizNoProjectInputs: 'Questa materia non ha ancora appunti di studio salvati.',
   QuizInputUnavailable:
     'Questa fonte non è pronta. Attendi il completamento dell’elaborazione e riprova.',
   QuizGenerateName: 'Titolo (facoltativo)',
@@ -580,10 +591,9 @@ export const italian = Object.freeze({
   SidebarSelectedCount: '{count} selezionate',
   SidebarDeleteSelected: 'Elimina selezionate',
   SidebarShowMore: 'Mostra altre {count}',
-  PagesOverviewTitle: 'Le tue pagine',
-  PagesOverviewDescription:
-    'Appunti, esercizi svolti e guide allo studio. Riprendi da dove eri rimasto o inizia una nuova pagina.',
-  PagesSaved: 'Pagine salvate',
+  PagesOverviewTitle: 'Appunti di studio',
+  PagesOverviewDescription: 'Rileggi e modifica gli appunti di studio generati dalle tue fonti.',
+  PagesSaved: 'Appunti di studio salvati',
   PagesSelect: 'Seleziona pagine',
   PagesSelectionHelp: 'Seleziona da 2 a 20 pagine da unire.',
   PagesSelected: '{count} selezionate',
@@ -609,9 +619,9 @@ export const italian = Object.freeze({
   PagesMergeCancel: 'Annulla unione',
   PagesSelectAll: 'Seleziona pagine caricate',
   PagesCancelSelection: 'Annulla selezione',
-  PagesEmptyTitle: 'Spazio alla tua prossima idea',
+  PagesEmptyTitle: 'Nessun appunto di studio',
   PagesOverviewEmpty:
-    'Crea una pagina o trasformaci una nota. Ritroverai qui i tuoi testi, pronti da leggere e perfezionare.',
+    'Scegli Genera in Esercitazione e seleziona le note e i materiali da studiare.',
   PagesFromNotes: 'Da note',
   PagesSelectNotesHelp:
     'Scegli una o più note da trasformare in una pagina. Potrai impostare istruzioni e opzioni nel prossimo passaggio.',
@@ -624,7 +634,7 @@ export const italian = Object.freeze({
     'Scegli una nota per domande, riassunti o riscritture. Questa versione della pagina verrà aggiunta al contesto, mantenendo le altre selezioni.',
   PageOpenAI: 'Apri nota',
   PageDeleteAction: 'Elimina pagina…',
-  PagesEmpty: 'Le tue pagine completate appariranno qui.',
+  PagesEmpty: 'Gli appunti di studio generati appariranno qui.',
   PagesLoadError: 'Impossibile caricare le pagine.',
   SidebarSettled: 'Completate',
   SidebarReady: 'Pronta',
@@ -639,6 +649,8 @@ export const italian = Object.freeze({
   SidebarSettledValidation: 'Scegli un numero intero da 1 a 100.',
   SidebarSettingsError: 'Impossibile salvare le impostazioni della barra.',
 
+  NoteDeletePracticeEvidence:
+    'Questa nota è usata da un esercizio. Interrompi la sessione di esercitazione, annulla la generazione in corso o elimina l’esercizio prima di eliminare la nota.',
   NoteDeleteFailed: 'Impossibile completare l’eliminazione della nota',
   SubjectIconSymbols: 'Icone',
   SubjectIconEmojis: 'Emoji',
@@ -1812,7 +1824,7 @@ export const italian = Object.freeze({
   StartupFailed: 'Impossibile completare la misurazione di questo computer. Riprova.',
   StartupSkip: 'Continua senza misurare',
   OnboardingNotebookDescription:
-    'Tieni appunti e file insieme in una nota. Salva un pensiero, allega il tuo materiale o scegli Chiedi a Study quando ti serve una risposta.',
+    'Raccogli appunti delle lezioni, osservazioni e domande mentre studi. Carica i file originali in Materiali.',
   OnboardingExample: 'Uno sguardo dentro una nota',
   OnboardingNotebookQuestion: 'Perché il ciclo di Krebs si ferma senza ossigeno?',
   OnboardingNotebookHint: 'Chiedi a Study risponde dal tuo materiale, con citazioni da consultare.',
@@ -1829,23 +1841,23 @@ export const italian = Object.freeze({
     'Un posto tranquillo per i tuoi appunti, il tuo materiale e tutto ciò che impari.',
   OnboardingSubjectsTitle: 'Le materie tengono tutto insieme',
   OnboardingSubjectsDescription:
-    'Crea una materia per un corso, un esame o un argomento. Le sue note e le sue pagine restano insieme. Cambia materia dalla barra laterale quando passi ad altro.',
-  OnboardingPagesTitle: 'Le pagine danno forma alle tue idee',
+    'Crea una materia per un corso, un esame o un argomento. Le sue note, i materiali e le esercitazioni restano insieme. Cambia materia dalla barra laterale.',
+  OnboardingPagesTitle: 'Gli appunti di studio sono in Esercitazione',
   OnboardingPagesDescription:
-    'Una pagina è uno spazio modificabile per una spiegazione chiara, un esempio svolto o una guida di studio. Scrivila da zero o creala dalle tue note. La ritrovi in Pagine.',
-  OnboardingWorkflowTitle: 'Dalla nota alla pagina',
+    'Apri gli appunti di studio in Esercitazione per rileggerli, modificarli e rivedere le versioni precedenti.',
+  OnboardingWorkflowTitle: 'Genera appunti di studio dalle tue fonti',
   OnboardingWorkflowDescription:
-    'Raccogli liberamente i tuoi appunti in una nota mentre studi. Quando vuoi una pagina chiara da rileggere, scegli Trasforma nota. Study usa gli appunti salvati e le fonti selezionate per creare una pagina. Puoi includere più note e scegliere come organizzare, spiegare o riassumere il materiale.',
+    'In Esercitazione, scegli Genera appunti e seleziona le note o i materiali. Puoi aggiungere un titolo o delle istruzioni. Apri il risultato in Esercitazione.',
   OnboardingSampleSubject: 'Biologia',
   OnboardingSampleMonogram: 'BIO',
   OnboardingSampleNote: 'Respirazione cellulare · appunti della lezione',
   OnboardingSamplePageTitle: 'Come le cellule liberano energia',
   OnboardingSamplePageBody:
     'Il **ciclo di Krebs** avviene nei mitocondri. Le sue reazioni trasferiscono energia ai trasportatori di elettroni.\n\n- **NADH e FADH₂** portano gli elettroni alla catena di trasporto.\n- **L’ossigeno** accetta gli elettroni alla fine della catena.\n- Senza ossigeno i trasportatori non vengono rigenerati e il ciclo si ferma.',
-  OnboardingExamplePage: 'Pagina di esempio',
-  OnboardingExampleTransformation: 'Trasformazione di esempio',
-  OnboardingPreviewTransform: 'Guarda la pagina di esempio',
-  OnboardingPreviewNotes: 'Torna agli appunti di esempio',
+  OnboardingExamplePage: 'Appunti di studio di esempio',
+  OnboardingExampleTransformation: 'Esempio di generazione di appunti',
+  OnboardingPreviewTransform: 'Guarda gli appunti di studio di esempio',
+  OnboardingPreviewNotes: 'Torna alle fonti di esempio',
   OnboardingSkip: 'Salta',
   OnboardingNext: 'Continua',
   OnboardingStart: 'Iniziamo',
@@ -2171,9 +2183,9 @@ export const italian = Object.freeze({
   AlertDeleteCard: 'Eliminare questa flashcard?',
   ConfirmDeleteCard: 'Anche i suoi ripassi vengono eliminati.',
   AddCard: 'Aggiungi una flashcard',
-  PracticeSourcePages: 'Pagine di riferimento',
-  PracticeNoSourcePages: 'Nessuna pagina è collegata a questo materiale.',
-  PracticeGenerateFromPages: 'Genera dalle pagine',
+  PracticeEvidence: 'Fonti usate',
+  PracticeNoEvidence: 'Questo esercizio non ha fonti collegate.',
+  PracticeGenerateFromPages: 'Genera esercizi dalle fonti',
   PracticeGenerateAutomaticTitle:
     'Study creerà automaticamente il titolo. Le preferenze vengono da Impostazioni → Studio.',
   PracticeClearSelection: 'Deseleziona tutto',
@@ -2185,8 +2197,7 @@ export const italian = Object.freeze({
   PracticeNextQuestion: 'Successiva',
   PracticeOverallResults: 'Risultati complessivi',
   PracticeGenerate: 'Genera esercizi',
-  PracticeGenerateHelp:
-    'Crea esercizi e flashcard dalle tue pagine. Sono tutte selezionate; deseleziona quelle che vuoi escludere.',
+  PracticeGenerateHelp: 'Crea esercizi o appunti di studio da note, materiali e pagine.',
   WrittenExam: 'Interrogazione scritta',
   WrittenExamHelp:
     'Discuti un concetto con un professore che ti fa domande di approfondimento. Se ti blocchi, chiedi un indizio.',
@@ -2224,7 +2235,7 @@ export const italian = Object.freeze({
   PracticeGeneratePrompt: 'Su cosa concentrarsi? (facoltativo)',
   PracticeGeneratePromptHint:
     'Per esempio: un quiz sull’isolamento delle transazioni o flashcard con le definizioni principali.',
-  PracticeGenerateLimit: 'Scegli fino a 20 pagine. Deseleziona alcune pagine per continuare.',
+  PracticeGenerateLimit: 'Scegli fino a 20 fonti. Deseleziona alcune fonti per continuare.',
   PracticeGenerateStart: 'Genera',
   PracticeChooseSubject: 'Scegli una materia prima di generare gli esercizi.',
   PracticeOpenGenerated: 'Apri gli esercizi',
@@ -2647,7 +2658,7 @@ export const italian = Object.freeze({
   SourcePdf: 'PDF',
   SourceText: 'File di testo',
   SourceCode: 'Codice e file web',
-  SourcePage: 'Pagine',
+  SourcePage: 'Appunti di studio',
   SourceDocument: 'Documenti',
   SourceSpreadsheet: 'Fogli di calcolo',
   SourceSlides: 'Presentazioni',

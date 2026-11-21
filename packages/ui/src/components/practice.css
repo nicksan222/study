@@ -976,36 +976,24 @@
   margin-top: 1.25rem;
 }
 .study-generation-pages {
-  overflow: hidden;
-}
-.study-generation-pages .study-practice-source-inputs,
-.study-generation-pages .settings-section {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-.study-generation-page-choices {
-  flex: 1;
-  min-height: 0;
   overflow: auto;
+}
+.study-generation-pages .study-practice-source-inputs {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
   padding-bottom: 1rem;
 }
+.study-generation-pages .settings-section + .settings-section {
+  margin-top: 0;
+}
 .study-generation-pages .study-practice-setup-actions {
-  flex: none;
-  margin: auto 0 0;
+  margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }
 @media (max-width: 760px) {
   .study-generation-pages {
-    overflow: visible;
-  }
-  .study-generation-pages .study-practice-source-inputs,
-  .study-generation-pages .settings-section {
-    height: auto;
-  }
-  .study-generation-page-choices {
     overflow: visible;
   }
 }

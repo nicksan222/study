@@ -16,9 +16,13 @@ export const errorKindSchema = Schema.Literals([
 
 export type ErrorKind = typeof errorKindSchema.Type;
 
+const failureResourceSchema = Schema.Literals(['ai_capacity', 'note_practice_evidence']);
+
+type FailureResource = typeof failureResourceSchema.Type;
+
 export const failureSchema = Schema.Struct({
   kind: errorKindSchema,
-  resource: Schema.optionalKey(Schema.Literal('ai_capacity')),
+  resource: Schema.optionalKey(failureResourceSchema),
   message: Schema.String,
   retryAfterMs: Schema.NullOr(Schema.Number)
 });
@@ -31,12 +35,12 @@ export const encodeFailure = Schema.encodeSync(failureSchema);
 export class StudyError extends Error {
   readonly kind: ErrorKind;
   readonly retryAfterMs: number | null;
-  declare readonly resource?: 'ai_capacity';
+  declare readonly resource?: FailureResource;
 
   constructor(
     kind: ErrorKind,
     message: string,
-    options?: { cause?: unknown; retryAfterMs?: number | null; resource?: 'ai_capacity' }
+    options?: { cause?: unknown; retryAfterMs?: number | null; resource?: FailureResource }
   ) {
     super(message, { cause: options?.cause });
 

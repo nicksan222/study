@@ -36,8 +36,9 @@ export function SourcePage() {
       }}
       onOpenPage={(page) => {
         void navigate({
-          to: '/pages/$pageId',
-          params: { pageId: String(page.id) }
+          to: '/practice/study-notes/$pageId',
+          params: { pageId: String(page.id) },
+          search: { project: search.project }
         });
       }}
     />

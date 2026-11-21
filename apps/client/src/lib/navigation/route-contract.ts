@@ -10,7 +10,7 @@ import { Schema } from 'effect';
 
 import type { SidebarRouteConfig } from './sidebar-config';
 
-export type Section = 'notes' | 'pages' | 'practice' | 'assistant' | 'uploads';
+export type Section = 'notes' | 'practice' | 'assistant' | 'uploads';
 
 export type PageMetadata = {
   title: StaticMessageKey;

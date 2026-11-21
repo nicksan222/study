@@ -34,7 +34,7 @@ export function usePageRetirement(
         if (mode === 'deletion') {
           await rpc.pages.delete.call({ pageId: page.id, token: preview.token });
           await navigate({
-            to: '/pages',
+            to: '/practice',
             search: page.projectIds[0] ? { project: String(page.projectIds[0]) } : {}
           });
         } else

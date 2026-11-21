@@ -44,7 +44,6 @@ export {
   Check as CorrectIcon,
   Cpu as CpuIcon,
   SquarePen as CreateNoteIcon,
-  FilePlus2 as CreatePageIcon,
   FolderPlus as CreateProjectIcon,
   Paintbrush as CustomizeThemeIcon,
   Scissors as CutIcon,

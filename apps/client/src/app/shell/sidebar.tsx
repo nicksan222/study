@@ -29,15 +29,6 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
         onReselect={model.onToggle}
       />
     ) : null,
-  pages: ({ model, ready }) =>
-    ready ? (
-      <PagesSidebar
-        key={String(model.project)}
-        project={model.project}
-        subjects={model.subjects}
-        query={model.query}
-      />
-    ) : null,
   practice: ({ model, ready }) => <PracticePanel model={model} ready={ready} />
 };
 
@@ -87,6 +78,14 @@ function PracticePanel({ model, ready }: PanelProps) {
         query={model.query}
         enabled={ready}
       />
+      {ready && (
+        <PagesSidebar
+          key={`study-notes:${model.project}`}
+          project={model.project}
+          subjects={model.subjects}
+          query={model.query}
+        />
+      )}
       <LibraryList
         subjects={model.subjects}
         project={model.project}

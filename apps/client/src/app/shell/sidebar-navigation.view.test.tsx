@@ -11,15 +11,15 @@ test.unit.stable(
 
     renderInRouter(
       <SidebarNavigation
-        section="pages"
+        section="practice"
         settings={false}
         project="9007199254740993"
         onNavigate={onNavigate}
       />
     );
-    const pages = await screen.findByRole('link', { name: catalogs.english.SourcePage });
+    const pages = await screen.findByRole('link', { name: catalogs.english.Practice });
 
-    expect(pages).toHaveAttribute('href', '/pages?project=9007199254740993');
+    expect(pages).toHaveAttribute('href', '/practice?project=9007199254740993');
     expect(pages).toHaveAttribute('aria-current', 'page');
     expect(
       screen.queryByRole('link', { name: catalogs.english.SidebarLibrary })
@@ -34,26 +34,23 @@ test.unit.stable(
   async ({ renderInRouter, screen, expect }) => {
     renderInRouter(
       <SidebarNavigation
-        section="pages"
+        section="practice"
         settings={false}
         project={null}
         counts={{
           notes: { count: 12, unresolved: true },
-          pages: { count: 34 },
-          practice: { count: 0 }
+          practice: { count: 34 }
         }}
         onNavigate={() => {}}
       />
     );
     const notes = await screen.findByRole('link', { name: `${catalogs.english.Notes} 12` });
-    const pages = screen.getByRole('link', { name: `${catalogs.english.SourcePage} 34` });
-    const practice = screen.getByRole('link', { name: `${catalogs.english.Practice} 0` });
+    const pages = screen.getByRole('link', { name: `${catalogs.english.Practice} 34` });
 
     expect(notes).toHaveTextContent('12');
     expect(notes.querySelector('[data-unresolved]')).toHaveTextContent('12');
     expect(notes).not.toHaveAttribute('data-unresolved');
     expect(pages).toHaveTextContent('34');
     expect(pages.querySelector('[data-unresolved]')).toBeNull();
-    expect(practice).toHaveTextContent('0');
   }
 );

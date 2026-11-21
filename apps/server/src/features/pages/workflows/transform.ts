@@ -76,6 +76,8 @@ export const pageTransformHandler = Effect.fnUntraced(function* ({
     if (current.cancelled || current.eventId !== event.eventId || current.resultVersionId !== null)
       return yield* Effect.fail(new StudyError('cancelled', 'Page generation is no longer active'));
 
+    if (request.studyNotes) return yield* notes.studyNotesContext({ requestId: request.id });
+
     return yield* request.merge
       ? docs.mergeContext({ requestId: request.id })
       : notes.pageTransformContext({ requestId: request.id });
@@ -94,7 +96,11 @@ export const pageTransformHandler = Effect.fnUntraced(function* ({
       name: 'publish-authored-document',
       success: pageVersionIdSchema,
 
-      execute: request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
+      execute: request.studyNotes
+        ? notes.publishStudyNotes(output)
+        : request.merge
+          ? docs.publishMerge(output)
+          : notes.publishPageTransform(output)
     });
   }).pipe(
     Effect.catch((error) =>

@@ -5,6 +5,7 @@ import {
   StudyError,
   contentSnapshotIdSchema,
   correctBlockInputSchema,
+  projectIdSchema,
   documentSchema,
   encodeBlockContent,
   hasTextualContent,
@@ -28,19 +29,22 @@ import { changeSchema, inputSchema, replacementSchema, request } from './schemas
 function uploadedFor(project: ProjectId | undefined) {
   if (project === undefined) return undefined;
 
+  const { sources } = tables;
+
+  return and(inArray(sources.origin, ['attachment', 'import', 'recording']), inProject(project));
+}
+
+function inProject(project: ProjectId) {
   const { sources, note_sources, project_notes } = tables;
 
-  return and(
-    inArray(sources.origin, ['attachment', 'import', 'recording']),
-    or(
-      eq(sources.project_id, project),
-      sql`EXISTS (
-        SELECT 1 FROM ${note_sources}
-        JOIN ${project_notes} ON ${project_notes.note_id} = ${note_sources.note_id}
-        WHERE ${note_sources.source_id} = ${sources.id}
-          AND ${project_notes.project_id} = ${project}
-      )`
-    )
+  return or(
+    eq(sources.project_id, project),
+    sql`EXISTS (
+      SELECT 1 FROM ${note_sources}
+      JOIN ${project_notes} ON ${project_notes.note_id} = ${note_sources.note_id}
+      WHERE ${note_sources.source_id} = ${sources.id}
+        AND ${project_notes.project_id} = ${project}
+    )`
   );
 }
 
@@ -80,6 +84,17 @@ export function makeSourceStore({ db, clock, timestampClock }: StoreResources) {
         input: sourceIdSchema,
         output: Schema.Option(sourceSchema),
         run: (id) => Option.fromNullishOr(find(id))
+      }),
+      belongsToProject: storeQuery({
+        role: 'required',
+        input: Schema.Struct({ id: sourceIdSchema, projectId: projectIdSchema }),
+        output: Schema.Boolean,
+        run: ({ id, projectId }) =>
+          db.orm
+            .select({ id: tables.sources.id })
+            .from(tables.sources)
+            .where(and(eq(tables.sources.id, id), inProject(projectId)))
+            .get() !== undefined
       }),
       sources: storeQuery({
         role: 'collection',

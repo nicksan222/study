@@ -43,16 +43,15 @@ export function makeHistory({ db }: StoreResources) {
     through?: MessageId,
     threadRoot?: PartId,
     allowEmpty = false,
-    policy: { pendingAssistant?: 'omit'; bounded?: boolean } = {}
+    policy: { pendingAssistant?: 'omit'; bounded?: boolean; authoredOnly?: boolean } = {}
   ) {
     const rows = selectedMessages()
       .where(
         and(
           eq(messages.note_id, noteId),
           activeMessageCondition(),
-          threadRoot === undefined
-            ? isNull(messages.thread_root)
-            : eq(messages.thread_root, threadRoot),
+          policy.authoredOnly ? eq(messages.role, 'user') : undefined,
+          threadCondition(threadRoot),
           through === undefined ? undefined : lte(messages.id, through)
         )
       )
@@ -160,4 +159,10 @@ function contextFull(
   if ((bounded || mode === NoteMode.Assistant) && count > 0) return true;
 
   throw new StudyError('not_enough', 'Active note messages exceed the context limit');
+}
+
+function threadCondition(threadRoot: PartId | undefined) {
+  return threadRoot === undefined
+    ? isNull(messages.thread_root)
+    : eq(messages.thread_root, threadRoot);
 }

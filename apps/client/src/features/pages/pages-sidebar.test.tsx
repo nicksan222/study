@@ -92,7 +92,7 @@ function show({
   const index = createRoute({ getParentRoute: () => root, path: '/', component: () => null });
   const reader = createRoute({
     getParentRoute: () => root,
-    path: '/pages/$pageId',
+    path: '/practice/study-notes/$pageId',
     component: () => <p>Reader</p>
   });
   const router = createRouter({
@@ -139,9 +139,9 @@ test.unit.stable(
     });
     expect(newest).toHaveClass('study-note-row');
     expect(within(newest).getByText('Description 2')).toBeInTheDocument();
-    expect(newest).toHaveAttribute('href', '/pages/2?project=1');
+    expect(newest).toHaveAttribute('href', '/practice/study-notes/2?project=1');
     await user.click(newest);
-    await waitFor(() => expect(router.state.location.pathname).toBe('/pages/2'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/practice/study-notes/2'));
     expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toHaveAttribute(
       'aria-current',
       'page'

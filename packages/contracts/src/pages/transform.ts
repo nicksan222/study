@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import { errorKindSchema } from '../errors.ts';
 import { projectIdSchema, noteIdSchema, pageVersionIdSchema } from '../ids.ts';
+import { contentInputKey, contentInputSchema } from '../inputs.ts';
 import { runSelectionContextSchema } from '../notes/context.ts';
 import { blockIdSchema } from '../sources/schemas.ts';
 import { authoredContentSchema, citationSchema } from './schemas.ts';
@@ -62,6 +63,20 @@ export const mergeRequestSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema)
 });
 
+export const studyNotesInstructionLimit = 10000;
+
+export const studyNotesRequestSchema = Schema.Struct({
+  key: Schema.String.check(Schema.isUUID()),
+  title: transformRequestSchema.fields.title,
+  projectId: projectIdSchema,
+  inputs: Schema.Array(contentInputSchema).check(
+    Schema.isBetweenLength(1, 20),
+    Schema.makeFilter((inputs) => new Set(inputs.map(contentInputKey)).size === inputs.length)
+  ),
+  instruction: Schema.String.check(Schema.isMaxLength(studyNotesInstructionLimit)),
+  language: Schema.Literals(['english', 'italian'])
+});
+
 /** Note captures and standalone page captures share the generation contract. */
 export const pageTransformContextSchema = Schema.Struct({
   ...runSelectionContextSchema.fields,
@@ -70,7 +85,8 @@ export const pageTransformContextSchema = Schema.Struct({
 
 export const storedTransformRequestSchema = Schema.Struct({
   ...transformRequestSchema.fields,
-  merge: Schema.optional(mergeRequestSchema)
+  merge: Schema.optional(mergeRequestSchema),
+  studyNotes: Schema.optional(studyNotesRequestSchema)
 });
 
 export const transformSnapshotSchema = Schema.Struct({

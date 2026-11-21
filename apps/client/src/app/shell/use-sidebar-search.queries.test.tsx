@@ -88,7 +88,7 @@ test.unit.stable(
     const view = renderHook(
       ({ content }) =>
         useSidebarSearch({ query: 'notes', project, global: true, canSearch: true, content }),
-      { initialProps: { content: 'pages' as 'pages' | 'workspace' }, wrapper }
+      { initialProps: { content: 'practice' as 'practice' | 'workspace' }, wrapper }
     );
 
     await act(async () => {

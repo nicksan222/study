@@ -113,7 +113,10 @@ export const pagesEndpoints = {
   merges: liveQuery(
     'pages.merges',
     {
-      payload: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+      payload: Schema.Struct({
+        projectId: Schema.optional(projectIdSchema),
+        studyNotes: Schema.optional(Schema.Boolean)
+      }),
       success: Schema.Array(t.transformSnapshotSchema),
       error: failureSchema
     },
@@ -123,6 +126,15 @@ export const pagesEndpoints = {
     'pages.merge',
     {
       payload: t.mergeRequestSchema,
+      success: t.transformSnapshotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  generateStudyNotes: mutation(
+    'pages.generateStudyNotes',
+    {
+      payload: t.studyNotesRequestSchema,
       success: t.transformSnapshotSchema,
       error: failureSchema
     },

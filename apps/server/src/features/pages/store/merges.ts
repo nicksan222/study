@@ -29,19 +29,21 @@ export const PageMergesStore = defineStore({
         role: 'collection',
         input: Schema.Struct({
           projectId: Schema.optional(projectIdSchema),
+          studyNotes: Schema.optional(Schema.Boolean),
           pending: Schema.Boolean,
           offset: Schema.Int,
           limit: Schema.Int
         }),
         output: Schema.Array(t.transformSnapshotSchema),
-        run: ({ projectId, pending, offset, limit }) => {
+        run: ({ projectId, studyNotes, pending, offset, limit }) => {
+          const requestKey = studyNotes ? '$.studyNotes' : '$.merge';
           const scope = and(
             isNull(requests.note_id),
             eq(requests.cancelled, false),
-            sql`json_type(${requests.request}, '$.merge') = 'object'`,
+            sql`json_type(${requests.request}, ${requestKey}) = 'object'`,
             projectId === undefined
               ? undefined
-              : sql`json_extract(${requests.request}, '$.merge.projectId') = ${String(projectId)}`
+              : sql`json_extract(${requests.request}, ${requestKey + '.projectId'}) = ${String(projectId)}`
           );
 
           return db.orm

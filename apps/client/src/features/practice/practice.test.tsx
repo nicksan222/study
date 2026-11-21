@@ -512,7 +512,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'keeps preferences in Settings and shows exact document sources without Archived',
+  'keeps preferences in Settings and shows exact practice sources without Archived',
   async ({ userEvent, screen, expect, within, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
     const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
@@ -530,13 +530,13 @@ test.unit.stable(
     await screen.findByRole('button', { name: en.PracticeStartQuiz });
     expect(screen.queryByRole('combobox', { name: en.QuizQuestionCount })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: en.PracticeActions }));
-    expect(await screen.findByText(en.PracticeSourcePages)).toBeInTheDocument();
+    expect(await screen.findByText(en.PracticeEvidence)).toBeInTheDocument();
     expect(
       await within(screen.getByRole('complementary', { name: en.PracticeActions })).findByRole(
         'link',
         { name: 'Material 41' }
       )
-    ).toHaveAttribute('href', '/pages/41?pageVersion=8');
+    ).toHaveAttribute('href', '/practice/study-notes/41?pageVersion=8');
     expect(
       within(screen.getByRole('complementary', { name: en.PracticeActions })).queryByRole(
         'button',
@@ -544,7 +544,12 @@ test.unit.stable(
       )
     ).not.toBeInTheDocument();
     expect(rpc['pages.version']).toHaveBeenCalledWith({ id: 8n });
-    expect(rpc['sources.source']).not.toHaveBeenCalled();
+    expect(rpc['sources.source']).toHaveBeenCalledWith({ id: 7n });
+    expect(
+      within(screen.getByRole('complementary', { name: en.PracticeActions }))
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toContain('/sources/7?sourceRevision=1&sourceSnapshot=9');
   }
 );
 

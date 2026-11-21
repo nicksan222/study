@@ -19,7 +19,7 @@ export function* pageTransformOperations() {
   const merges = yield* useStore(PageMergesStore);
 
   return {
-    merges: Effect.fnUntraced(function* (v: { projectId?: ProjectId }) {
+    merges: Effect.fnUntraced(function* (v: { projectId?: ProjectId; studyNotes?: boolean }) {
       const pending: (typeof t.transformSnapshotSchema.Type)[] = [];
       let page;
 
@@ -55,7 +55,8 @@ export function* pageTransformOperations() {
       transaction((tx) => {
         const request = tx.store(PageTransformsStore).transform(v);
 
-        if (!request.merge) throw new StudyError('invalid_input', 'Not a page merge');
+        if (!request.merge && !request.studyNotes)
+          throw new StudyError('invalid_input', 'Not a standalone generation');
 
         return retryTransform(tx, v);
       }),

@@ -85,7 +85,7 @@ export function PagesSidebar({
               title={item.title}
               render={
                 <Link
-                  to="/pages/$pageId"
+                  to="/practice/study-notes/$pageId"
                   params={{ pageId: String(item.id) }}
                   search={project ? { project: String(project) } : {}}
                 />

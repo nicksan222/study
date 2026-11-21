@@ -22,7 +22,9 @@ test.unit.stable.for(pages)(
     const title = catalogs.english[page];
 
     if (page === 'Practice' || page === 'Flashcards') {
-      expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
+      expect(await screen.findByRole('main')).toHaveTextContent(
+        page === 'Practice' ? catalogs.english.PagesOverviewTitle : /^$/
+      );
       expect(
         screen.getByRole('button', { name: catalogs.english.PracticeGenerate })
       ).toBeInTheDocument();

@@ -26,6 +26,10 @@ export const PagesRpcLive = defineRpc(
   ({ pages, notes }) => ({
     'pages.merges': pages.merges,
     'pages.merge': pages.merge,
+    'pages.generateStudyNotes': (v) =>
+      Option.isSome(notes)
+        ? notes.value.generateStudyNotes(v)
+        : Effect.fail(new StudyError('unsupported', 'Note service is unavailable')),
     'pages.requestTransform': (v) =>
       Option.isSome(notes)
         ? notes.value.requestPageTransform(v)
@@ -35,7 +39,7 @@ export const PagesRpcLive = defineRpc(
     'pages.retryTransform': Effect.fnUntraced(function* (v) {
       const request = yield* pages.transform(v);
 
-      if (request.merge) return yield* pages.retryMerge(v);
+      if (request.merge || request.studyNotes) return yield* pages.retryMerge(v);
 
       return yield* Option.isSome(notes)
         ? notes.value.retryPageTransform(v)

@@ -444,6 +444,7 @@ export {
 } from './notes/work.ts';
 export {
   applyProposalSchema,
+  authoredPageInputLimit,
   blockDifferenceSchema,
   compareSchema,
   comparisonSchema,
@@ -517,6 +518,8 @@ export {
   transformPublicationSchema,
   transformReportSchema,
   transformRequestSchema,
+  studyNotesInstructionLimit,
+  studyNotesRequestSchema,
   transformSnapshotSchema
 } from './pages/transform.ts';
 export type {

@@ -67,13 +67,13 @@ function mount({
     path: '/',
     component: () => (
       <PageContextMenu page={document} project={projectIdSchema.make(2n)}>
-        <a href="/pages/5">Example document</a>
+        <a href="/practice/study-notes/5">Example document</a>
       </PageContextMenu>
     )
   });
   const reader = createRoute({
     getParentRoute: () => root,
-    path: '/pages/$pageId',
+    path: '/practice/study-notes/$pageId',
     component: () => <p>Editor</p>
   });
   const router = createRouter({

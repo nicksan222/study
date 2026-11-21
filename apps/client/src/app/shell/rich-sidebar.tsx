@@ -12,13 +12,8 @@ import { age } from '@study/localization';
 import { Button, useNowMinute, IconButton, Sidebar as SidebarUI, Spinner } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 
-import {
-  NoteMergeDialog,
-  NotePageDialog,
-  NoteBatchDeleteDialog
-} from '#client/features/note-workspace/index.ts';
+import { NoteMergeDialog, NoteBatchDeleteDialog } from '#client/features/note-workspace/index.ts';
 import type { SelectedNote } from '#client/features/note-workspace/index.ts';
 import { SubjectIdentity } from '#client/features/subjects/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -51,7 +46,7 @@ function SidebarNoteList(props: Props) {
   const selectionOrigin = useRef<string | undefined>(undefined);
   const [selected, setSelected] = useState<SelectedNote[] | null>(null);
   const [action, setAction] = useState<{
-    kind: 'page' | 'delete' | 'merge';
+    kind: 'delete' | 'merge';
     notes: SelectedNote[];
   } | null>(null);
   const selection: SelectionControls = {
@@ -107,16 +102,6 @@ function SidebarNoteList(props: Props) {
             count={selected.length}
             label={t('SidebarSelectedCount', { count: selected.length })}
           />
-          <Button
-            size="sm"
-            aria-label={t('NoteCreatePage')}
-            title={t('NoteCreatePage')}
-            disabled={!selected.length}
-            onClick={() => setAction({ kind: 'page', notes: [...selected] })}
-          >
-            <PageIcon aria-hidden="true" />
-            {t('NoteCreatePage')}
-          </Button>
           <Button
             size="sm"
             aria-label={t('NoteMerge')}
@@ -190,16 +175,6 @@ function SidebarNoteList(props: Props) {
         onClose={() => setAction(null)}
         onMerged={() => setSelected(null)}
       />
-      {action?.kind === 'page' && action.notes[0] && (
-        <NotePageDialog
-          id={action.notes[0].id}
-          notes={action.notes}
-          open
-          onOpenChange={(open) => {
-            if (!open) setAction(null);
-          }}
-        />
-      )}
       {action?.kind === 'delete' && (
         <NoteBatchDeleteDialog
           notes={action.notes}
@@ -282,68 +257,26 @@ function RichNote(props: RowProps) {
   );
 }
 
-function canConvertNote({ settled, progress }: RowProps) {
-  return !settled && progress?.activity !== 'generating';
-}
-
 function NoteControls(props: RowProps) {
   const { t } = useI18n();
   const settlement = useNoteSettlement(props.note.id);
-  const preferences = useWorkspacePreferences();
-  const [pageOpen, setPageOpen] = useState(false);
   const blocked = settlement.isPending || !!props.progress?.running;
-  const pageAction = canConvertNote(props) ? (
-    <SidebarUI.SettleAction disabled={blocked} onClick={() => setPageOpen(true)}>
-      {t('SidebarTurnIntoPage')}
-    </SidebarUI.SettleAction>
-  ) : null;
 
   return (
     <>
       {!props.selection.items && props.note.archivedAt == null && (
-        <NoteActionLayout
-          compact={preferences.sidebarDensity === 'compact'}
-          pageAction={pageAction}
-        >
+        <SidebarUI.NoteRowActions placement="top">
           <SidebarUI.SettleAction
             disabled={blocked}
             onClick={() => settlement.mutate(!props.settled)}
           >
             {t(props.settled ? 'SidebarReopen' : 'SidebarSettle')}
           </SidebarUI.SettleAction>
-        </NoteActionLayout>
-      )}
-      {pageOpen && (
-        <NotePageDialog
-          id={props.note.id}
-          notes={[{ id: props.note.id, title: props.note.title }]}
-          open={pageOpen}
-          onOpenChange={setPageOpen}
-        />
+        </SidebarUI.NoteRowActions>
       )}
       {settlement.error && (
         <SidebarUI.Message role="alert">{t('SidebarSettlementError')}</SidebarUI.Message>
       )}
-    </>
-  );
-}
-
-function NoteActionLayout({
-  compact,
-  pageAction,
-  children
-}: {
-  compact: boolean;
-  pageAction: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <>
-      {!compact && pageAction && <SidebarUI.NoteRowActions>{pageAction}</SidebarUI.NoteRowActions>}
-      <SidebarUI.NoteRowActions placement="top">
-        {compact && pageAction}
-        {children}
-      </SidebarUI.NoteRowActions>
     </>
   );
 }
@@ -482,7 +415,7 @@ function MergeAction({
   onClose,
   onMerged
 }: {
-  action: { kind: 'page' | 'delete' | 'merge'; notes: SelectedNote[] } | null;
+  action: { kind: 'delete' | 'merge'; notes: SelectedNote[] } | null;
   onClose: () => void;
   onMerged: () => void;
 }) {

@@ -33,6 +33,9 @@
   max-width: 100%;
   flex: none;
 }
+.page-overview-section + .page-overview-section {
+  margin-block-start: 1.5rem;
+}
 .page-overview-section-heading {
   margin: 0;
   padding-block-end: 0.875rem;
@@ -225,4 +228,24 @@
 .page-note-choice[aria-pressed='true'] {
   background: var(--accent);
   color: var(--foreground);
+}
+
+.page-overview-job {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+}
+.page-overview-job .page-overview-copy {
+  display: grid;
+  gap: 0.375rem;
+}
+@container page-overview (max-width: 32rem) {
+  .page-overview-job {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .page-overview-job > .page-overview-actions {
+    grid-column: 2;
+  }
 }

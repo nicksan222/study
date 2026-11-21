@@ -21,7 +21,6 @@ import type * as __MockType3 from './message-actions';
 import type * as __MockType4 from './message-actions.queries';
 import type * as NoteQueries from './note-workspace.queries';
 import type * as __MockType5 from './note-workspace.queries';
-import type * as __MockType6 from './transformation';
 
 let activateVersion: typeof __MockType5.activateVersion;
 
@@ -34,8 +33,6 @@ let reanswerNote: typeof __MockType5.reanswerNote;
 let rewriteNote: typeof __MockType5.rewriteNote;
 
 let saveNote: typeof __MockType5.saveNote;
-
-let NoteRuns: typeof __MockType6.NoteRuns;
 
 let rpc: ReturnType<typeof createMockState>['rpc'];
 
@@ -98,21 +95,7 @@ function CanvasProvider({
           'notes.message': rpc.message,
           'notes.setItemArchived': rpc.archive,
           'notes.noteSelection': async () => ({ revision: 8n, targets: [] }),
-          'notes.noteGenerations': ({ before, limit }) => rpc.pages(before, limit),
-          'workflows.executions': async () => ({ items: [], next: null }),
-          'pages.transform': async ({ requestId }) => ({
-            id: requestId,
-            title: 'Retained generation title',
-            instruction: '',
-            contextRequestId: 'capture',
-            operations: ['clarity'],
-            noteId: id,
-            eventId: requestId,
-            errorKind: null,
-            cancelled: true,
-            resultVersionId: null,
-            report: null
-          })
+          'workflows.executions': async () => ({ items: [], next: null })
         },
         registry
       ),
@@ -147,7 +130,6 @@ function createMockState(mock: test.Mock) {
   return {
     rpc: (() => ({
       message: mock.fn(),
-      pages: mock.fn(),
       archive: mock.fn(),
       convert: mock.fn(),
       strategies: mock.fn()
@@ -163,11 +145,6 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
-  }));
-  mock('#client/features/document-editing/proposal-review', () => ({
-    ProposalReview: ({ requestId }: { requestId: string }) => (
-      <div data-testid="proposal">{requestId}</div>
-    )
   }));
   mock('#client/features/note-workspace/note-workspace.queries', async (load) => {
     const actual = await load<typeof NoteQueries>();
@@ -203,9 +180,6 @@ test.unit.beforeEach(async ({ mock }) => {
   reanswerNote = __mockModule5.reanswerNote;
   rewriteNote = __mockModule5.rewriteNote;
   saveNote = __mockModule5.saveNote;
-  const __mockModule6 = await import('./transformation');
-
-  NoteRuns = __mockModule6.NoteRuns;
 });
 
 test.unit.beforeEach(({ vi }) => {
@@ -214,7 +188,6 @@ test.unit.beforeEach(({ vi }) => {
   rpc.strategies.mockResolvedValue([
     { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
   ]);
-  rpc.pages.mockResolvedValue({ items: [], next: null });
 });
 test.unit.afterEach(({ cleanup }) => {
   cleanup();
@@ -462,61 +435,6 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals',
-  async ({ expect, screen, act, fireEvent, render, rpcHandlersTransport }) => {
-    const run = {
-      requestId: 'request-z',
-      contextRequestId: null,
-      state: 'available',
-      cancelled: false,
-      resultVersionId: null,
-      proposedVersionId: 90n,
-      baseVersionId: 89n
-    };
-
-    rpc.pages.mockImplementation((before, limit) =>
-      Promise.resolve(
-        before || limit > 30
-          ? {
-              items: [
-                {
-                  ...run,
-                  requestId: 'retired-a',
-                  state: 'retired',
-                  proposedVersionId: null,
-                  baseVersionId: null
-                }
-              ],
-              next: null
-            }
-          : {
-              items: [
-                run,
-                {
-                  ...run,
-                  requestId: 'unavailable-b',
-                  state: 'unavailable',
-                  proposedVersionId: null
-                }
-              ],
-              next: 'request-z'
-            }
-      )
-    );
-    mount({ render, rpcHandlersTransport }, <NoteRuns id={id} />);
-    expect(await screen.findByTestId('proposal')).toHaveTextContent('request-z');
-    expect(screen.getAllByText('NoteContextUnavailable')[0]).toBeVisible();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findAllByText('NoteRunRetired');
-    expect(rpc.pages).toHaveBeenCalledWith(undefined, 60);
-    expect(screen.queryByTestId('proposal')).toBeNull();
-  }
-);
-
-test.unit.stable(
   'keeps the original note text after an uncertain post without replay',
   async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
@@ -570,32 +488,6 @@ test.unit.stable(
     expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
-  }
-);
-
-test.unit.stable(
-  'puts the saved task title above technical run details without inventing a date',
-  async ({ expect, screen, render, rpcHandlersTransport }) => {
-    rpc.pages.mockResolvedValue({
-      items: [
-        {
-          requestId: 'technical-request-identity',
-          contextRequestId: null,
-          state: 'available',
-          cancelled: true,
-          resultVersionId: null,
-          proposedVersionId: null,
-          baseVersionId: null
-        }
-      ],
-      next: null
-    });
-    mount({ render, rpcHandlersTransport }, <NoteRuns id={id} />);
-    expect(await screen.findByText('Retained generation title')).toBeVisible();
-    const identity = screen.getByText('technical-request-identity');
-
-    expect(identity.closest('details')).not.toHaveAttribute('open');
-    expect(identity.closest('section')?.querySelector('time')).toBeNull();
   }
 );
 

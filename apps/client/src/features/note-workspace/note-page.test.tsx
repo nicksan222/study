@@ -1,10 +1,4 @@
-import {
-  StudyError,
-  noteIdSchema,
-  projectIdSchema,
-  editOutcomeSchema,
-  plainBlock
-} from '@study/contracts';
+import { StudyError, noteIdSchema, editOutcomeSchema, plainBlock } from '@study/contracts';
 import { RpcProvider, configureRpcTransport } from '@study/contracts/react';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
@@ -18,10 +12,6 @@ import type * as __MockType2 from './note-page.queries';
 let blankDocument: typeof __MockType0.blankDocument;
 
 let authoredPage: typeof __MockType1.authoredPage;
-
-let useNotePageCreation: typeof __MockType2.useNotePageCreation;
-
-let useBlankPageCreation: typeof __MockType2.useBlankPageCreation;
 
 let useNotePageAutosave: typeof __MockType2.useNotePageAutosave;
 
@@ -64,8 +54,6 @@ function mount<T>(
 ) {
   registries.push(registry);
   const fixture = rpcTestTransport(async (tag, input) => {
-    if (tag === 'pages.create') return api.create(input);
-
     if (tag === 'pages.save') return api.save(input);
 
     if (tag === 'pages.page') return api.material(input);
@@ -88,7 +76,6 @@ function mount<T>(
 function createMockState(mock: test.Mock) {
   return {
     api: (() => ({
-      create: mock.fn(),
       save: mock.fn(),
       material: mock.fn(),
       list: mock.fn()
@@ -109,8 +96,6 @@ test.unit.beforeEach(async ({ mock }) => {
   authoredPage = __mockModule1.authoredPage;
   const __mockModule2 = await import('./note-page.queries');
 
-  useNotePageCreation = __mockModule2.useNotePageCreation;
-  useBlankPageCreation = __mockModule2.useBlankPageCreation;
   useNotePageAutosave = __mockModule2.useNotePageAutosave;
   useLinkedPages = __mockModule2.useLinkedPages;
   document = initializeDocument();
@@ -132,36 +117,6 @@ async function settle({ act, vi }: Pick<test.unit.Context, 'act' | 'vi'>) {
     await vi.advanceTimersByTimeAsync(1);
   });
 }
-
-test.unit.stable(
-  'creates an empty real document attachment and reuses the exact creation receipt after uncertain transport',
-  async ({ act, expect, rpcTestTransport, renderHook, vi }) => {
-    api.create
-      .mockRejectedValueOnce(new StudyError('transient', 'offline'))
-      .mockResolvedValueOnce(material());
-    const view = mount({ rpcTestTransport, renderHook }, () => useNotePageCreation(id));
-
-    await act(async () => {
-      await view.result.current.create('New page');
-    });
-    const input = api.create.mock.calls[0]![0];
-
-    expect(input).toMatchObject({
-      noteId: id,
-      title: 'New page',
-      document: { blocks: [{ text: '' }] }
-    });
-    expect(input.createKey).toBeTruthy();
-    await settle({ act, vi });
-    expect(view.result.current.error).toBeDefined();
-    await act(async () => {
-      await view.result.current.retry();
-    });
-    expect(api.create.mock.calls[1]![0]).toEqual(input);
-    await settle({ act, vi });
-    expect(view.result.current.error).toBeUndefined();
-  }
-);
 
 test.unit.stable(
   'autosaves typed pages and flushes trailing edits after the tab closes',
@@ -263,37 +218,5 @@ test.unit.stable(
     await act(async () => view.result.current.pagination.more(item.id));
     await settle({ act, vi });
     expect(api.list.mock.calls.at(-1)![0]).toMatchObject({ noteId: id, limit: 60 });
-  }
-);
-
-test.unit.stable(
-  'creates a subject-owned blank document and retries the same receipt without attaching a note',
-  async ({ act, expect, rpcTestTransport, renderHook, vi }) => {
-    const projectId = projectIdSchema.make(7n);
-
-    api.create
-      .mockRejectedValueOnce(new StudyError('transient', 'offline'))
-      .mockResolvedValueOnce(material());
-    const view = mount({ rpcTestTransport, renderHook }, () =>
-      useBlankPageCreation({ kind: 'project', projectId })
-    );
-
-    await act(async () => {
-      await view.result.current.create('Blank page');
-    });
-    const input = api.create.mock.calls[0]![0];
-
-    expect(input).toMatchObject({
-      projectId,
-      title: 'Blank page',
-      document: { blocks: [{ text: '' }] }
-    });
-    expect(input).not.toHaveProperty('noteId');
-    await act(async () => {
-      await view.result.current.create('A changed title');
-    });
-    expect(api.create.mock.calls[1]![0]).toEqual(input);
-    await settle({ act, vi });
-    expect(view.result.current.error).toBeUndefined();
   }
 );

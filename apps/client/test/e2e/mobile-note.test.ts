@@ -325,9 +325,7 @@ async function phoneStarter({
   );
 
   await context.tap();
-  await expect(page.getByRole('button', { name: copy.NoteTransform, exact: true })).toBeInViewport({
-    ratio: 1
-  });
+  await expect(page.getByRole('navigation', { name: copy.NoteOutline })).toBeVisible();
   await expectScreenshot('context-from-long-lecture', {
     target: 'viewport',
     zoomPercent,
@@ -347,52 +345,16 @@ async function phoneStarter({
     zoomPercent,
     ready: () => expect(entries.last()).toHaveVisibleText('Observation 1:')
   });
-  await context.tap();
-  await page.getByRole('button', { name: copy.NoteTransform, exact: true }).tap();
-  await page.setViewportSize({ width: 320, height: 520 });
-  const dialog = page.getByRole('dialog', { name: copy.NoteTransform });
-  const title = dialog.getByRole('textbox', { name: copy.NoteOutputTitle });
-  const instruction = dialog.getByRole('textbox', { name: copy.NoteInstructions });
-
-  await title.fill('River survey study guide');
-  await instruction.fill('Organize the observations while preserving the original evidence.');
-  await expect(instruction).toHaveCSS('font-size', '16px');
-  await expectScreenshot('transform-setup', {
-    target: 'viewport',
-    zoomPercent,
-    ready: () => expect(title).toHaveValue('River survey study guide')
-  });
-  const generate = dialog.getByRole('button', { name: copy.NoteCreatePage, exact: true });
-
-  await generate.scrollIntoViewIfNeeded();
-  await expect(generate).toBeInViewport({ ratio: 1 });
-  await expect(generate).toBeDisabled();
-  await expect(
-    dialog.locator('.ui-action-tooltip').filter({ hasText: copy.NoteCreatePage })
-  ).toHaveVisibleText(copy.NoteCreatePage);
-  await expect(
-    dialog.getByRole('button', { name: copy.Close, exact: true }).filter({ hasText: copy.Close })
-  ).toBeInViewport({
-    ratio: 1
-  });
-  const bounds = await dialog.boundingBox();
-
-  expect(bounds).not.toBeNull();
-  expect(bounds!.x).toBeGreaterThanOrEqual(0);
-  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
-
-  return generate;
 }
 
 test.browser.stable(
   'Phone starter collects text and files at 100 percent',
   async ({ page, rpc, expect, expectScreenshot }) => {
-    const generate = await phoneStarter({ page, rpc, expect, expectScreenshot });
-
-    await expectScreenshot('transform-lower-form', {
+    await phoneStarter({ page, rpc, expect, expectScreenshot });
+    await expectScreenshot('starter-reopened-with-captures', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () => expect(generate).toBeDisabled()
+      ready: () => expect(page.locator('.chat-message-text')).toHaveCount(2)
     });
   }
 );

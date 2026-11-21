@@ -1,8 +1,8 @@
+import type { createSchema as createManualPageSchema } from '@study/contracts';
 import {
   noteIdSchema,
   contentSnapshotIdSchema,
   sourceIdSchema,
-  createSchema as createManualPageSchema,
   detailSchema as materialDetailSchema
 } from '@study/contracts';
 import { test } from '@study/testing';
@@ -193,39 +193,6 @@ test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-test.unit.stable(
-  'New page persists an empty attachment, adds its card, and opens its editable tab',
-  async ({ fireEvent, screen, waitFor, expect, within, render, rpcHandlersTransport }) => {
-    mount(
-      { render, rpcHandlersTransport },
-      <NoteWorkbench id={noteId} onDelete={() => undefined} />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteNewPage' }));
-    await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
-    const input = rpc.create.mock.calls[0]![0];
-
-    expect(Schema.decodeUnknownSync(createManualPageSchema)(input)).toEqual(input);
-    expect(input).toMatchObject({
-      noteId,
-      title: 'NoteNewPage',
-      createKey: expect.any(String)
-    });
-    expect(input.document.blocks.every((block: { text: string }) => block.text === '')).toBe(true);
-    expect(rpc.post).not.toHaveBeenCalled();
-    expect(await screen.findByRole('tab', { name: 'NoteNewPage' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(await screen.findByRole('textbox', { name: 'NotePageEditor' })).toHaveAttribute(
-      'contenteditable',
-      'true'
-    );
-    const history = screen.getByRole('region', { name: 'NoteNotebook' });
-
-    expect(await within(history).findByRole('button', { name: /NoteNewPage/ })).toBeVisible();
-  }
-);
-
 function ImportedPanel() {
   const [id, setId] = useState<ReturnType<typeof material>['id']>();
 
@@ -284,15 +251,15 @@ test.unit.stable(
 
     expect(scrollHost).toContainElement(card);
     await waitFor(() => expect(card).toBeVisible());
-    expect(within(card).getByRole('button', { name: 'NoteTransform' })).toBeVisible();
+    expect(within(card).queryByRole('button', { name: 'NoteTransform' })).toBeNull();
     expect(screen.getByRole('button', { name: 'NoteDockBelow' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'NoteDockBeside' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
     await waitFor(() => expect(card).not.toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
     await waitFor(() => expect(card).toBeVisible());
-    fireEvent.click(within(card).getByRole('button', { name: 'NoteNewPage' }));
-    await screen.findByRole('tab', { name: 'NoteNewPage' });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));
+    await screen.findByRole('tab', { name: 'NoteAssistant' });
     await waitFor(() => expect(card).not.toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'NoteDockBelow' }));
     await waitFor(() =>
@@ -309,8 +276,8 @@ test.unit.stable(
     fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
     await waitFor(() => expect(card).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'NoteDockBeside' }));
-    expect(await screen.findByRole('tab', { name: 'NoteNewPage' })).toBeVisible();
-    expect(rpc.create).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('tab', { name: 'NoteAssistant' })).toBeVisible();
+    expect(rpc.create).not.toHaveBeenCalled();
   }
 );
 

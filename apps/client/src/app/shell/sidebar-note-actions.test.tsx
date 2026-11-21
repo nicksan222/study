@@ -237,7 +237,7 @@ test.unit.stable(
       clientX: 80,
       clientY: 80
     });
-    expect(await screen.findByRole('menuitem', { name: en.NoteTransform })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: en.NoteTransform })).toBeNull();
   }
 );
 

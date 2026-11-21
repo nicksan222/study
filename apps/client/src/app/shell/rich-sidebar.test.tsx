@@ -106,9 +106,7 @@ test.unit.stable(
 
     expect(generatingSettle).toBeDisabled();
     expect(generatingSettle.parentElement).toHaveAttribute('data-placement', 'top');
-    expect(
-      within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement
-    ).toHaveAttribute('data-placement', 'bottom');
+    expect(within(idleRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
     expect(
       within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
     ).toHaveAttribute('data-placement', 'top');
@@ -140,9 +138,7 @@ test.unit.stable(
     await waitFor(() => expect(compact).toHaveAttribute('data-layout', 'compact'));
     expect(within(compact).getByTitle('SidebarGeneratedPages')).toHaveTextContent('1');
     expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
-    expect(within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement).toBe(
-      within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
-    );
+    expect(within(idleRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
     expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
     expect(
       within(screen.getByRole('link', { name: /\bNote 3\b/ })).getByText('SidebarGenerating')
@@ -338,7 +334,7 @@ function mountSelectionSidebar({
 }
 
 test.unit.stable(
-  'starts selection from a row context menu and creates one document from the selected rows without navigating',
+  'starts selection from a row context menu without navigating',
   async ({ fireEvent, screen, expect, within, render, rpcTestTransport }) => {
     const router = mountSelectionSidebar({ render, rpcTestTransport });
 
@@ -367,13 +363,7 @@ test.unit.stable(
     const toolbar = screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
 
     expect(toolbar.parentElement).toBe(document.body);
-    fireEvent.click(within(toolbar).getByRole('button', { name: 'NoteCreatePage' }));
-    const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
-
-    expect(within(dialog).getByText('Note 1')).toBeVisible();
-    expect(within(dialog).getByText('Note 2')).toBeVisible();
-    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(within(toolbar).queryByRole('button', { name: 'NoteCreatePage' })).toBeNull();
   }
 );
 
@@ -391,7 +381,7 @@ test.unit.stable(
     const toolbar = screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
 
     expect(toolbar).toHaveFocus();
-    expect(within(toolbar).getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
+    expect(within(toolbar).queryByRole('button', { name: 'NoteCreatePage' })).toBeNull();
     expect(within(toolbar).getByRole('button', { name: 'SidebarDeleteSelected' })).toBeDisabled();
     fireEvent.click(within(toolbar).getByRole('button', { name: 'Cancel' }));
     expect(await screen.findByRole('link', { name: /\bNote 1\b/ })).toBeVisible();
@@ -534,23 +524,6 @@ test.unit.stable(
     await userEvent.setup().keyboard('{Enter}');
     expect(row).toHaveAttribute('aria-pressed', 'false');
     expect(await within(row).findByText('SidebarReady')).toBeVisible();
-    expect(router.state.location.pathname).toBe('/');
-  }
-);
-
-test.unit.stable(
-  'opens the conversion dialog from a row without navigating or settling it',
-  async ({ screen, expect, within, fireEvent, render, rpcTestTransport }) => {
-    const router = mountSelectionSidebar({ render, rpcTestTransport });
-    const link = await screen.findByRole('link', { name: /\bNote 1\b/ });
-    const row = link.closest('.study-note-entry') as HTMLElement;
-
-    expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
-    fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoPage' }));
-    const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
-
-    expect(within(dialog).getByText('Note 1')).toBeVisible();
-    expect(within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
   }
 );
