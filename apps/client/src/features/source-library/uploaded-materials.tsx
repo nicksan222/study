@@ -1,8 +1,8 @@
 import type { ProjectId, Source, SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { AddIcon, SourcesIcon } from '@study/icons';
+import { age } from '@study/localization';
 import {
-  Button,
   ErrorState,
   IconButton,
   Sidebar,
@@ -10,9 +10,10 @@ import {
   RetryButton,
   Spinner,
   toastManager,
-  SubjectWorkspace
+  SubjectWorkspace,
+  useNowMinute
 } from '@study/ui';
-import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { useLayoutEffect, useRef, useState } from 'react';
 
 import {
@@ -21,12 +22,12 @@ import {
   useCursorWindow
 } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { sourceIcons } from '#client/lib/source-icons.ts';
 import { useNarrowLayout } from '#client/lib/viewport.ts';
 
 import { useExtractionJob } from './source-panel.queries';
 
 export function UploadedMaterialsPage() {
-  const { project } = useSearch({ from: '__root__' });
   const { t } = useI18n();
 
   return (
@@ -35,14 +36,7 @@ export function UploadedMaterialsPage() {
         <SubjectWorkspace.EmptyIcon>
           <SourcesIcon aria-hidden="true" />
         </SubjectWorkspace.EmptyIcon>
-        <SubjectWorkspace.EmptyTitle>
-          {t(project ? 'UploadedMaterialsChoose' : 'ChooseProject')}
-        </SubjectWorkspace.EmptyTitle>
-        {!project && (
-          <Button variant="outline" render={<Link to="/projects" search={{}} />}>
-            {t('Projects')}
-          </Button>
-        )}
+        <SubjectWorkspace.EmptyTitle>{t('UploadedMaterialsChoose')}</SubjectWorkspace.EmptyTitle>
       </SubjectWorkspace.EmptyContent>
     </SubjectWorkspace.Empty>
   );
@@ -117,13 +111,14 @@ export function UploadedMaterialsSidebar({
   query,
   onReselect
 }: {
-  project: ProjectId;
+  project: ProjectId | null;
   query: string;
   onReselect: () => void;
 }) {
   const { t } = useI18n();
   const { sourceId } = useParams({ strict: false });
   const narrow = useNarrowLayout();
+  const now = useNowMinute();
   const nameContains = query.trim();
   const window = useCursorWindow<SourceId>(nameContains);
   const state = rpc.sources.list.useQuery({
@@ -150,13 +145,20 @@ export function UploadedMaterialsSidebar({
           key={String(source.id)}
           source={source}
           project={project}
+          now={now}
           active={sourceId === String(source.id)}
           onReselect={narrow ? onReselect : undefined}
         />
       ))}
       {state.isSuccess && !state.data?.items.length && (
         <Sidebar.Message role="status">
-          {t(nameContains ? 'SearchNoResults' : 'UploadedMaterialsEmpty')}
+          {t(
+            nameContains
+              ? 'SearchNoResults'
+              : project
+                ? 'UploadedMaterialsEmpty'
+                : 'UploadedMaterialsEmptyGlobal'
+          )}
         </Sidebar.Message>
       )}
       <CursorWindowActions
@@ -172,17 +174,23 @@ export function UploadedMaterialsSidebar({
 function UploadedFile({
   source,
   project,
+  now,
   active,
   onReselect
 }: {
   source: Source;
-  project: ProjectId;
+  project: ProjectId | null;
+  now: number;
   active: boolean;
   onReselect?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale, date } = useI18n();
   const job = useExtractionJob(source.id, source);
   const status = t(job.sidebar);
+  const kind = t(`sourceKind.${source.kind}`);
+  const added = date(source.createdAt);
+  const details = `${kind} · ${status} · ${t('UploadedMaterialsAdded')} ${added}`;
+  const Icon = sourceIcons[source.kind];
   const link = useRef<HTMLAnchorElement>(null);
 
   useLayoutEffect(() => {
@@ -191,22 +199,26 @@ function UploadedFile({
 
   return (
     <Sidebar.Item
-      layout="compact"
-      descriptionBelow
       label={source.name}
       announcement={`${source.name} · ${status}`}
       aria-label={source.name}
-      title={`${source.name} · ${t(`sourceKind.${source.kind}`)} · ${status}`}
-      aria-description={status}
-      description={job.status === 'complete' ? undefined : status}
-      icon={<SourcesIcon aria-hidden="true" />}
+      title={`${source.name} · ${details}`}
+      aria-description={details}
+      icon={<Icon aria-hidden="true" />}
+      context={kind}
+      timestamp={
+        <time dateTime={new Date(Number(source.createdAt) * 1000).toISOString()} title={added}>
+          {age(locale, now - Number(source.createdAt))}
+        </time>
+      }
+      description={status}
       aria-current={active ? 'page' : undefined}
       render={
         <Link
           ref={link}
           to="/sources/$sourceId"
           params={{ sourceId: String(source.id) }}
-          search={{ project: String(project), fromUploads: '1' }}
+          search={{ project: project ? String(project) : undefined, fromUploads: '1' }}
           onClick={active ? onReselect : undefined}
         />
       }

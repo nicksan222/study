@@ -12,14 +12,12 @@ test.browser.use({
 });
 
 test.browser.stable(
-  'Phone section headings keep reading and actions together',
+  'Phone notebook history keeps section headings and actions together',
   async ({ page, study, rpc, expect, expectScreenshot }) => {
     const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
 
     await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 100 }));
     const fixture = await study.notes.seed();
-
-    await page.goto(`/notes/${fixture.note.id}`);
 
     for (const [text, title] of [
       [
@@ -34,13 +32,14 @@ test.browser.stable(
     ] as const) {
       const pending = study.notes.capture(text, title);
 
-      await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).tap();
-      await page.getByRole('textbox', { name: copy.NoteCompose }).fill(text);
-      await page.getByRole('button', { name: copy.NoteSaveNote, exact: true }).tap();
+      await rpc.runPromise(rpc.client['notes.postMessage']({ noteId: fixture.note.id, text }));
       await pending.naming.called;
       pending.naming.release();
-      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     }
+
+    await page.goto(`/notes/${fixture.note.id}`);
+    await page.getByRole('button', { name: copy.NoteActions, exact: true }).tap();
+    await page.getByRole('button', { name: copy.NoteHistory, exact: true }).tap();
 
     const first = page.locator('.chat-message').first();
     const heading = first.getByRole('heading');

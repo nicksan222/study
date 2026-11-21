@@ -61,6 +61,7 @@ function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandl
     'pages.page': rpc.material,
     'pages.pages': rpc.materials,
     'notes.thread': rpc.thread,
+    'notes.body': async () => ({ text: 'Notebook body', versionId: null }),
     'notes.noteAssistant': rpc.assistant,
     'notes.assistantAsk': rpc.ask,
     'notes.assistantContext': async () => ({
@@ -235,20 +236,23 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'keeps vertical note actions in the default card and changes editor docking without creating another document',
+  'keeps vertical note actions in the context card and changes editor docking without creating another document',
   async ({ screen, expect, waitFor, within, fireEvent, render, rpcHandlersTransport }) => {
     const view = mount(
       { render, rpcHandlersTransport },
       <>
         <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} onDelete={() => undefined} />
+        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => undefined} />
       </>
     );
-    const card = screen.getByRole('complementary', { name: 'NoteContextPanel' });
-    const scrollHost = screen
-      .getByRole('log', { name: 'NoteNotebook' })
-      .closest('[data-notebook-scroll-host]');
 
+    expect(screen.queryByRole('complementary', { name: 'NoteContextPanel' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
+    const card = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
+    const notebook = await screen.findByRole('textbox', { name: 'NotePageEditor' });
+    const scrollHost = notebook.closest('[data-notebook-scroll-host]');
+
+    expect(notebook).toHaveTextContent('Notebook body');
     expect(scrollHost).toContainElement(card);
     await waitFor(() => expect(card).toBeVisible());
     expect(within(card).queryByRole('button', { name: 'NoteTransform' })).toBeNull();
@@ -277,6 +281,7 @@ test.unit.stable(
     await waitFor(() => expect(card).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'NoteDockBeside' }));
     expect(await screen.findByRole('tab', { name: 'NoteAssistant' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(notebook);
     expect(rpc.create).not.toHaveBeenCalled();
   }
 );
@@ -288,7 +293,7 @@ test.unit.stable(
       { render, rpcHandlersTransport },
       <>
         <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} onDelete={() => {}} />
+        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => {}} />
       </>
     );
     fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));

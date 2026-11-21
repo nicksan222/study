@@ -30,9 +30,14 @@ test.unit.stable.for(pages)(
       ).toBeInTheDocument();
     } else {
       expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
-      expect(screen.getByRole('main')).toHaveTextContent(
-        page === 'Notes' ? catalogs.english.NoteStartHelp : catalogs.english.AppName
-      );
+
+      if (page === 'Notes') {
+        expect(
+          await screen.findByRole('textbox', { name: catalogs.english.NoteCompose })
+        ).toBeVisible();
+      } else {
+        expect(screen.getByRole('main')).toHaveTextContent(catalogs.english.AppName);
+      }
     }
 
     expect(fetch).not.toHaveBeenCalled();
@@ -47,6 +52,7 @@ test.unit.stable(
     history.replaceState(null, '', '/projects/1/notes/42');
     rpc.givenWorkspace();
     rpc.given({
+      'notes.body': { text: 'Notebook body', versionId: null },
       'notes.noteWork': { items: [], next: null },
       'notes.noteSelection': { revision: 0n, targets: [] },
       'notes.noteGenerations': { items: [], next: null },

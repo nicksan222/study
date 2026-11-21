@@ -24,9 +24,13 @@ test.browser.stable(
     await page.goto('/notes');
     await page.evaluate(() => localStorage.setItem('sentinel', 'private'));
     await page.context().addCookies([{ name: 'sentinel', value: 'private', url: page.url() }]);
-    await page.getByRole('textbox', { name: copy.NoteCompose }).fill('Isolation sentinel');
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
+    await page.getByRole('textbox', { name: copy.NoteCompose }).click();
+    await page.keyboard.insertText('Isolation sentinel');
     await expect(page).toHaveURL(/\/notes\/.+/);
+    await expect(page.getByRole('textbox', { name: copy.NotePageEditor })).toHaveText(
+      'Isolation sentinel'
+    );
+    await expect(page.getByRole('status').filter({ hasText: copy.NoteAutosaved })).toBeVisible();
     expect((await rpc.runPromise(rpc.client['notes.notes']({ limit: 10 }))).items).toHaveLength(1);
   }
 );

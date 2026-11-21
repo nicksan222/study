@@ -1,4 +1,4 @@
-import { Appearance } from '@study/contracts';
+import { Appearance, Language } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
@@ -6,9 +6,16 @@ const copy = catalogs.english;
 
 const content = '# Field observations\n\nThree **trees** were measured at the river bank.';
 
+const readyTextMetadata = new RegExp(
+  `^${copy['sourceKind.text']} · ${copy.UploadedMaterialsReady} · `
+);
+
 test.browser.stable(
   'Open original materials from their subject',
   async ({ page, rpc, expect, expectScreenshot }) => {
+    await page.goto('/uploads');
+    await expect(page.getByText(copy.UploadedMaterialsEmptyGlobal)).toBeVisible();
+
     const project = await rpc.runPromise(rpc.client['projects.createProject']({ name: 'Ecology' }));
     const other = await rpc.runPromise(rpc.client['projects.createProject']({ name: 'Geometry' }));
     const attachment = await rpc.runPromise(
@@ -46,7 +53,10 @@ test.browser.stable(
     });
     const standalone = page.getByRole('link', { name: /standalone\.md/ });
 
-    await expect(standalone).toHaveAttribute('aria-description', copy.UploadedMaterialsReady);
+    await expect(standalone).toHaveAccessibleDescription(readyTextMetadata);
+    await expect(standalone.getByText(copy['sourceKind.text'], { exact: true })).toBeVisible();
+    await expect(standalone.getByText(copy.UploadedMaterialsReady, { exact: true })).toBeVisible();
+    await expect(standalone.locator('time')).toBeVisible();
     expect((await rpc.runPromise(rpc.client['notes.notes']({ limit: 10 }))).items).toHaveLength(2);
     const sidebar = page.getByRole('navigation', { name: copy.UploadedMaterials });
     const search = page.getByRole('searchbox', { name: copy.UploadedMaterialsSearch });
@@ -73,11 +83,10 @@ test.browser.stable(
     await expectScreenshot('subject-files', {
       target: 'viewport',
       ready: async () => {
-        await expect(standalone).toHaveAttribute('aria-description', copy.UploadedMaterialsReady);
-        await expect(page.getByRole('link', { name: /river-notebook\.md/ })).toHaveAttribute(
-          'aria-description',
-          copy.UploadedMaterialsReady
-        );
+        await expect(standalone).toHaveAccessibleDescription(readyTextMetadata);
+        await expect(
+          page.getByRole('link', { name: /river-notebook\.md/ })
+        ).toHaveAccessibleDescription(readyTextMetadata);
       }
     });
     await sidebar.getByRole('link', { name: /river-notebook/ }).click();
@@ -89,25 +98,85 @@ test.browser.stable(
     await page.setViewportSize({ width: 390, height: 780 });
     await page.getByRole('button', { name: copy.UploadedMaterialsBack }).click();
     await expect(sidebar).toBeVisible();
+    await expect(
+      standalone.getByText(copy.UploadedMaterialsReady, { exact: true })
+    ).toBeInViewport();
     await sidebar.getByRole('link', { name: /river-notebook/ }).click();
     await expect(page.getByRole('heading', { name: attachment.name, exact: true })).toBeVisible();
 
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(
+      rpc.client['settings.saveAppSettings']({ ...settings, language: Language.ITALIAN })
+    );
+    await page.goto(`/projects/${project.id}/uploads`);
+    const italian = catalogs.italian;
+    const italianSidebar = page.getByRole('navigation', { name: italian.UploadedMaterials });
+    const italianRow = italianSidebar.getByRole('link', { name: 'standalone.md', exact: true });
+
+    await expectScreenshot('subject-files-phone-italian', {
+      target: 'viewport',
+      ready: async () => {
+        await expect(
+          italianRow.getByText(italian['sourceKind.text'], { exact: true })
+        ).toBeInViewport();
+        await expect(
+          italianRow.getByText(italian.UploadedMaterialsReady, { exact: true })
+        ).toBeInViewport();
+        await expect(italianRow.locator('time')).toBeInViewport();
+      }
+    });
+    await rpc.runPromise(rpc.client['settings.saveAppSettings'](settings));
     await page.setViewportSize({ width: 2560, height: 1440 });
     await page.goto(`/projects/${project.id}/notes/${note!.id}`);
-    await page
-      .getByRole('region', { name: copy.NoteNotebook })
-      .getByRole('button', { name: attachment.name, exact: true })
-      .click();
-    const noteReader = page.getByRole('tabpanel');
+    await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
+    const noteContext = page.getByRole('complementary', { name: copy.NoteContextPanel });
 
-    await expect(noteReader.getByRole('heading', { name: 'Field observations' })).toBeVisible();
-    await expect(noteReader.locator('strong')).toHaveText('trees');
-    await noteReader
-      .getByRole('button', { name: copy.UploadedMaterialsOriginal, exact: true })
-      .click();
-    await expect(noteReader.getByText('# Field observations', { exact: false })).toBeVisible();
-    await noteReader.getByRole('button', { name: copy.UploadedMaterialsText }).click();
-    await expect(noteReader.getByRole('heading', { name: 'Field observations' })).toBeVisible();
+    await expect(noteContext).toBeVisible();
+    await expect(noteContext.getByText(attachment.name, { exact: true })).toHaveCount(0);
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+    await noteContext.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
+    await expect(
+      page
+        .getByRole('region', { name: copy.NoteNotebook })
+        .getByText('First field notebook', { exact: true })
+    ).toBeVisible();
+    await expect(page.getByText(attachment.name, { exact: true })).toHaveCount(0);
+
+    await materials.click();
+    const historicalFile = sidebar.getByRole('link', { name: attachment.name, exact: true });
+
+    await expect(historicalFile).toHaveAccessibleDescription(readyTextMetadata);
+    await historicalFile.click();
+    await expect(page.getByRole('heading', { name: 'Field observations' })).toBeVisible();
+    await expect(page.locator('[data-materials-reader] strong')).toHaveText('trees');
+
+    const unassigned = await rpc.runPromise(
+      rpc.client['sources.createSource']({
+        name: 'unassigned.md',
+        bytes: new TextEncoder().encode(content),
+        projectId: null
+      })
+    );
+
+    await page.goto('/notes');
+    await materials.click();
+    await expect(page).toHaveURL(/\/uploads$/);
+    await expect(page.getByRole('button', { name: copy.UploadedMaterialsAdd })).toHaveCount(0);
+    const looseFile = sidebar.getByRole('link', { name: unassigned.name, exact: true });
+
+    await looseFile.click();
+    await expect(page).toHaveURL(/\/sources\/\d+\?fromUploads=1$/);
+    await expect(looseFile).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('heading', { name: 'Field observations' })).toBeVisible();
+
+    await page.getByRole('combobox', { name: copy.UploadedMaterialsAll }).click();
+    await page.getByRole('option', { name: project.name, exact: true }).click();
+    await expect(looseFile).toHaveCount(0);
+    await page.getByRole('combobox', { name: project.name }).click();
+    await page.getByRole('link', { name: copy.UploadedMaterialsAll, exact: true }).click();
+    await expect(page).toHaveURL(/\/uploads$/);
+    await expect(looseFile).toBeVisible();
   }
 );
 
@@ -421,7 +490,10 @@ test.browser.stable(
     for (const original of files.filter(
       ({ name }) => name === 'files.zip' || name === 'archive.bin'
     )) {
-      await materials.getByRole('link', { name: original.name, exact: false }).click();
+      const item = materials.getByRole('link', { name: original.name, exact: true });
+
+      await expect(item.getByText(copy.MaterialOriginalOnly, { exact: true })).toBeVisible();
+      await item.click();
       const details = page.getByRole('region', { name: copy.MaterialFileInformation });
       const download = page.getByRole('button', { name: copy.ReaderOriginal, exact: true });
 

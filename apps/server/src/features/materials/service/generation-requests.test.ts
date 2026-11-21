@@ -28,6 +28,7 @@ import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
+import { Sources } from '#server/features/sources/index';
 import { materialRpcHandlers } from '#testing/material-rpc';
 import { withTestPublication } from '#testing/publication';
 
@@ -68,6 +69,105 @@ function createEvidence(
     })
   );
 }
+
+test.server.stable(
+  'Practice publishes exact evidence from a file kept in Materials after its note moves',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Materials.layer,
+      Notes.layer,
+      Sources.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const notes = yield* Notes;
+          const sources = yield* Sources;
+          const materials = yield* Materials;
+          const biology = yield* projects.createProject({ name: 'Biology' });
+          const history = yield* projects.createProject({ name: 'History' });
+          const note = yield* notes.createNote({ title: 'Library file', project: biology.id });
+          const file = yield* sources.createSource({
+            name: 'observations.txt',
+            projectId: null,
+            bytes: new TextEncoder().encode('Cells have membranes.')
+          });
+
+          yield* sources.attachSource({ noteId: note.id, sourceId: file.id });
+          yield* projects.removeNote({ projectId: biology.id, noteId: note.id });
+          yield* projects.addNote({ projectId: history.id, noteId: note.id });
+          const stored = context.db.orm
+            .select()
+            .from(workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload))
+            .find(
+              (event) => event.type === 'SourceProcessingRequested' && event.sourceId === file.id
+            );
+
+          assert.ok(stored?.type === 'SourceProcessingRequested');
+          yield* withTestPublication(
+            context,
+            sources
+              .publishSourceDocument({
+                event: stored,
+                document: {
+                  ...document(),
+                  blocks: [
+                    plainBlock('paragraph', 'Cells have membranes.', {
+                      type: 'paragraph',
+                      index: 1
+                    })
+                  ]
+                }
+              })
+              .pipe(Effect.asVoid)
+          );
+          const exact = yield* sources.currentExtraction({ id: file.id });
+
+          assert.ok(exact);
+          const input = {
+            kind: 'source' as const,
+            sourceId: file.id,
+            revision: exact.revision,
+            snapshotId: exact.snapshotId
+          };
+          const queued = yield* materials.requestMaterialGeneration({
+            projectId: biology.id,
+            title: 'Cells',
+            kind: 'flashcards',
+            inputs: [input]
+          });
+
+          yield* withTestPublication(
+            context,
+            Effect.gen(function* () {
+              const versionId = yield* materials.publishMaterialGeneration({
+                requestId: queued.id,
+                content: {
+                  kind: 'flashcards',
+                  cards: [{ front: 'What do cells have?', back: 'Membranes [1]' }]
+                },
+                citations: [{ marker: 1n, input, quote: 'Cells have membranes.', blockOrdinal: 0 }]
+              });
+
+              expect((yield* materials.materialVersion({ id: versionId })).inputs).toEqual([input]);
+            })
+          );
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
 
 test.server.stable(
   'quiz settings persist as request intent and reject changed settings',

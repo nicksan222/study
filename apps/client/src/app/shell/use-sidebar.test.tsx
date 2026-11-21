@@ -37,6 +37,23 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/features/note-workspace/workspace.tsx', () => ({
     NoteWorkspace: ({ id }: { id?: bigint }) => (id ? null : <NoteStart />)
   }));
+  mock('#client/features/note-workspace/note-editor', () => ({
+    NoteEditor: ({
+      label,
+      value,
+      onChange
+    }: {
+      label: string;
+      value: string;
+      onChange: (text: string) => void;
+    }) => (
+      <textarea
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      />
+    )
+  }));
   mock('#client/features/pages/reader-page.tsx', () => ({ PageReaderPage: () => null }));
   const __studyMockModule0 = await import('#client/features/note-workspace/start.tsx');
 
@@ -97,8 +114,6 @@ function sidebarTransport({ rpcTestTransport }: Pick<test.unit.Context, 'rpcTest
       return { language: 1, appearance: 3, zoomPercent: 100, onboarded: true };
 
     if (tag === 'settings.workspacePreferences') return defaultWorkspacePreferences;
-
-    if (tag === 'settings.sidebarSettings') return { settledPageThreshold: 1 };
 
     if (tag === 'notes.noteSummaries') return { items: [] };
 
@@ -306,14 +321,13 @@ test.unit.stable(
     await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes'));
     expect(api.createNote).not.toHaveBeenCalled();
     expect(await screen.findByRole('textbox', { name: en.NoteCompose })).toHaveValue('');
-    expect(screen.getByRole('button', { name: en.NoteSaveNote })).toBeDisabled();
     await user.type(screen.getByRole('textbox', { name: en.NoteCompose }), 'Unsent biology notes');
     const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
     const draft = await sidebar.findByRole('link', { name: /Unsent biology notes/ });
 
     expect(draft.closest('details')).toBeNull();
     expect(draft.closest('.study-note-entry')).toBe(
-      draft.closest('.study-note-groups')?.firstElementChild
+      draft.closest('.study-saved-notes')?.firstElementChild
     );
   }
 );
@@ -719,7 +733,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'first send adds a note to the sidebar and permits another lazy note',
+  'idle creation adds a note to the sidebar and permits another draft',
   async ({ userEvent, screen, within, waitFor, expect, act, render, rpcTestTransport }) => {
     let finish!: (value: { items: [] }) => void;
 
@@ -763,7 +777,6 @@ test.unit.stable(
       )
     );
     await user.type(await screen.findByRole('textbox', { name: en.NoteCompose }), 'First note');
-    await user.click(screen.getByRole('button', { name: en.NoteSaveNote }));
     await waitFor(() => expect(location.pathname).toBe('/projects/1/notes/7'));
     await act(async () => {
       finish({ items: [] });
@@ -780,8 +793,6 @@ test.unit.stable(
     const input = await screen.findByRole('textbox', { name: en.NoteCompose });
 
     expect(input).toHaveValue('');
-    await user.type(input, 'Second note');
-    expect(screen.getByRole('button', { name: en.NoteSaveNote })).toBeEnabled();
     const second = {
       id: 8n,
       projectIds: [1n],
@@ -794,7 +805,7 @@ test.unit.stable(
 
     api.createNote.mockResolvedValueOnce(second);
     api.notes.mockResolvedValue({ items: [second] });
-    await user.click(screen.getByRole('button', { name: en.NoteSaveNote }));
+    await user.type(input, 'Second note');
     await waitFor(() => expect(location.pathname).toBe('/projects/1/notes/8'));
     expect(await screen.findByRole('link', { name: /Second note/ })).toBeInTheDocument();
   }
@@ -935,7 +946,6 @@ test.unit.stable(
 
     await studyNotes.findByRole('link', { name: /Cell notes/ });
     expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
-    expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: en.PagesOverviewTitle, level: 2 })).toBeVisible();
     await user.type(sidebar.getByRole('searchbox'), 'missing');
     expect(await studyNotes.findByText(en.SearchNoResults)).toBeVisible();

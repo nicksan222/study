@@ -1,7 +1,7 @@
 /** @file Owns message rows within this feature. */
 
 import type { MessageId, NoteId, postMessageInputSchema } from '@study/contracts';
-import { StudyError, anchorSchema } from '@study/contracts';
+import { StudyError, anchorSchema, notebookBodyCaptureKey } from '@study/contracts';
 import {
   and,
   asc,
@@ -178,6 +178,9 @@ export function makeHelpers({ db, clock, timestampClock }: StoreResources) {
   /** Replays text-only note creation without duplicating a page or generation request. */
   function capturedNote(input: typeof postMessageInputSchema.Type) {
     if (!input.captureKey) return null;
+
+    if (input.captureKey === notebookBodyCaptureKey)
+      throw new StudyError('invalid_input', 'Capture key is reserved for the notebook body');
 
     if (input.requestReply !== false || input.sourceIds?.length)
       throw new StudyError('invalid_input', 'capture keys require a text-only note');

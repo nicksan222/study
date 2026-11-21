@@ -21,8 +21,6 @@ let ask: typeof __MockType2.ask;
 
 let saveNote: typeof __MockType2.saveNote;
 
-let preferences: ReturnType<typeof createMockState>['preferences'];
-
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
 const receipt = Schema.decodeUnknownSync(askResultSchema)({
@@ -34,17 +32,7 @@ const receipt = Schema.decodeUnknownSync(askResultSchema)({
   userVersionId: 2n
 });
 
-function createMockState() {
-  return {
-    preferences: (() => ({ submitOnEnter: false }))()
-  };
-}
-
 test.unit.beforeEach(async ({ mock }) => {
-  const __mockState = createMockState();
-
-  preferences = __mockState.preferences;
-
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
   }));
@@ -58,7 +46,7 @@ test.unit.beforeEach(async ({ mock }) => {
     };
   });
   mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+    useWorkspacePreferences: () => defaultWorkspacePreferences
   }));
   const __mockModule0 = await import('./composer');
 
@@ -220,25 +208,6 @@ test.unit.stable(
     });
     expect(saveNote).not.toHaveBeenCalled();
     expect(ask).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'optionally submits Enter while preserving Shift+Enter and composition',
-  async ({ vi, screen, fireEvent, expect, waitFor, rpcTestTransport, render }) => {
-    preferences.submitOnEnter = true;
-    vi.mocked(saveNote).mockImplementation(() => new Promise(() => {}));
-    mount({ rpcTestTransport, render });
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-    const input = screen.getByRole('textbox');
-
-    fireEvent.change(input, { target: { value: 'Quick thought' } });
-    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
-    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
-    expect(saveNote).not.toHaveBeenCalled();
-    fireEvent.keyDown(input, { key: 'Enter' });
-    await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
-    preferences.submitOnEnter = false;
   }
 );
 

@@ -128,7 +128,7 @@ test.browser.stable(
       captureContext,
       'notebook',
       `/notes/${note.id}`,
-      page.getByRole('region', { name: copy.NoteNotebook })
+      page.getByRole('textbox', { name: copy.NotePageEditor })
     );
     await capture(
       captureContext,

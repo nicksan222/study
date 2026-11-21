@@ -10,7 +10,7 @@ export function SourcePage() {
   const { sourceId } = useParams({ from: '/sources/$sourceId' });
   const search = useSearch({ from: '__root__' });
   const navigate = useNavigate();
-  const uploads = search.fromUploads && search.project ? search.project : undefined;
+  const uploads = search.fromUploads === '1';
   const id = Schema.decodeUnknownSync(sourceIdSchema)(BigInt(sourceId));
 
   const panel = (

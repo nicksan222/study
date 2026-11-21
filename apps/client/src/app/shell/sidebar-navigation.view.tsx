@@ -38,26 +38,23 @@ export function SidebarNavigation({
   return (
     <Sidebar.NavigationGroup compact={compact}>
       <Sidebar.Navigation id="study-sidebar-navigation" aria-label={t('SidebarNavigation')}>
-        {sections
-          .filter(([, key]) => key !== 'uploads' || project)
-          .map(([to, currentSection, Icon, label]) => (
-            <Sidebar.NavigationItem
-              key={to}
-              label={t(label)}
-              count={currentSection === 'uploads' ? undefined : counts?.[currentSection].count}
-              unresolved={currentSection === 'notes' && counts?.notes.unresolved}
-              render={
-                <Link
-                  to={to}
-                  search={project ? { project } : {}}
-                  aria-current={!settings && section === currentSection ? 'page' : undefined}
-                  onClick={onNavigate}
-                />
-              }
-            >
-              <Icon aria-hidden="true" />
-            </Sidebar.NavigationItem>
-          ))}
+        {sections.map(([to, currentSection, Icon, label]) => (
+          <Sidebar.NavigationItem
+            key={to}
+            label={t(label)}
+            count={currentSection === 'uploads' ? undefined : counts?.[currentSection].count}
+            render={
+              <Link
+                to={to}
+                search={project ? { project } : {}}
+                aria-current={!settings && section === currentSection ? 'page' : undefined}
+                onClick={onNavigate}
+              />
+            }
+          >
+            <Icon aria-hidden="true" />
+          </Sidebar.NavigationItem>
+        ))}
         <Sidebar.NavigationItem
           label={t('Assistant')}
           render={

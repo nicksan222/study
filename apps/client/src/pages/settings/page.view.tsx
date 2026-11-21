@@ -40,7 +40,6 @@ import { AnalyticsSettings } from './analytics';
 import { AppearanceStatus } from './appearance-status';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';
-import { SidebarSettings } from './general/sidebar-settings';
 import { IntegrationsSettings } from './integrations';
 import { InterfaceSettings, NoteAppearanceSettings } from './interface-settings';
 import { PerformanceSettings } from './performance';
@@ -96,7 +95,6 @@ const sections = [
       'TextSize',
       'AppearanceNotes',
       'AppearanceNoteWidth',
-      'AppearanceNoteComposer',
       'AppearanceNoteEditorDock'
     ]
   },
@@ -108,9 +106,7 @@ const sections = [
       'WorkspaceSidebarTitle',
       'WorkspaceDensity',
       'WorkspaceTimeFormat',
-      'WorkspacePageCounts',
-      'SidebarCompactNavigation',
-      'SidebarSettledThreshold'
+      'SidebarCompactNavigation'
     ]
   },
   {
@@ -121,7 +117,6 @@ const sections = [
       'WorkspaceAutosave',
       'WorkspaceSpellcheck',
       'WorkspaceEditorFont',
-      'WorkspaceEnterCapture',
       'WorkspaceExpandPages'
     ]
   },
@@ -454,12 +449,7 @@ function SectionContent({
     appearance: <AppearanceContent model={model} search={search} />,
     general: <GeneralSettings />,
     updates: <UpdatesSettings />,
-    sidebar: (
-      <>
-        <SidebarDisplaySettings />
-        <SidebarSettings />
-      </>
-    ),
+    sidebar: <SidebarDisplaySettings />,
     writing: <WritingSettings />,
     voice: <VoiceSettings />,
     reading: <ReadingSettings />,

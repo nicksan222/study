@@ -55,7 +55,7 @@ export function Composer({ id, docked = false }: { id: NoteId; docked?: boolean 
       onSubmit={submit}
       disabled={blocked || submission.blocked || !draft.text.trim()}
       onKeyDown={(event) => {
-        if (isNoteSubmit(event, preferences.submitOnEnter)) {
+        if (isNoteSubmit(event)) {
           event.preventDefault();
           submit();
         }

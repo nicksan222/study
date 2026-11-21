@@ -31,11 +31,17 @@ export const NoteContextStore = defineStore({
     const { note, requiredContext, retainedContext, decodeContext, assertContextAvailable } =
       makeContextReads(resources);
 
-    const { noteHistory, noteRoot } = makeHistory(resources);
+    const { noteHistory, noteRoot, notebookBody } = makeHistory(resources);
 
     function captureHistory(
       input: typeof noteContextIntentSchema.Type & { authoredOnly?: boolean }
     ) {
+      if (input.authoredOnly) {
+        const body = notebookBody(input.noteId);
+
+        if (body) return [body];
+      }
+
       let history = noteHistory(input.noteId, input.throughMessageId, input.threadRoot, true, {
         authoredOnly: input.authoredOnly,
         pendingAssistant: input.throughMessageId !== undefined ? 'omit' : undefined

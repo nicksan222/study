@@ -126,7 +126,7 @@ function Card({
   variant,
   onDismiss,
   ...props
-}: ComponentProps<'aside'> & { variant?: 'attachments'; onDismiss?: () => void }) {
+}: ComponentProps<'aside'> & { variant?: 'context'; onDismiss?: () => void }) {
   const context = useContext(CardContext);
 
   const element = useRef<HTMLElement>(null);
@@ -165,7 +165,7 @@ function Card({
       hidden={hidden}
       className={cn(
         'ui-workspace-card',
-        variant === 'attachments' && 'note-attachments-card',
+        variant === 'context' && 'note-workspace-context',
         className
       )}
     />

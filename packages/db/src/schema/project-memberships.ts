@@ -1,4 +1,4 @@
-import type { MaterialId, ProjectId, NoteId } from '@study/contracts';
+import type { MaterialId, ProjectId, NoteId, SourceId } from '@study/contracts';
 
 import {
   defineTable,
@@ -12,7 +12,7 @@ import {
 } from '../schema-builder.ts';
 import { materials } from './material-versions.ts';
 import { notes } from './notes.ts';
-import { projects } from './sources.ts';
+import { projects, sources } from './sources.ts';
 
 /** Flat organizational links. Deleting a collection never deletes library content. */
 export const project_materials = defineTable({ role: 'contributes', entity: 'material' })(
@@ -30,6 +30,25 @@ export const project_materials = defineTable({ role: 'contributes', entity: 'mat
   (t) => [
     primaryKey({ columns: [t.project_id, t.material_id] }),
     index('project_materials_material_idx').on(t.material_id)
+  ]
+);
+
+/** Additional subject visibility for original files, independent of their provenance. */
+export const project_sources = defineTable({ role: 'contributes', entity: 'source' })(
+  'project_sources',
+  {
+    project_id: integer()
+      .$type<ProjectId>()
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    source_id: integer()
+      .$type<SourceId>()
+      .notNull()
+      .references(() => sources.id, { onDelete: 'cascade' })
+  },
+  (t) => [
+    primaryKey({ columns: [t.project_id, t.source_id] }),
+    index('project_sources_source_idx').on(t.source_id)
   ]
 );
 
