@@ -9,7 +9,10 @@ const executable = process.argv[2];
 
 if (!executable) throw new Error('Pass the executable built with the desktop-e2e feature');
 
-await using directory = await temporaryDirectory({ prefix: 'study-desktop-e2e-' });
+await using directory = await temporaryDirectory({
+  prefix: 'study-desktop-e2e-',
+  waitForWindowsHandles: true
+});
 
 // Reserve a free loopback port for the test-only driver.
 const listener = Bun.listen({
@@ -26,6 +29,7 @@ const app = Bun.spawn([executable], {
   env: {
     ...process.env,
     TAURI_WEBDRIVER_PORT: String(port),
+    STUDY_MODEL_UPDATE_NOTICES: '0',
     STUDY_DATABASE: `${directory.path}/study.sqlite`,
     XDG_DATA_HOME: `${directory.path}/xdg-data`,
     WEBVIEW2_USER_DATA_FOLDER: `${directory.path}/webview`

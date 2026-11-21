@@ -1,6 +1,6 @@
 /** @file Builds sources sources queries and mutations with bound store resources. */
 
-import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import type { ContentSnapshotId, ProjectId, SourceId } from '@study/contracts';
 import {
   StudyError,
   contentSnapshotIdSchema,
@@ -15,7 +15,7 @@ import {
   sourceSchema
 } from '@study/contracts';
 import * as tables from '@study/db';
-import { and, desc, eq, lt } from '@study/db';
+import { and, desc, eq, inArray, lt, or, sql } from '@study/db';
 import { storeMutation, storeQuery, unixSeconds } from '@study/server';
 import type { StoreResources } from '@study/server';
 import { CryptoHasher } from 'bun';
@@ -24,6 +24,25 @@ import { Option, Schema } from 'effect';
 import { sourceDeletionBlockers } from './retention.ts';
 import { checkedBytes, makeHelpers } from './rows.ts';
 import { changeSchema, inputSchema, replacementSchema, request } from './schemas.ts';
+
+function uploadedFor(project: ProjectId | undefined) {
+  if (project === undefined) return undefined;
+
+  const { sources, note_sources, project_notes } = tables;
+
+  return and(
+    inArray(sources.origin, ['attachment', 'import', 'recording']),
+    or(
+      eq(sources.project_id, project),
+      sql`EXISTS (
+        SELECT 1 FROM ${note_sources}
+        JOIN ${project_notes} ON ${project_notes.note_id} = ${note_sources.note_id}
+        WHERE ${note_sources.source_id} = ${sources.id}
+          AND ${project_notes.project_id} = ${project}
+      )`
+    )
+  );
+}
 
 export function makeSourceStore({ db, clock, timestampClock }: StoreResources) {
   const { selectSources, sourceRow, find, state, checkState } = makeHelpers({
@@ -70,6 +89,10 @@ export function makeSourceStore({ db, clock, timestampClock }: StoreResources) {
           selectSources()
             .where(
               and(
+                uploadedFor(input.uploadedFor),
+                input.nameContains
+                  ? sql`instr(lower(${tables.sources.name}), lower(${input.nameContains})) > 0`
+                  : undefined,
                 input.before === undefined ? undefined : lt(tables.sources.id, input.before),
                 input.projectId === undefined
                   ? undefined

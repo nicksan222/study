@@ -1,0 +1,152 @@
+.source-markdown {
+  flex: none;
+  inline-size: min(100%, 70ch);
+  padding-block: clamp(1.25rem, 3vw, 2.5rem) 3rem;
+  color: var(--foreground);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.source-markdown > * + * {
+  margin-block-start: 1em;
+}
+
+.source-markdown :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 650;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.source-markdown > * + :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: 1.4em;
+}
+
+.source-markdown :is(h1, h2, h3, h4, h5, h6) + * {
+  margin-block-start: 0.55em;
+}
+
+.source-markdown h1 {
+  font-size: 1.8em;
+  letter-spacing: -0.025em;
+}
+
+.source-markdown h2 {
+  font-size: 1.42em;
+  letter-spacing: -0.015em;
+}
+
+.source-markdown h3 {
+  font-size: 1.18em;
+}
+
+.source-markdown p {
+  text-wrap: pretty;
+}
+
+.source-markdown :is(ul, ol) {
+  padding-inline-start: 1.55em;
+}
+
+.source-markdown ul {
+  list-style: disc;
+}
+
+.source-markdown ol {
+  list-style: decimal;
+}
+
+.source-markdown li + li {
+  margin-block-start: 0.3em;
+}
+
+.source-markdown li > p + p {
+  margin-block-start: 0.5em;
+}
+
+.source-markdown li:has(> input[type='checkbox'], > p > input[type='checkbox']) {
+  position: relative;
+  list-style: none;
+}
+
+.source-markdown input[type='checkbox'] {
+  position: absolute;
+  inset-block-start: 0.31em;
+  inset-inline-start: -1.4em;
+  inline-size: 1em;
+  block-size: 1em;
+  accent-color: var(--primary);
+}
+
+.source-markdown blockquote {
+  padding: 0.15em 0 0.15em 1em;
+  border-inline-start: 2px solid var(--border);
+  color: var(--contrast-muted-foreground);
+}
+
+.source-markdown blockquote > * + * {
+  margin-block-start: 0.7em;
+}
+
+.source-markdown a[href] {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 0.075em;
+  text-underline-offset: 0.18em;
+}
+
+.source-markdown :is(a, pre, .source-markdown-table):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.source-markdown code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.875em;
+}
+
+.source-markdown :not(pre) > code {
+  padding: 0.12em 0.35em;
+  border-radius: 0.25em;
+  background: var(--muted);
+}
+
+.source-markdown pre {
+  overflow-x: auto;
+  padding: 0.85em 1em;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--muted);
+  line-height: 1.5;
+}
+
+.source-markdown-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+}
+
+.source-markdown table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  text-align: start;
+}
+
+.source-markdown :is(th, td) {
+  padding: 0.5em 0.75em;
+  min-inline-size: 6em;
+}
+
+.source-markdown th {
+  background: var(--muted);
+  font-weight: 650;
+}
+
+.source-markdown tbody tr {
+  border-block-start: 1px solid var(--border);
+}
+
+.source-markdown :is(th, td):not([align]) {
+  text-align: start;
+}

@@ -895,7 +895,7 @@ test.unit.stable.for(['/pages/10', '/projects/2/pages/10'])(
 );
 
 test.unit.stable(
-  'opens Pages between Notes and Practice with a pages-only sidebar',
+  'opens Pages with a pages-only sidebar and keeps subject sections in order',
   async ({ userEvent, within, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.pages.mockResolvedValue({
       items: [
@@ -924,9 +924,9 @@ test.unit.stable(
     expect(
       navigation
         .getAllByRole('link')
-        .slice(0, 3)
+        .slice(0, 4)
         .map((link) => link.querySelector('.study-sidebar-navigation-label')?.textContent)
-    ).toEqual([en.Notes, en.SourcePage, en.Practice]);
+    ).toEqual([en.Notes, en.SourcePage, en.UploadedMaterials, en.Practice]);
     await user.click(
       navigation.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
     );

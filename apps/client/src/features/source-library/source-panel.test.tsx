@@ -83,7 +83,14 @@ function execution(
 }
 
 function processing(requestId: string | null) {
-  return Effect.succeed({ sourceId: source, revision: 1, requestId, documentId: null });
+  return Effect.succeed({
+    sourceId: source,
+    revision: 1,
+    requestId,
+    documentId: null,
+    publishedRequestId: null,
+    requestedAtMs: requestId ? 1 : null
+  });
 }
 
 test.unit.stable(
@@ -189,9 +196,10 @@ test.unit.stable(
     rpc.executions.mockReturnValue(Effect.succeed({ items: [execution()], next: null }));
     await act(() => harness.notify());
     await waitFor(() => expect(view.result.current.data?.failureKind).toBe('unsupported'));
-    rpc.processing.mockReturnValue(processing(null));
+    rpc.processing.mockReturnValue(processing('request-2'));
     await act(() => harness.notify());
-    await waitFor(() => expect(view.result.current.data).toBeUndefined());
+    await waitFor(() => expect(view.result.current.processing?.requestId).toBe('request-2'));
+    expect(view.result.current.data).toBeUndefined();
   }
 );
 
@@ -211,7 +219,7 @@ const failureScenarios = [
     'cancelled',
     {
       overrides: { status: 'cancelled', failureKind: 'cancelled' },
-      label: catalogs.english.SourceExtractionFailed
+      label: catalogs.english.MaterialExtractionCancelled
     }
   ],
   ...(['auth', 'config', 'model_unavailable'] as const).map(
@@ -243,6 +251,15 @@ test.unit.stable.for(failureScenarios)(
     const { overrides, label } = scenario;
     const client = {
       ...materialRpc({ vi }),
+      'sources.importCapability': () =>
+        Effect.succeed({
+          kind: 'text' as const,
+          recognized: true,
+          status: 'supported' as const,
+          path: 'text' as const,
+          reason: 'local_decoder' as const,
+          provider: { authentication: 'signed_out' as const, capability: 'unverified' as const }
+        }),
       'sources.sourceProcessing': rpc.processing,
       'workflows.executions': rpc.executions
     };
@@ -265,7 +282,7 @@ test.unit.stable.for(failureScenarios)(
     await act(async () => {
       await view.notify();
     });
-    expect(await screen.findByText(copy.NotePending)).toBeInTheDocument();
+    expect(await screen.findByText(copy.MaterialExtractionIdle)).toBeInTheDocument();
     expect(screen.queryByText(label)).toBeNull();
     client['sources.currentExtraction'].mockReturnValue(
       client['sources.extraction']({

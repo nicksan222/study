@@ -465,7 +465,11 @@ Selected Projects, Settings, composer and bilingual note-edit checkpoints also r
 `@axe-core/playwright` WCAG 2.1 A/AA scans through `expectAccessibility(name)`.
 Violations fail the journey and the native report includes the complete axe JSON result.
 Keep keyboard and focus assertions alongside these automated scans.
-Set `E2E_REVIEW=1` to retain successful traces and capture artifacts for the current run too.
+Set `E2E_REVIEW=1` to retain successful traces and unmasked images under
+`apps/client/test-results/playwright/review/<profile>/<workflow>/<name>.png`.
+The Materials review gallery job gathers the Materials captures from the browser
+shards and checks their names against the visual references. From the workflow
+summary, download `materials-gallery`, extract it and open `index.html`.
 Open the report with `bun --bun playwright show-report apps/client/test-results/report`,
 or a trace with `bun --bun playwright show-trace PATH`. Unit-level contract fixtures use
 temporary directories removed by their test finalizers.

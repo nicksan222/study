@@ -36,23 +36,26 @@ export function createSource(project: ProjectHarness, fixture: SourceFixture) {
     .values({ source_id: source.id, revision: 1n, bytes, ...detected })
     .run();
 
-  const snapshotId = snapshot(db, fixture.document, time, source.id);
+  const snapshotId = fixture.document ? snapshot(db, fixture.document, time, source.id) : null;
+  const requestId = `seed/${source.id}`;
 
-  db.orm
-    .insert(source_extraction_revisions)
-    .values({
-      source_id: source.id,
-      revision: 1n,
-      snapshot_id: snapshotId
-    })
-    .run();
+  if (snapshotId !== null)
+    db.orm
+      .insert(source_extraction_revisions)
+      .values({
+        source_id: source.id,
+        revision: 1n,
+        snapshot_id: snapshotId
+      })
+      .run();
+
   db.orm
     .insert(source_processing)
     .values({
       source_id: source.id,
       revision: 1n,
-      request_id: `seed/${source.id}`,
-      published_request_id: `seed/${source.id}`,
+      request_id: requestId,
+      published_request_id: snapshotId === null ? null : requestId,
       document_id: snapshotId
     })
     .run();

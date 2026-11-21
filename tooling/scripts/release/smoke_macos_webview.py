@@ -17,7 +17,7 @@ def check_webview(executable, timeout=90):
     executable = executable.resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix="study-macos-webview-") as temporary:
         environment = dict(os.environ, STUDY_DATABASE=str(Path(temporary) / "study.sqlite"),
-                           STUDY_LOG="info", NO_COLOR="1")
+                           STUDY_LOG="info", STUDY_MODEL_UPDATE_NOTICES="0", NO_COLOR="1")
         for override in ("STUDY_BUN_PATH", "STUDY_SERVER_ENTRY"):
             environment.pop(override, None)
         with subprocess.Popen(

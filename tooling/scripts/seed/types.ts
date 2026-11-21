@@ -6,7 +6,7 @@ import type { Block, Document } from '@study/contracts';
 export type SourceFixture = {
   readonly name: string;
   readonly bytes: Uint8Array;
-  readonly document: Document;
+  readonly document: Document | null;
 };
 
 export type PageFixture = {

@@ -28,14 +28,18 @@ test.server.stable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const sources = yield* client['sources.sources']({ limit: 100 });
 
-            expect(sources.items).toHaveLength(15);
+            expect(sources.items).toHaveLength(27);
 
             for (const source of sources.items) {
               const exported = yield* client['sources.sourceExport']({ id: source.id });
               const extraction = yield* client['sources.currentExtraction']({ id: source.id });
 
               expect(exported.bytes.length).toBeGreaterThan(0);
-              expect(extraction?.document.blocks.length).toBeGreaterThan(0);
+
+              if (source.kind === 'other' || source.kind === 'archive')
+                expect(extraction).toBeNull();
+              else expect(extraction?.document.blocks.length).toBeGreaterThan(0);
+
               expect(source.createdAt).toBeLessThan(BigInt(Math.floor(Date.now() / 1000)));
             }
 

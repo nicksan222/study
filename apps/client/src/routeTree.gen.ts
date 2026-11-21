@@ -15,6 +15,7 @@ import { Route as HomeRouteImport } from './routes/home'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as UploadsRouteImport } from './routes/uploads'
 import { Route as FlashcardsIndexRouteImport } from './routes/flashcards.index'
 import { Route as FlashcardsMaterialIdRouteImport } from './routes/flashcards.$materialId'
 import { Route as MaterialsMaterialIdRouteImport } from './routes/materials.$materialId'
@@ -55,6 +56,11 @@ const ProjectsRoute = ProjectsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UploadsRoute = UploadsRouteImport.update({
+  id: '/uploads',
+  path: '/uploads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlashcardsIndexRoute = FlashcardsIndexRouteImport.update({
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/notes': typeof NotesRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/uploads': typeof UploadsRoute
   '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
   '/notes/$noteId': typeof NotesNoteIdRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/uploads': typeof UploadsRoute
   '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
   '/notes/$noteId': typeof NotesNoteIdRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/notes': typeof NotesRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/uploads': typeof UploadsRoute
   '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
   '/notes/$noteId': typeof NotesNoteIdRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/projects'
     | '/settings'
+    | '/uploads'
     | '/flashcards/$materialId'
     | '/materials/$materialId'
     | '/notes/$noteId'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/projects'
     | '/settings'
+    | '/uploads'
     | '/flashcards/$materialId'
     | '/materials/$materialId'
     | '/notes/$noteId'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/projects'
     | '/settings'
+    | '/uploads'
     | '/flashcards/$materialId'
     | '/materials/$materialId'
     | '/notes/$noteId'
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   NotesRoute: typeof NotesRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
   SettingsRoute: typeof SettingsRoute
+  UploadsRoute: typeof UploadsRoute
   FlashcardsMaterialIdRoute: typeof FlashcardsMaterialIdRoute
   MaterialsMaterialIdRoute: typeof MaterialsMaterialIdRoute
   PagesPageIdRoute: typeof PagesPageIdRoute
@@ -289,6 +302,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/uploads': {
+      id: '/uploads'
+      path: '/uploads'
+      fullPath: '/uploads'
+      preLoaderRoute: typeof UploadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flashcards/': {
@@ -390,6 +410,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotesRoute: NotesRouteWithChildren,
   ProjectsRoute: ProjectsRoute,
   SettingsRoute: SettingsRoute,
+  UploadsRoute: UploadsRoute,
   FlashcardsMaterialIdRoute: FlashcardsMaterialIdRoute,
   MaterialsMaterialIdRoute: MaterialsMaterialIdRoute,
   PagesPageIdRoute: PagesPageIdRoute,

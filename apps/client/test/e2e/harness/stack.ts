@@ -15,7 +15,7 @@ import { captureTimestampClock } from './profile.ts';
 export async function openWebStack(
   options: Pick<
     NonNullable<Parameters<Awaited<ReturnType<typeof createServerFixture>>['openApp']>[0]>,
-    'ai' | 'voice'
+    'ai' | 'voice' | 'modelUpdateNotices'
   > & {
     chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0];
     useDefaultNoteAppearance?: boolean;
@@ -28,6 +28,7 @@ export async function openWebStack(
   const fixture = resources.manage(await createServerFixture());
   const { app, server } = await fixture.openRpc({
     timestampClock: captureTimestampClock(),
+    modelUpdateNotices: options.modelUpdateNotices ?? false,
     ai,
     voice,
     fetch:

@@ -34,7 +34,20 @@ test.server.stable(
 
       const imported = db.orm.select().from(sources).all();
 
-      expect(imported).toHaveLength(15);
+      expect(imported).toHaveLength(27);
+      expect([...new Set(imported.map((source) => source.kind))].sort()).toEqual([
+        'archive',
+        'audio',
+        'code',
+        'document',
+        'image',
+        'other',
+        'pdf',
+        'slides',
+        'spreadsheet',
+        'text',
+        'video'
+      ]);
       expect(
         db.orm
           .select()

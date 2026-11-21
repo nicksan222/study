@@ -16,14 +16,17 @@ type Document = typeof documentSchema.Type;
 
 export function RetainedDocumentReader({
   document,
-  snapshotId
+  snapshotId,
+  showOmissions
 }: {
   document: Document;
   snapshotId: ContentSnapshotId;
+  showOmissions?: boolean;
 }) {
   return (
     <DocumentReader
       document={document}
+      showOmissions={showOmissions}
       renderImage={(block) =>
         block.content.type === 'image' ? (
           <RetainedImage

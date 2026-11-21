@@ -1069,6 +1069,21 @@
 .study-note-page-count {
   flex: none;
 }
+/* Long secondary text shares the filename column in compact two-line rows. */
+.study-shell:not([data-sidebar-collapsed='true']) .study-note-row[data-description-below] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 0.5rem;
+}
+
+.study-note-row[data-description-below] .study-item-kind {
+  grid-column: 2;
+  max-width: none;
+  white-space: normal;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
 .study-shell[data-sidebar-collapsed='true'] .study-note-row .study-note-title,
 .study-shell[data-sidebar-collapsed='true'] .study-note-row .study-item-kind,
 .study-shell[data-sidebar-collapsed='true'] .study-note-page-count {

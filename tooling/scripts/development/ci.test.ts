@@ -37,6 +37,7 @@ const lanes = [
   'shared_tests',
   'database',
   'browser',
+  'materials_gallery',
   'native',
   'integrations',
   'landing'
@@ -44,7 +45,8 @@ const lanes = [
 
 const prerequisites: Record<string, string[]> = {
   server_tests: ['hygiene', 'types'],
-  browser: ['hygiene', 'types']
+  browser: ['hygiene', 'types'],
+  materials_gallery: ['browser']
 };
 
 test.unit.stable(

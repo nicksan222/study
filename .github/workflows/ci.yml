@@ -231,6 +231,50 @@ jobs:
           name: web-e2e-diagnostics-${{ matrix.shard }}
           path: apps/client/test-results/
           if-no-files-found: ignore
+      - name: 🖼️ Collect Materials screenshots
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-e2e-materials-${{ matrix.shard }}
+          path: |
+            apps/client/test-results/playwright/review/linux-x64-chromium/material*/*.png
+            apps/client/test-results/playwright/review/linux-x64-chromium/switch-among-*/*.png
+          if-no-files-found: ignore
+          compression-level: 0
+          retention-days: 1
+          overwrite: true
+
+  materials_gallery:
+    name: 🖼️ Materials review gallery
+    needs: [browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      - name: 📥 Download Materials captures
+        uses: actions/download-artifact@v8
+        with:
+          pattern: web-e2e-materials-*
+          path: target/materials-review-shards
+      - name: 🖼️ Assemble Materials review gallery
+        run: bun tooling/scripts/development/materials-gallery.ts target/materials-review-shards target/materials-gallery
+      - name: 📦 Upload Materials review gallery
+        id: materials_artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: materials-gallery
+          path: target/materials-gallery/
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true
+      - name: 🔗 Link the gallery
+        env:
+          ARTIFACT_URL: ${{ steps.materials_artifact.outputs.artifact-url }}
+        run: printf '%s\n' "[Download the Materials gallery](${ARTIFACT_URL}). Unzip and open index.html." >> "$GITHUB_STEP_SUMMARY"
 
   native:
     name: 🦀 Desktop & runtime
@@ -296,6 +340,7 @@ jobs:
         shared_tests,
         database,
         browser,
+        materials_gallery,
         native,
         integrations,
         landing
@@ -325,6 +370,7 @@ jobs:
               'shared_tests': '📦 Shared package tests',
               'database': '🗄️ Database',
               'browser': '🌐 Browser journeys',
+              'materials_gallery': '🖼️ Materials review gallery',
               'native': '🦀 Desktop & runtime',
               'integrations': '🔌 Provider integrations',
               'landing': '🌍 Landing page',

@@ -10,6 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { viewerExtension } from '@study/contracts';
 import type { SourceKind } from '@study/contracts';
 
 export function decoderPath(input: { kind: SourceKind; mime: string }) {
@@ -33,12 +34,9 @@ export function decoderPath(input: { kind: SourceKind; mime: string }) {
 }
 
 function officePath(input: { kind: SourceKind; mime: string }) {
-  return (
-    (input.kind === 'document' &&
-      input.mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
-    (input.kind === 'slides' &&
-      input.mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
-  );
+  const format = viewerExtension(input.kind, input.mime);
+
+  return format === 'docx' || format === 'pptx' || format === 'xlsx';
 }
 
 function visionPath(input: { kind: SourceKind; mime: string }) {

@@ -1,5 +1,5 @@
 import type { ProjectId } from '@study/contracts';
-import { NoteIcon, PageIcon, QuizIcon, AssistantIcon } from '@study/icons';
+import { NoteIcon, PageIcon, QuizIcon, AssistantIcon, SourcesIcon } from '@study/icons';
 import { Sidebar } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
@@ -12,6 +12,7 @@ import type { useSidebarCounts } from './sidebar-counts.queries';
 const sections = [
   ['/notes', 'notes', NoteIcon, 'Notes'],
   ['/pages', 'pages', PageIcon, 'SourcePage'],
+  ['/uploads', 'uploads', SourcesIcon, 'UploadedMaterials'],
   ['/practice', 'practice', QuizIcon, 'Practice']
 ] as const;
 
@@ -38,24 +39,26 @@ export function SidebarNavigation({
   return (
     <Sidebar.NavigationGroup compact={compact}>
       <Sidebar.Navigation id="study-sidebar-navigation" aria-label={t('SidebarNavigation')}>
-        {sections.map(([to, currentSection, Icon, label]) => (
-          <Sidebar.NavigationItem
-            key={to}
-            label={t(label)}
-            count={counts?.[currentSection].count}
-            unresolved={currentSection === 'notes' && counts?.notes.unresolved}
-            render={
-              <Link
-                to={to}
-                search={project ? { project } : {}}
-                aria-current={!settings && section === currentSection ? 'page' : undefined}
-                onClick={onNavigate}
-              />
-            }
-          >
-            <Icon aria-hidden="true" />
-          </Sidebar.NavigationItem>
-        ))}
+        {sections
+          .filter(([, key]) => key !== 'uploads' || project)
+          .map(([to, currentSection, Icon, label]) => (
+            <Sidebar.NavigationItem
+              key={to}
+              label={t(label)}
+              count={currentSection === 'uploads' ? undefined : counts?.[currentSection].count}
+              unresolved={currentSection === 'notes' && counts?.notes.unresolved}
+              render={
+                <Link
+                  to={to}
+                  search={project ? { project } : {}}
+                  aria-current={!settings && section === currentSection ? 'page' : undefined}
+                  onClick={onNavigate}
+                />
+              }
+            >
+              <Icon aria-hidden="true" />
+            </Sidebar.NavigationItem>
+          ))}
         <Sidebar.NavigationItem
           label={t('Assistant')}
           render={

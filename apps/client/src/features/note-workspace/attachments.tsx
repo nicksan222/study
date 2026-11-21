@@ -5,6 +5,7 @@ import { mediaSize } from '@study/localization';
 import type { StaticMessageKey } from '@study/localization';
 import {
   AttachmentPreview,
+  attachmentMediaKind,
   useAttachmentPreviewUrl,
   ComposerSurface,
   Disclosure,
@@ -14,7 +15,7 @@ import {
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { appearances, attachmentPreviewKind } from './attachment-appearance';
+import { appearances } from './attachment-appearance';
 import { useAttachments } from './attachments.queries';
 import type { Attachment } from './attachments.queries';
 import { NoteError } from './status';
@@ -76,9 +77,9 @@ function DraftAttachment({
   const { t, locale } = useI18n();
   const detected = draftFileType(entry.file);
   const { icon: Icon } = appearances[detected.kind];
-  const mediaKind = attachmentPreviewKind(detected.kind);
+  const mediaKind = attachmentMediaKind(detected.kind);
   const preview = useAttachmentPreviewUrl(
-    mediaKind !== 'file' && detected.mime !== 'image/svg+xml' ? entry.file : undefined
+    mediaKind && detected.mime !== 'image/svg+xml' ? entry.file : undefined
   );
 
   return (
@@ -89,7 +90,7 @@ function DraftAttachment({
       state={entry.state}
       icon={<Icon size={20} aria-hidden="true" />}
       preview={
-        preview ? (
+        preview && mediaKind ? (
           <AttachmentPreview
             kind={mediaKind}
             src={preview}

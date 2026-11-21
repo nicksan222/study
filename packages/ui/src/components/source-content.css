@@ -189,3 +189,288 @@
   inline-size: max-content;
   margin-inline: auto;
 }
+
+.source-reader-views {
+  padding: 0 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-reader-views .study-toggle-group {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.source-reader-original {
+  display: grid;
+  justify-items: center;
+  padding: 16px;
+}
+
+.source-reader-original :is(img, audio, video) {
+  max-width: 100%;
+}
+
+.source-reader-details {
+  width: min(100%, 41rem);
+  margin-block: 1rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--card);
+}
+
+.source-reader-details h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.source-reader-details dl {
+  margin: 0;
+}
+
+.source-reader-details dl > div {
+  display: grid;
+  grid-template-columns: minmax(5rem, 35%) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 1rem;
+  padding-block: 0.75rem;
+  border-block-start: 1px solid var(--border);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.source-reader-details dl > div:last-child {
+  padding-block-end: 0;
+}
+
+.source-reader-details dt {
+  color: var(--contrast-muted-foreground);
+}
+
+.source-reader-detail-notes .reader-notice {
+  margin: 1rem 0 0;
+}
+
+.source-reader-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
+.study-content[data-section='uploads'] {
+  --material-gutter: clamp(1rem, 3vw, 1.5rem);
+  background: var(--background);
+}
+
+.study-content[data-section='uploads'] > .study-workspace-header {
+  flex: none;
+  padding-inline: var(--material-gutter);
+  background: var(--background);
+}
+
+.study-content[data-section='uploads'] > .study-workspace-header > span:first-child {
+  max-inline-size: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.source-reader[data-materials-reader]) {
+  --material-column: 58rem;
+  padding: 0 var(--material-gutter) 2rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  container-type: inline-size;
+}
+
+.source-reader[data-materials-reader] > * {
+  inline-size: 100%;
+  max-inline-size: var(--material-column);
+  min-inline-size: 0;
+}
+
+.source-reader[data-materials-reader] > .source-reader-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(50%);
+  align-items: start;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0 0 0.75rem;
+}
+
+.source-reader[data-materials-reader] .source-reader-title {
+  font-size: clamp(1.375rem, 3vw, 1.875rem);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.source-reader[data-materials-reader] .source-reader-header > .source-reader-actions {
+  align-self: center;
+  justify-content: flex-end;
+  margin-inline-end: -0.125rem;
+}
+
+@media (pointer: coarse) {
+  .source-reader[data-materials-reader] .source-reader-header button[data-slot='button'] {
+    min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
+  }
+}
+
+@container (max-width: 36rem) {
+  .source-reader[data-materials-reader] > .source-reader-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block-end: 0.5rem;
+  }
+
+  .source-reader[data-materials-reader] .source-reader-header > .source-reader-actions {
+    justify-content: flex-start;
+  }
+}
+
+.source-reader[data-materials-reader] .source-reader-views {
+  padding: 0 0 0.75rem;
+}
+
+.source-reader[data-materials-reader] .source-reader-pdf-viewport {
+  padding: 0;
+  background: var(--background);
+  scrollbar-gutter: auto;
+}
+
+.source-reader[data-materials-reader] .source-reader-pdf-viewport > .react-pdf__Page {
+  margin-inline: 0;
+}
+
+.source-reader[data-materials-reader] .source-reader-pdf-controls {
+  justify-content: flex-start;
+  padding: 0.375rem 0;
+  border: 0;
+}
+
+.source-reader[data-materials-reader] .source-reader-original {
+  justify-items: start;
+  padding: 1rem 0 0;
+}
+
+.source-reader-original-text {
+  margin: 0;
+  padding: 16px;
+  font-family: inherit;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.source-reader-original-text[data-code] {
+  font-family: var(--font-mono, monospace);
+}
+
+.source-reader[data-materials-reader] > :is(.source-markdown, .source-reader-original-text) {
+  max-inline-size: min(100%, 70ch);
+  padding: 1rem 0 0;
+}
+
+.source-reader[data-materials-reader] > .source-reader-original-text[data-code] {
+  margin-block-start: 1rem;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--muted);
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.source-reader[data-materials-reader] > .source-reader-details {
+  max-inline-size: min(100%, 36rem);
+  margin-block-end: 0;
+}
+
+.source-reader[data-materials-reader] > .workspace-desk-editor {
+  flex: none;
+  margin-block-start: 1rem;
+  background: var(--background);
+}
+
+.source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content,
+.source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content .tiptap {
+  min-height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  scrollbar-gutter: auto;
+}
+
+.source-reader[data-materials-reader] .workspace-desk-editor .tiptap {
+  inline-size: 100%;
+  text-align: start;
+}
+
+.source-reader[data-materials-reader] .tiptap > :first-child {
+  margin-block-start: 0;
+}
+
+.source-reader[data-materials-reader] .tiptap > * + :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: 1.5em;
+}
+
+.source-reader[data-materials-reader] .tiptap > :last-child {
+  margin-block-end: 0;
+}
+
+.source-reader[data-materials-reader] .tiptap > :is(p, ul, ol, blockquote) {
+  max-inline-size: 70ch;
+}
+
+.source-reader[data-materials-reader] .workspace-desk-editor .rich-note-content p {
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.source-reader[data-materials-reader] .tableWrapper {
+  margin-block-start: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--contrast-muted-foreground) var(--muted);
+}
+
+.source-reader[data-materials-reader] .tableWrapper + .tableWrapper {
+  margin-block-start: 0.25rem;
+}
+
+.source-reader[data-materials-reader] .tableWrapper table,
+.source-reader[data-materials-reader] .tableWrapper :is(td, th) > p:only-child {
+  margin-block: 0;
+}
+
+/* Extracted sheets scroll within the reader on narrow screens. */
+.source-reader[data-materials-reader][data-source-kind='spreadsheet'] .tableWrapper table {
+  table-layout: auto;
+}
+
+.source-reader[data-materials-reader][data-source-kind='spreadsheet'] .tableWrapper :is(td, th) {
+  min-width: 6rem;
+}
+
+.source-reader[data-materials-reader][data-source-kind='spreadsheet'] .tableWrapper p {
+  max-inline-size: 60ch;
+  overflow-wrap: break-word;
+}
+
+.source-reader-editor {
+  display: grid;
+  gap: 0.75rem;
+  padding-block: 0.5rem 1rem;
+}
+.source-reader-editor textarea {
+  min-height: min(24rem, 48dvh);
+  line-height: 1.6;
+}
+.source-reader-editor .source-reader-actions {
+  justify-content: flex-end;
+}
