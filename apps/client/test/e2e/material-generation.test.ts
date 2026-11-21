@@ -97,13 +97,19 @@ test.browser.stable(
     await expect(details).toHaveCount(0);
 
     await page.goto(`/notes/${fixture.note.id}`);
+    const notebook = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const noteContext = page.getByRole('complementary', { name: copy.NoteContextPanel });
+
+    await expect(notebook).toBeVisible();
+    await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
     await expectScreenshot('notes-work-running', {
       target: 'viewport',
       ready: async () => {
-        await expect(page.getByRole('region', { name: copy.NoteNotebook })).toBeVisible();
+        await expect(notebook).toContainText('Mitosis preserves chromosome number');
         await expect(
-          page.getByRole('heading', { name: 'Cell division overview', exact: true })
+          noteContext.getByRole('heading', { name: copy.NoteWorkHeading })
         ).toBeVisible();
+        await expect(noteContext.getByText(copy.NoteWorkEmpty, { exact: true })).toBeVisible();
       }
     });
     await page.goto(practice);
