@@ -18,7 +18,6 @@ import {
 } from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
-import { AttachmentPicker, AttachmentTray } from './attachments';
 import { useComposer } from './composer.queries';
 import { isNoteSubmit } from './draft';
 import { NoteError } from './status';
@@ -26,7 +25,7 @@ import { UnavailableAttempt } from './unavailable-attempt';
 
 type ComposerModel = ReturnType<typeof useComposer>;
 
-/** Composes notes, questions and attachments while preserving mixed clipboard content. */
+/** Composes notes, and questions. */
 export function Composer({
   id,
   onPage,
@@ -38,7 +37,7 @@ export function Composer({
 }) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();
-  const { t, draft, files, blocked, setDraft, submitNote } = model;
+  const { t, draft, blocked, setDraft, submitNote } = model;
   const capture = useCaptureState(model);
   const input = useRef<HTMLTextAreaElement>(null);
   const submission = useDictationSubmission();
@@ -63,38 +62,15 @@ export function Composer({
       spellcheck={preferences.spellcheck}
       onChange={(text) => setDraft((previous) => ({ ...previous, text }))}
       onSubmit={submit}
-      disabled={
-        blocked ||
-        submission.blocked ||
-        model.filesBlocked ||
-        (!draft.text.trim() && !model.sourceIds.length)
-      }
-      onDragOver={(event) => {
-        if (!blocked) event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (!blocked) files.add(Array.from(event.dataTransfer.files));
-      }}
-      onPaste={(event) => {
-        if (event.clipboardData.files.length && !blocked) {
-          if (!event.clipboardData.getData('text/plain')) event.preventDefault();
-
-          files.add(Array.from(event.clipboardData.files));
-        }
-      }}
+      disabled={blocked || submission.blocked || !draft.text.trim()}
       onKeyDown={(event) => {
         if (isNoteSubmit(event, preferences.submitOnEnter)) {
           event.preventDefault();
           submit();
         }
       }}
-      attachments={<AttachmentTray id={id} blocked={blocked} />}
       tools={
         <>
-          <AttachmentPicker id={id} blocked={blocked} />
           <DictationSubmissionScope value={submission.scope}>
             <DictationButton
               targetKey={id}
@@ -131,19 +107,18 @@ export function Composer({
 }
 
 function useCaptureState(model: ComposerModel) {
-  const { draft, files, blocked } = model;
-  const [expanded, setExpanded] = useState(() => !!draft.text || files.items.length > 0);
+  const { draft, blocked } = model;
+  const [expanded, setExpanded] = useState(() => !!draft.text);
   const wasPending = useRef(model.pending);
   const recovery = blocked || !!model.noteMutation.error || !!model.askMutation.error;
-  const required = recovery || files.items.length > 0;
+  const required = recovery;
   const open = expanded || required;
 
   useEffect(() => {
-    if (wasPending.current && !model.pending && !recovery && !draft.text && !files.items.length)
-      setExpanded(false);
+    if (wasPending.current && !model.pending && !recovery && !draft.text) setExpanded(false);
 
     wasPending.current = model.pending;
-  }, [model.pending, recovery, draft.text, files.items.length]);
+  }, [model.pending, recovery, draft.text]);
 
   return { open, onOpenChange: required ? undefined : setExpanded };
 }

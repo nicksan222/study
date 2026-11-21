@@ -9,19 +9,20 @@ const name = 'river-survey.pdf';
 const fixture = new URL('./fixtures/river-survey.pdf', import.meta.url);
 
 async function attachPdf(
-  { page, expect }: Pick<test.browser.Context, 'page' | 'expect'>,
+  { page, rpc }: Pick<test.browser.Context, 'page' | 'rpc'>,
   filename: string,
   buffer: Buffer
 ) {
-  await page.goto('/notes');
-  await page.getByRole('textbox', { name: copy.NoteCompose }).fill('River survey lecture');
-  await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles({
-    name: filename,
-    mimeType: 'application/pdf',
-    buffer
-  });
-  await page.getByRole('button', { name: copy.NoteSaveNote, exact: true }).click();
-  await expect(page).toHaveURL(/\/notes\/[^/?]+$/);
+  const source = await rpc.runPromise(
+    rpc.client['sources.createSource']({ name: filename, bytes: buffer, projectId: null })
+  );
+  const note = await rpc.runPromise(
+    rpc.client['notes.createUntitledNote']({
+      initialMessage: { text: 'River survey lecture', sourceIds: [source.id] }
+    })
+  );
+
+  await page.goto(`/notes/${note.id}`);
 }
 
 test.browser.stable(
@@ -29,7 +30,7 @@ test.browser.stable(
   async ({ page, expect, expectScreenshot, rpc }) => {
     const buffer = Buffer.from(await Bun.file(fixture).arrayBuffer());
 
-    await attachPdf({ page, expect }, name, buffer);
+    await attachPdf({ page, rpc }, name, buffer);
 
     const attachment = page
       .getByRole('region', { name: copy.NoteNotebook })
@@ -140,10 +141,10 @@ test.browser.stable(
 
 test.browser.stable(
   'Reports a PDF that cannot be opened',
-  async ({ page, expect, expectScreenshot }) => {
+  async ({ page, expect, expectScreenshot, rpc }) => {
     const filename = 'damaged.pdf';
 
-    await attachPdf({ page, expect }, filename, Buffer.from('%PDF-1.7\nDamaged document'));
+    await attachPdf({ page, rpc }, filename, Buffer.from('%PDF-1.7\nDamaged document'));
     await page
       .getByRole('region', { name: copy.NoteNotebook })
       .getByRole('button', { name: filename, exact: true })

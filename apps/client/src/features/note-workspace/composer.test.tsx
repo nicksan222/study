@@ -112,7 +112,7 @@ test.unit.stable(
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Lecture notes' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Lecture notes', []));
+    await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Lecture notes'));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Later draft' } });
     await act(async () => resolve({} as Awaited<ReturnType<typeof saveNote>>));
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('Later draft'));
@@ -186,7 +186,7 @@ test.unit.stable(
     expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
     await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'A quick note', []));
+    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'A quick note'));
     expect(ask).not.toHaveBeenCalled();
   }
 );
@@ -201,7 +201,7 @@ test.unit.stable(
       target: { value: 'Rough lecture notes' }
     });
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', ctrlKey: true });
-    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'Rough lecture notes', []));
+    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'Rough lecture notes'));
     expect(ask).not.toHaveBeenCalled();
   }
 );

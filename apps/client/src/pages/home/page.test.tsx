@@ -23,6 +23,6 @@ test.unit.stable.for(['english', 'italian'] as const)(
     const main = within(screen.getByRole('main'));
 
     expect(main.getByRole('button', { name: t.NoteSaveNote })).toBeDisabled();
-    expect(main.getByLabelText(t.NoteAttachFiles)).toBeInTheDocument();
+    expect(main.queryByLabelText(t.NoteAttachFiles)).not.toBeInTheDocument();
   }
 );

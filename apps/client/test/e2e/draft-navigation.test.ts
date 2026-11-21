@@ -29,8 +29,6 @@ const scopes = [
   ].join('\n\n')
 }));
 
-const removed = 'river-removed.md';
-
 test.browser.stable(
   'Scoped drafts survive navigation and save to their own projects',
   async ({ page, expectScreenshot, expect }) => {
@@ -44,11 +42,7 @@ test.browser.stable(
     const projects = new Map<string, string>();
 
     async function controls({ expect }: Pick<test.browser.Context, 'expect'>) {
-      for (const control of [
-        composer,
-        save,
-        composeRegion.getByTitle(copy.NoteAttachFiles, { exact: true })
-      ]) {
+      for (const control of [composer, save]) {
         await expect(control).toBeInViewport({ ratio: 1 });
 
         if (await control.isEnabled()) await control.click({ trial: true });
@@ -57,19 +51,12 @@ test.browser.stable(
 
     async function assertDraft(
       { expect }: Pick<test.browser.Context, 'expect'>,
-      scope: (typeof scopes)[number],
-      filenames: string[]
+      scope: (typeof scopes)[number]
     ) {
       await expect(page).toHaveURL(`${projects.get(scope.name)}/notes`);
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
       await expect(composer).toHaveValue(scope.text);
-      await expect(composeRegion.locator('li > span').filter({ hasText: /\S/ })).toHaveText(
-        filenames
-      );
-      await expect(
-        composeRegion.getByRole('button', { name: copy.NoteRemoveAttachment, exact: true })
-      ).toHaveCount(filenames.length);
       await expect(page.locator('a[href*="/notes/"]')).toHaveCount(saved.has(scope.name) ? 1 : 0);
       await expect(save).toBeEnabled();
       await controls({ expect });
@@ -124,25 +111,7 @@ test.browser.stable(
       await expect(composer).toHaveValue('');
       await expect(composeRegion.locator('li')).toHaveCount(0);
       await composer.fill(scope.text);
-      await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles([
-        {
-          name: scope.file,
-          mimeType: 'text/markdown',
-          buffer: Buffer.from(`# ${scope.name} source\n\n${scope.sentinel}`)
-        },
-        ...(index === 0
-          ? [
-              {
-                name: removed,
-                mimeType: 'text/markdown',
-                buffer: Buffer.from(
-                  '# Removed river source\n\nRemoved sentinel: never submit this file.'
-                )
-              }
-            ]
-          : [])
-      ]);
-      await assertDraft({ expect }, scope, index === 0 ? [scope.file, removed] : [scope.file]);
+      await assertDraft({ expect }, scope);
 
       if (index === 0) {
         await composer.press('ControlOrMeta+Home');
@@ -190,27 +159,17 @@ test.browser.stable(
       for (const scope of scopes) {
         await visitOtherRoutes({ expect });
         await selectScope({ expect }, scope);
-        await assertDraft({ expect }, scope, scope === a ? [a.file, removed] : [b.file]);
+        await assertDraft({ expect }, scope);
       }
     }
 
     await selectScope({ expect }, a);
-    await composeRegion
-      .locator('li')
-      .filter({ hasText: removed })
-      .getByRole('button', { name: copy.NoteRemoveAttachment })
-      .click();
-    await assertDraft({ expect }, a, [a.file]);
-    await selectScope({ expect }, b);
-    await assertDraft({ expect }, b, [b.file]);
-    await selectScope({ expect }, a);
-    await assertDraft({ expect }, a, [a.file]);
     await composer.press('ControlOrMeta+Home');
     await expectScreenshot('returned-draft', {
       target: 'viewport',
       ready: async () => {
         await expect(composer).toHaveValue(a.text);
-        await assertDraft({ expect }, a, [a.file]);
+        await assertDraft({ expect }, a);
       }
     });
 
@@ -229,44 +188,8 @@ test.browser.stable(
 
       await expect(entry).toHaveCount(1);
       await expect(entry.locator('[data-slot="chat-message-text"]')).toHaveText(scope.text);
-      await expect(entry.getByRole('button', { name: scope.file, exact: true })).toHaveCount(1);
-
-      for (const filename of [
-        removed,
-        ...scopes.filter((other) => other !== scope).map((other) => other.file)
-      ]) {
-        await expect(page.getByRole('button', { name: filename, exact: true })).toHaveCount(0);
-      }
 
       return { notebook, entry };
-    }
-
-    async function source(
-      { expect }: Pick<test.browser.Context, 'expect'>,
-      scope: (typeof scopes)[number]
-    ) {
-      const { entry } = await assertSaved({ expect }, scope);
-      const attachment = entry.getByRole('button', { name: scope.file, exact: true });
-
-      await attachment.scrollIntoViewIfNeeded();
-      await attachment.click();
-      const preview = page
-        .getByRole('tabpanel')
-        .getByRole('document', { name: copy.NotePageEditor });
-
-      await expect(preview.getByText(scope.sentinel, { exact: true })).toBeVisible();
-      await expect(preview).toHaveAttribute('contenteditable', 'false');
-      await expect(
-        page.getByRole('tabpanel').getByText(copy.NotePending, { exact: true })
-      ).toHaveCount(0);
-      await expect(
-        preview.getByText('Removed sentinel: never submit this file.', { exact: true })
-      ).toHaveCount(0);
-
-      for (const other of scopes.filter((other) => other !== scope))
-        await expect(preview.getByText(other.sentinel, { exact: true })).toHaveCount(0);
-
-      await page.getByRole('button', { name: copy.NoteClosePage, exact: true }).click();
     }
 
     async function saveDraft(
@@ -275,7 +198,7 @@ test.browser.stable(
     ) {
       if (scope === b) {
         await selectScope({ expect }, b);
-        await assertDraft({ expect }, b, [b.file]);
+        await assertDraft({ expect }, b);
       }
 
       await save.click();
@@ -284,7 +207,6 @@ test.browser.stable(
       saved.set(scope.name, page.url());
       const { notebook } = await assertSaved({ expect }, scope);
 
-      await source({ expect }, scope);
       const body = notebook.locator('[data-slot="chat-message-text"]');
       const heading = body;
 
@@ -357,7 +279,6 @@ test.browser.stable(
       await expect(page).toHaveURL(saved.get(scope.name)!);
       await page.reload();
       await assertSaved({ expect }, scope);
-      await source({ expect }, scope);
       await expect(page.locator('a[href*="/notes/"]')).toHaveCount(1);
     }
   }

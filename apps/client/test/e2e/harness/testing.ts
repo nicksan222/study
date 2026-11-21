@@ -7,6 +7,7 @@ import { createTestResources } from '@study/testing/resources';
 import type { Locator, Page } from 'playwright';
 
 import { assertCapturePlatform } from './environment.ts';
+import { transferFile } from './file-transfer.ts';
 import { workflowName } from './identity.ts';
 import { controlMicrophone } from './microphone.ts';
 import { captureProfile } from './profile.ts';
@@ -19,6 +20,7 @@ type VisualBounds = Partial<Pick<VisualViewport, 'height' | 'width' | 'offsetLef
 
 export type Journey = {
   page: Page;
+  transferFile: typeof transferFile;
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Awaited<ReturnType<typeof openWebStack>>['loseCreationResponse'];
   setVisualViewport: (bounds: VisualBounds | null, event?: 'resize' | 'scroll') => Promise<void>;
@@ -130,6 +132,7 @@ const testHarness = testBrowser.extend<Fixtures>({
     });
     await provide({
       page,
+      transferFile,
       loseCreationResponse: webStack.loseCreationResponse,
       setVisualViewport: (bounds, event = 'resize') =>
         page.evaluate(

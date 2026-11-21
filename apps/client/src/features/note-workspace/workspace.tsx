@@ -1,16 +1,14 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import type { ProjectId, NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Loading, WorkspaceCard, WorkspaceSurface } from '@study/ui';
+import { Loading, toastManager, WorkspaceCard, WorkspaceSurface } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
+import type { DragEvent, ClipboardEvent, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { useAttachments } from './attachments';
-import { composerDraft } from './composer.queries';
 import { NoteDeletion, NoteDeleteDialog, deletionAttempt, useDeletionReceipt } from './deletion';
-import type { Draft } from './draft';
 import { NoteLayoutControls } from './note-layout-controls';
 import { NoteTitleEdit } from './note-title';
 import { NoteStart } from './start';
@@ -23,14 +21,63 @@ import { WorkspaceHeader } from './workspace-header';
 export function NoteWorkspace({ id }: { id?: NoteId } = {}) {
   return (
     <WorkspaceCard.Provider>
-      <WorkspaceSurface.Container>
-        {id ? <NoteBody key={String(id)} id={id} /> : <NoteStart />}
-      </WorkspaceSurface.Container>
+      {id ? (
+        <NoteBody key={String(id)} id={id} />
+      ) : (
+        <NoteUploadRedirect>
+          <NoteStart />
+        </NoteUploadRedirect>
+      )}
     </WorkspaceCard.Provider>
   );
 }
 
-/** Combines authoritative note and deletion reads before allowing edits or file drops. */
+function NoteUploadRedirect({ project, children }: { project?: ProjectId; children: ReactNode }) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const search = useSearch({ from: '__root__' });
+  const help = () =>
+    toastManager.add({
+      id: 'note-material-upload',
+      title: t('NoteUploadFromMaterials'),
+      type: 'info',
+      actionProps: {
+        children: t('UploadedMaterials'),
+        onClick: () =>
+          void navigate({
+            to: '/uploads',
+            search: { project: project ? String(project) : search.project }
+          })
+      }
+    });
+  const onDrop = (event: DragEvent) => {
+    if (!event.dataTransfer.files.length) return;
+
+    event.preventDefault();
+    help();
+  };
+  const onPaste = (event: ClipboardEvent) => {
+    if (!event.clipboardData.files.length) return;
+
+    if (!event.clipboardData.getData('text/plain')) event.preventDefault();
+
+    help();
+  };
+
+  return (
+    <WorkspaceSurface.Container
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+      }}
+      onDrop={onDrop}
+      onPaste={onPaste}
+    >
+      {children}
+    </WorkspaceSurface.Container>
+  );
+}
+
+/** Combines authoritative note and deletion reads before allowing edits. */
 function useNoteWorkspace(id: NoteId) {
   const state = rpc.notes.get.useQuery({ id: id });
   const search = useSearch({ from: '__root__' });
@@ -42,7 +89,6 @@ function useNoteWorkspace(id: NoteId) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const attempt = useAtomValue(deletionAttempt(id));
   const deletePending = attempt.pending;
-  const files = useAttachments(id);
   const deletion = useDeletionReceipt(id, true);
   const completed = deletion.data?.status === 'completed';
 
@@ -61,13 +107,10 @@ function useNoteWorkspace(id: NoteId) {
   return {
     state,
     owner,
-    cache,
+    project,
     deleteDialogOpen,
     setDeleteDialogOpen,
-    deletePending,
-    files,
     deletion,
-    live,
     editable,
     completed
   };
@@ -78,35 +121,21 @@ function NoteBody({ id }: { id: NoteId }) {
   const {
     state,
     owner,
-    cache,
+    project,
     deleteDialogOpen,
     setDeleteDialogOpen,
-    deletePending,
-    files,
     deletion,
-    live,
     editable,
     completed
   } = useNoteWorkspace(id);
 
   return (
-    <>
+    <NoteUploadRedirect project={project}>
       <NoteDeleteDialog id={id} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
       {completed ? (
         <NoteStart />
       ) : (
-        <WorkspaceSurface.Root
-          variant="desk"
-          onDragOver={(event) => {
-            if (live && !deletePending) event.preventDefault();
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            const draft = cache.get(composerDraft(id));
-
-            if (editable && canAttachDraft(draft)) files.add(Array.from(event.dataTransfer.files));
-          }}
-        >
+        <WorkspaceSurface.Root variant="desk">
           <WorkspaceHeader
             owner={owner}
             title={state.data?.title}
@@ -121,13 +150,8 @@ function NoteBody({ id }: { id: NoteId }) {
           {editable && <NoteWorkbench id={id} onDelete={() => setDeleteDialogOpen(true)} />}
         </WorkspaceSurface.Root>
       )}
-    </>
+    </NoteUploadRedirect>
   );
-}
-
-/** Protects drafts whose pending or uncertain writes already own their attachments. */
-function canAttachDraft(draft: Draft | undefined) {
-  return !draft?.pending && !draft?.askAttempt && draft?.noteAttempt === undefined;
 }
 
 /** Refreshes navigation hints and leaves the deleted URL without losing its subject scope. */

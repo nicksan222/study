@@ -27,10 +27,8 @@ import type { ReactNode } from 'react';
 
 import type * as __MockType0 from '../document-editing/test-support';
 import type * as __MockType1 from '../material-library/test/support';
-import type * as __MockType5 from './attachments';
 import type * as __MockType6 from './deletion';
 import type * as __MockType7 from './history';
-import type * as __MockType8 from './note-workspace.queries';
 import type * as __MockType2 from './start-drafts.queries';
 import type * as __MockType3 from './start.queries';
 import type * as __MockType9 from './transformation';
@@ -42,8 +40,6 @@ let authoredPage: typeof __MockType0.authoredPage;
 let deferred: typeof __MockType1.deferred;
 
 let startDraft: typeof __MockType2.startDraft;
-
-let startFiles: typeof __MockType2.startFiles;
 
 let startDraftKey: typeof __MockType2.startDraftKey;
 
@@ -75,15 +71,11 @@ function initializePickerPage() {
 
 let pickerPage: ReturnType<typeof initializePickerPage>;
 
-let attachmentState: typeof __MockType5.attachmentState;
-
 let NoteDeleteDialog: typeof __MockType6.NoteDeleteDialog;
 
 let History: typeof __MockType7.History;
 
 let CapturedContext: typeof __MockType7.CapturedContext;
-
-let workspaceQueries: typeof __MockType8;
 
 let Transformation: typeof __MockType9.Transformation;
 
@@ -311,7 +303,6 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule2 = await import('./start-drafts.queries');
 
   startDraft = __mockModule2.startDraft;
-  startFiles = __mockModule2.startFiles;
   startDraftKey = __mockModule2.startDraftKey;
   const __mockModule3 = await import('./start.queries');
 
@@ -319,9 +310,7 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule4 = await import('./transformation.queries');
 
   transformDraft = __mockModule4.transformDraft;
-  const __mockModule5 = await import('./attachments');
 
-  attachmentState = __mockModule5.attachmentState;
   const __mockModule6 = await import('./deletion');
 
   NoteDeleteDialog = __mockModule6.NoteDeleteDialog;
@@ -329,9 +318,7 @@ test.unit.beforeEach(async ({ mock }) => {
 
   History = __mockModule7.History;
   CapturedContext = __mockModule7.CapturedContext;
-  const __mockModule8 = await import('./note-workspace.queries');
 
-  workspaceQueries = __mockModule8;
   const __mockModule9 = await import('./transformation');
 
   Transformation = __mockModule9.Transformation;
@@ -966,7 +953,7 @@ test.unit.stable(
     );
     expect(rpc.create).toHaveBeenCalledExactlyOnceWith({
       project: undefined,
-      initialMessage: { text: 'Cell cycle lecture', sourceIds: [] }
+      initialMessage: { text: 'Cell cycle lecture' }
     });
   }
 );
@@ -1025,78 +1012,6 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'hands starter files to the confirmed note once and creates in the routed subject',
-  async ({ vi, fireEvent, screen, expect, waitFor, act, render, rpcHandlersTransport }) => {
-    const project = Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n);
-    const creation = deferred<typeof noteSchema.Type>();
-
-    rpc.create.mockReturnValue(creation.promise);
-    rpc.note.mockResolvedValue({
-      id,
-      title: 'Notebook',
-      projectIds: [project],
-      createdAt: 1n,
-      updatedAt: 1n
-    });
-    rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
-    const upload = vi
-      .spyOn(workspaceQueries, 'uploadSource')
-      .mockResolvedValue({ id: 44n } as Awaited<ReturnType<typeof workspaceQueries.uploadSource>>);
-    const view = mount(
-      { render, rpcHandlersTransport },
-      <NoteWorkspace />,
-      cache(),
-      `?project=${project}`
-    );
-    const file = new File(['Cell cycle'], 'lecture.txt', { type: 'text/plain' });
-
-    await openStarterComposer({ waitFor, screen, fireEvent });
-    fireEvent.change(await screen.findByLabelText('NoteAttachFiles'), {
-      target: { files: [file] }
-    });
-    expect(await screen.findByText('lecture.txt')).toBeVisible();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() =>
-      expect(rpc.create).toHaveBeenCalledWith({
-        project,
-        initialMessage: { text: '', sourceIds: [44n] }
-      })
-    );
-    expect(upload).toHaveBeenCalledTimes(1);
-    expect(upload.mock.calls[0]?.[0]).toBe(file);
-    await act(async () => creation.resolve({ id } as typeof noteSchema.Type));
-    expect(upload).toHaveBeenCalledTimes(1);
-    expect(view.client.get(startFiles(startDraftKey(String(project))))).toEqual([]);
-  }
-);
-
-test.unit.stable(
-  'retains selected files across an uncertain create and starter remount',
-  async ({ vi, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
-    rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
-    vi.spyOn(workspaceQueries, 'uploadSource').mockResolvedValue({ id: 44n } as Awaited<
-      ReturnType<typeof workspaceQueries.uploadSource>
-    >);
-    const first = mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
-    const file = new File(['Retain me'], 'notes.txt', { type: 'text/plain' });
-
-    await openStarterComposer({ waitFor, screen, fireEvent });
-    fireEvent.change(await screen.findByLabelText('NoteAttachFiles'), {
-      target: { files: [file] }
-    });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await screen.findByText('NoteCreationUncertain');
-    first.unmount();
-    mount({ render, rpcHandlersTransport }, <NoteWorkspace />, first.client);
-    expect(await screen.findByText('notes.txt')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(rpc.create).toHaveBeenCalledTimes(1);
-  }
-);
-
-test.unit.stable(
   'keeps the active composer mounted while a missing deletion receipt is refreshed',
   async ({ screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
@@ -1145,8 +1060,8 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'blocks editing and file drops after a failed deletion refresh despite a cached missing receipt',
-  async ({ vi, screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
+  'blocks editing after a failed deletion refresh despite a cached missing receipt',
+  async ({ screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
       id,
       title: 'Notebook',
@@ -1155,9 +1070,6 @@ test.unit.stable(
       updatedAt: 1n
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
-    const upload = vi
-      .spyOn(workspaceQueries, 'uploadSource')
-      .mockReturnValue(new Promise(() => {}));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
 
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
@@ -1170,11 +1082,6 @@ test.unit.stable(
       await view.notify().then(() => {});
     });
     await waitFor(() => expect(screen.queryByRole('textbox', { name: 'NoteCompose' })).toBeNull());
-    fireEvent.drop(view.container.querySelector('.ui-workspace')!, {
-      dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
-    });
-    expect(upload).not.toHaveBeenCalled();
-    expect(view.client.get(attachmentState(id))).toEqual([]);
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     await act(async () => {
       await view.notify().then(() => {});
@@ -1227,8 +1134,8 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'fences notebook drops while a shared deletion mutation is pending',
-  async ({ vi, waitFor, expect, screen, fireEvent, within, render, rpcHandlersTransport }) => {
+  'fences notebook editing while a shared deletion mutation is pending',
+  async ({ waitFor, expect, screen, fireEvent, within, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
       id,
       title: 'Notebook',
@@ -1238,9 +1145,6 @@ test.unit.stable(
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     rpc.remove.mockReturnValue(new Promise(() => {}));
-    const upload = vi
-      .spyOn(workspaceQueries, 'uploadSource')
-      .mockReturnValue(new Promise(() => {}));
     const view = mount(
       { render, rpcHandlersTransport },
       <>
@@ -1260,11 +1164,6 @@ test.unit.stable(
     fireEvent.click(await within(dialog).findByRole('button', { name: 'NoteConfirmDelete' }));
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
     await waitFor(() => expect(view.container.querySelector('.note-canvas textarea')).toBeNull());
-    fireEvent.drop(view.container.querySelector('.ui-workspace')!, {
-      dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
-    });
-    expect(upload).not.toHaveBeenCalled();
-    expect(view.client.get(attachmentState(id))).toEqual([]);
   }
 );
 
@@ -1375,7 +1274,7 @@ test.unit.stable(
 
 test.unit.stable(
   'retains the notebook edit fence after an uncertain deletion request and remount',
-  async ({ vi, waitFor, expect, screen, fireEvent, within, act, render, rpcHandlersTransport }) => {
+  async ({ waitFor, expect, screen, fireEvent, within, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
       id,
       title: 'Notebook',
@@ -1385,9 +1284,6 @@ test.unit.stable(
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     rpc.remove.mockRejectedValue(new StudyError('transient', 'Deletion response lost'));
-    const upload = vi
-      .spyOn(workspaceQueries, 'uploadSource')
-      .mockReturnValue(new Promise(() => {}));
     const view = mount(
       { render, rpcHandlersTransport },
       <>
@@ -1411,10 +1307,6 @@ test.unit.stable(
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
     await waitFor(() => expect(screen.queryByText('NoteDeleting')).toBeNull());
     expect(view.container.querySelector('.note-canvas textarea')).toBeNull();
-    fireEvent.drop(view.container.querySelector('.ui-workspace')!, {
-      dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
-    });
-    expect(upload).not.toHaveBeenCalled();
     view.unmount();
     const remounted = mount(
       { render, rpcHandlersTransport },
@@ -1424,7 +1316,6 @@ test.unit.stable(
 
     await act(async () => {});
     expect(remounted.container.querySelector('.note-canvas textarea')).toBeNull();
-    expect(view.client.get(attachmentState(id))).toEqual([]);
   }
 );
 

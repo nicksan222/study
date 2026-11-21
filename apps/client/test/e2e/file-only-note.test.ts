@@ -53,7 +53,7 @@ async function expectReaderClearOfControls(
 
 test.browser.stable(
   'Create and reopen three file-only notes',
-  async ({ page, expectScreenshot, expect }) => {
+  async ({ page, expectScreenshot, expect, rpc }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
     const noteLinks = page.locator('a[href^="/notes/"]');
@@ -242,38 +242,20 @@ test.browser.stable(
         file.last
       ].join('\n\n');
 
-      await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles({
-        name: file.name,
-        mimeType: 'text/markdown',
-        buffer: Buffer.from(markdown)
-      });
-      await expect(composer).toHaveValue('');
-      await expect(
-        page
-          .getByRole('region', { name: copy.NoteCompose, exact: true })
-          .getByText(file.name, { exact: true })
-      ).toBeVisible();
-      await expect(save).toBeEnabled();
-      await expect(save).toBeInViewport({ ratio: 1 });
-      await save.click({ trial: true });
+      const source = await rpc.runPromise(
+        rpc.client['sources.createSource']({
+          name: file.name,
+          bytes: Buffer.from(markdown),
+          projectId: null
+        })
+      );
+      const note = await rpc.runPromise(
+        rpc.client['notes.createUntitledNote']({
+          initialMessage: { text: '', sourceIds: [source.id] }
+        })
+      );
 
-      if (index === 0) {
-        await expectScreenshot('file-draft', {
-          target: 'viewport',
-          ready: async () => {
-            await expect(composer).toHaveValue('');
-            await expect(save).toBeEnabled();
-            await expect(
-              page
-                .getByRole('region', { name: copy.NoteCompose, exact: true })
-                .getByText(file.name, { exact: true })
-            ).toBeVisible();
-          }
-        });
-      }
-
-      await save.click();
-      await expect(page).toHaveURL(/\/notes\/[^/?]+$/);
+      await page.goto(`/notes/${note.id}`);
       expect(urls).not.toContain(page.url());
       urls.push(page.url());
       const attachment = await savedAttachment({ expect }, file, index);

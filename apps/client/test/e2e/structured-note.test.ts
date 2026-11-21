@@ -31,7 +31,7 @@ const original = [
 
 test.browser.stable(
   'Structured lecture notes preserve edits and readable layout',
-  async ({ page, expectScreenshot, expect, study }) => {
+  async ({ placeCaretAtEnd, page, expectScreenshot, expect, study }) => {
     await page.goto('/notes');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -363,11 +363,15 @@ test.browser.stable(
 
     await expect(italianEditor).toBeFocused();
     await expect(italianDialog).toHaveCSS('translate', '0px');
-    await italianEditor
-      .getByText('END-OF-LECTURE: retain every observation and its original order.')
-      .click();
-    await italianEditor.press('ControlOrMeta+End');
+    const ending = italianEditor.getByText(
+      'END-OF-LECTURE: retain every observation and its original order.',
+      { exact: true }
+    );
+
+    await ending.scrollIntoViewIfNeeded();
+    await placeCaretAtEnd(ending);
     await italianEditor.press('Enter');
+    await expect(ending).toBeAttached();
     await expect(italianEditor.locator('p').last()).toBeEmpty();
     await page.keyboard.insertText(arabic);
     const paragraph = italianEditor.getByText(arabic, { exact: true });

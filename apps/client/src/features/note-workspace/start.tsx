@@ -2,14 +2,12 @@ import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { projectIdSchema } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
-import { AttachmentIcon, CloseIcon } from '@study/icons';
 import {
   Button,
   ComposerSurface,
-  IconButton,
   Loading,
-  NoteStarter,
   Notebook,
+  NoteStarter,
   StatusMessage,
   WorkspaceCard,
   WorkspaceSurface,
@@ -35,7 +33,6 @@ import { NoteWindowNavigation } from './note-window-navigation';
 import {
   startDraftKey,
   startDraft,
-  startFiles,
   openStartDraft,
   finishStartDraft
 } from './start-drafts.queries';
@@ -55,10 +52,8 @@ function useStartDraft(project: string | undefined) {
     openStartDraft(cache, project);
   }, [cache, project]);
   const draft = { data: useAtomValue(startDraft(draftKey)) };
-  const filesKey = draftKey;
-  const files = { data: useAtomValue(startFiles(filesKey)) };
 
-  return { draftKey, draft, filesKey, files };
+  return { draftKey, draft };
 }
 
 /** Creation owns the shared uncertainty fence and transfers only the submitted draft keys. */
@@ -71,7 +66,7 @@ function useNoteStart() {
     ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(search.project))
     : undefined;
   const state = useNoteList(project);
-  const { draftKey, draft, filesKey, files } = useStartDraft(search.project);
+  const { draftKey, draft } = useStartDraft(search.project);
   const flow = { data: useAtomValue(creationFlow) };
   const [navigationError, setNavigationError] = useState<unknown>();
   const [reviewed, setReviewed] = useState(false);
@@ -124,15 +119,14 @@ function useNoteStart() {
 
     cache.set(creationFlow, { uncertain: true, pending: true });
     const text = cache.get(startDraft(draftKey)) ?? '';
-    const selectedFiles = cache.get(startFiles(filesKey)) ?? [];
 
-    if (!text.trim() && !selectedFiles.length) {
+    if (!text.trim()) {
       cache.set(creationFlow, {});
 
       return;
     }
 
-    void create.mutate({ project, draftKey, filesKey, text, files: selectedFiles }).catch(() => {});
+    void create.mutate({ project, draftKey, text }).catch(() => {});
   }
 
   const blocked = create.isPending || !!flow.data.id || !!flow.data.uncertain;
@@ -143,8 +137,6 @@ function useNoteStart() {
     state,
     draftKey,
     draft,
-    filesKey,
-    files,
     flow,
     navigationError,
     reviewed,
@@ -220,37 +212,13 @@ export function NoteStart() {
   );
 }
 
-const attachmentIds = new WeakMap<File, string>();
-
-/** File identity survives removals; occurrence suffixes also support repeated File references. */
-
-function attachmentEntries(files: File[]) {
-  const occurrences = new Map<string, number>();
-
-  return files.map((file, index) => {
-    let id = attachmentIds.get(file);
-
-    if (!id) {
-      id = crypto.randomUUID();
-      attachmentIds.set(file, id);
-    }
-
-    const occurrence = occurrences.get(id) ?? 0;
-
-    occurrences.set(id, occurrence + 1);
-
-    return { file, index, key: `${id}:${occurrence}` };
-  });
-}
-
 /** The notebook composer submits its first capture before navigating to the saved note. */
 
 function StarterComposer({ view }: { view: StartView }) {
   const { t } = useI18n();
-  const attachmentId = useId();
   const noteId = useId();
   const preferences = useWorkspacePreferences();
-  const { cache, filesKey, files, draftKey, draft, blocked, beginNote } = view;
+  const { cache, draftKey, draft, blocked, beginNote } = view;
   const input = useRef<HTMLTextAreaElement>(null);
   const submission = useDictationSubmission();
   const submit = () => {
@@ -263,46 +231,7 @@ function StarterComposer({ view }: { view: StartView }) {
   });
 
   return (
-    <ComposerSurface.Root
-      variant="notebook"
-      aria-label={t('NoteCompose')}
-      onDragOver={(event) => {
-        if (!blocked) event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-
-        if (!blocked) {
-          const added = Array.from(event.dataTransfer.files);
-
-          cache.update(startFiles(filesKey), (previous) => [...(previous ?? []), ...added]);
-        }
-      }}
-    >
-      {files.data.length > 0 && (
-        <NoteStarter.Files>
-          {attachmentEntries(files.data).map(({ file, index, key }) => (
-            <li key={key}>
-              <AttachmentIcon size={14} aria-hidden="true" />
-              <span>{file.name}</span>
-              <IconButton
-                size="icon-sm"
-                variant="ghost-muted"
-                label={t('NoteRemoveAttachment')}
-                disabled={blocked}
-                onClick={() =>
-                  cache.set(
-                    startFiles(filesKey),
-                    files.data.filter((_, i) => i !== index)
-                  )
-                }
-              >
-                <CloseIcon size={14} aria-hidden="true" />
-              </IconButton>
-            </li>
-          ))}
-        </NoteStarter.Files>
-      )}
+    <ComposerSurface.Root variant="notebook" aria-label={t('NoteCompose')}>
       <Notebook.Label htmlFor={noteId}>{t('NoteCompose')}</Notebook.Label>
       <ComposerSurface.Input
         id={noteId}
@@ -327,30 +256,11 @@ function StarterComposer({ view }: { view: StartView }) {
           <DictationSubmissionScope value={submission.scope}>
             <DictationButton targetKey={draftKey} {...dictation} disabled={blocked} />
           </DictationSubmissionScope>
-          <Notebook.FileButton title={t('NoteAttachFiles')}>
-            <AttachmentIcon size={16} aria-hidden="true" />
-            <span>{t('NoteAttach')}</span>
-            <input
-              id={attachmentId}
-              type="file"
-              aria-label={t('NoteAttachFiles')}
-              multiple
-              disabled={blocked}
-              onChange={(event) => {
-                const added = Array.from(event.target.files ?? []);
-
-                cache.update(startFiles(filesKey), (previous) => [...(previous ?? []), ...added]);
-                event.target.value = '';
-              }}
-            />
-          </Notebook.FileButton>
         </Notebook.CaptureTools>
         <Notebook.Actions>
           <Button
             size="sm"
-            disabled={
-              blocked || submission.blocked || (!draft.data.trim() && files.data.length === 0)
-            }
+            disabled={blocked || submission.blocked || !draft.data.trim()}
             aria-busy={view.flow.data.pending}
             onClick={submit}
           >

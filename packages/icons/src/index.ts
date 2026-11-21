@@ -134,7 +134,6 @@ export {
   Redo2 as RedoIcon,
   SlidersHorizontal as RefineIcon,
   RefreshCw as RefreshIcon,
-  X as RemoveAttachmentIcon,
   FileMinus2 as RemoveFromPageIcon,
   Text as RenameIcon,
   MessageSquare as ReplyIcon,

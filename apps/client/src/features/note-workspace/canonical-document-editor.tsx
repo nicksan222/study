@@ -1,5 +1,5 @@
 import { documentSchema } from '@study/contracts';
-import type { ContentSnapshotId, ProjectId } from '@study/contracts';
+import type { ContentSnapshotId } from '@study/contracts';
 import type { RichNoteEditorHandle } from '@study/ui';
 import { StructuredEditor } from '@study/ui';
 import { Schema } from 'effect';
@@ -26,7 +26,6 @@ const equalDocument = Schema.toEquivalence(documentSchema);
 export function CanonicalDocumentEditor({
   document,
   snapshotId,
-  projectId,
   onChange,
   disabled,
   toolbarEnd,
@@ -34,7 +33,6 @@ export function CanonicalDocumentEditor({
 }: {
   document: EditableDocument;
   snapshotId: ContentSnapshotId;
-  projectId?: ProjectId;
   onChange: (document: EditableDocument) => void;
   disabled?: boolean;
   toolbarEnd?: ReactNode;
@@ -43,7 +41,7 @@ export function CanonicalDocumentEditor({
   const { t } = useI18n();
   const labels = useStructuredEditorLabels();
   const preferences = useWorkspacePreferences();
-  const images = useDocumentEditorImages(document, snapshotId, projectId);
+  const images = useDocumentEditorImages(document, snapshotId);
   const value = useMemo(() => documentToEditor(document, images.urls), [document, images.urls]);
 
   const editor = useRef<RichNoteEditorHandle>(null);
@@ -56,7 +54,6 @@ export function CanonicalDocumentEditor({
       <StructuredEditor
         ref={editor}
         value={value}
-        uploadImage={images.upload}
         onChange={(next) => onChange(editorToDocument(next, document))}
         disabled={disabled}
         spellcheck={preferences.spellcheck}

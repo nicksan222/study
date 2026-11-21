@@ -1,5 +1,5 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import type { NoteId, SourceId } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
@@ -8,7 +8,6 @@ import { useContext } from 'react';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
-import { useAttachments } from './attachments';
 import { acceptText, emptyDraft, prepareAsk } from './draft';
 import type { Draft } from './draft';
 import { ask, saveNote } from './note-workspace.queries';
@@ -23,14 +22,10 @@ export function useComposer(id: NoteId) {
   const cache = useContext(RegistryContext);
   const atom = composerDraft(id);
   const draft = useAtomValue(atom);
-  const files = useAttachments(id);
-  const sourceIds = files.items.flatMap((item) => (item.sourceId ? [item.sourceId] : []));
-  const filesBlocked = files.items.some((item) => item.state !== 'ready');
   const selection = rpc.notes.noteSelection.useQuery({ noteId: id });
   const setDraft = (update: (previous: Draft) => Draft) => cache.update(atom, update);
 
-  function accepted(text: string, ids: readonly SourceId[] = []) {
-    files.accept(ids);
+  function accepted(text: string) {
     setDraft((previous) => acceptText(previous, text));
   }
 
@@ -40,7 +35,7 @@ export function useComposer(id: NoteId) {
         try {
           const result = await ask(input);
 
-          accepted(input.text, input.sourceIds);
+          accepted(input.text);
 
           return result;
         } catch (error) {
@@ -57,22 +52,21 @@ export function useComposer(id: NoteId) {
       catch: toStudyError
     })
   );
-  const noteMutation = useIndependentMutation(
-    (input: { text: string; sourceIds: readonly SourceId[] }) =>
-      Effect.tryPromise({
-        try: async () => {
-          try {
-            const result = await saveNote(id, input.text, input.sourceIds);
+  const noteMutation = useIndependentMutation((input: { text: string }) =>
+    Effect.tryPromise({
+      try: async () => {
+        try {
+          const result = await saveNote(id, input.text);
 
-            accepted(input.text, input.sourceIds);
+          accepted(input.text);
 
-            return result;
-          } finally {
-            setDraft((previous) => ({ ...previous, pending: false }));
-          }
-        },
-        catch: toStudyError
-      })
+          return result;
+        } finally {
+          setDraft((previous) => ({ ...previous, pending: false }));
+        }
+      },
+      catch: toStudyError
+    })
   );
   const pending = !!draft.pending || askMutation.isPending || noteMutation.isPending;
   const blocked = pending || !!draft.askAttempt || draft.noteAttempt !== undefined;
@@ -82,9 +76,8 @@ export function useComposer(id: NoteId) {
 
     if (
       !selection.data ||
-      !hasContent(current.text, sourceIds) ||
+      !current.text.trim() ||
       current.pending ||
-      filesBlocked ||
       current.askAttempt ||
       current.noteAttempt !== undefined
     )
@@ -94,7 +87,6 @@ export function useComposer(id: NoteId) {
       current,
       {
         noteId: id,
-        sourceIds,
         expectedSelectionRevision: selection.data.revision,
         preferences: current.preferences ?? { language: locale }
       },
@@ -118,8 +110,7 @@ export function useComposer(id: NoteId) {
     const current = cache.get(atom);
 
     if (
-      filesBlocked ||
-      !hasContent(current.text, sourceIds) ||
+      !current.text.trim() ||
       current.pending ||
       current.askAttempt ||
       current.noteAttempt !== undefined
@@ -129,10 +120,9 @@ export function useComposer(id: NoteId) {
     setDraft((previous) => ({
       ...previous,
       pending: true,
-      noteAttempt: current.text,
-      noteSourceIds: sourceIds
+      noteAttempt: current.text
     }));
-    void noteMutation.mutate({ text: current.text, sourceIds }).catch(() => {});
+    void noteMutation.mutate({ text: current.text }).catch(() => {});
   }
 
   return {
@@ -141,9 +131,6 @@ export function useComposer(id: NoteId) {
     locale,
     cache,
     draft,
-    files,
-    sourceIds,
-    filesBlocked,
     setDraft,
     selection,
     askMutation,
@@ -154,8 +141,4 @@ export function useComposer(id: NoteId) {
     submitAsk,
     retryAsk
   };
-}
-
-function hasContent(text: string, sourceIds: readonly unknown[]) {
-  return text.trim().length > 0 || sourceIds.length > 0;
 }
