@@ -42,6 +42,7 @@ const groups: Record<string, string[]> = {
     'source_snapshots',
     'source_extraction_revisions',
     'note_sources',
+    'project_sources',
     'source_recording_imports'
   ],
   'sources,pages': ['content_snapshots', 'blocks', 'chunks'],
@@ -65,7 +66,6 @@ const groups: Record<string, string[]> = {
     'note_run_contexts',
     'note_deletions',
     'note_merges',
-    'note_sidebar_preferences',
     'note_deletion_correlations'
   ],
   pages: [

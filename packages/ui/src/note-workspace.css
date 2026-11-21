@@ -542,7 +542,7 @@
   text-overflow: ellipsis;
 }
 
-.note-attachments-card {
+.note-workspace-context {
   max-height: calc(100dvh - 5rem);
   border-radius: 0.875rem;
 }

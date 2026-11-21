@@ -44,12 +44,10 @@ export function pageTestValues(locale: Locale = 'english'): RpcFixtureValues {
     },
 
     'settings.workspacePreferences': defaultWorkspacePreferences,
+    'notes.noteSummaries': { items: [] },
 
     'settings.appearancePreferences': defaultAppearancePreferences,
 
-    'settings.sidebarSettings': { settledPageThreshold: 1 },
-
-    'notes.noteSummaries': { items: [] },
     'notes.count': 0n,
     'pages.count': 0n,
     'materials.count': 0n,

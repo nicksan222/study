@@ -682,7 +682,7 @@
   margin: 1rem 1rem 1rem 0;
   overflow-y: auto;
 }
-.workspace-desk .note-attachments-card {
+.workspace-desk .note-workspace-context {
   overflow: hidden;
 }
 .workspace-desk .note-context-actions {
@@ -818,12 +818,12 @@
 }
 
 @container (max-width: 900px) {
-  .workspace-desk .note-attachments-card {
+  .workspace-desk .note-workspace-context {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--app-scrollbar-thumb) transparent;
   }
-  .workspace-desk .note-attachments-card .note-page-index {
+  .workspace-desk .note-workspace-context .note-page-index {
     max-height: none;
     overflow: visible;
   }

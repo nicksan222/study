@@ -26,24 +26,23 @@ import { sourceDeletionBlockers } from './retention.ts';
 import { checkedBytes, makeHelpers } from './rows.ts';
 import { changeSchema, inputSchema, replacementSchema, request } from './schemas.ts';
 
-function uploadedFor(project: ProjectId | undefined) {
+function uploadedFor(project: ProjectId | null | undefined) {
   if (project === undefined) return undefined;
 
-  const { sources } = tables;
+  const originals = inArray(tables.sources.origin, ['attachment', 'import', 'recording']);
 
-  return and(inArray(sources.origin, ['attachment', 'import', 'recording']), inProject(project));
+  return project === null ? originals : and(originals, inProject(project));
 }
 
 function inProject(project: ProjectId) {
-  const { sources, note_sources, project_notes } = tables;
+  const { sources, project_sources } = tables;
 
   return or(
     eq(sources.project_id, project),
     sql`EXISTS (
-      SELECT 1 FROM ${note_sources}
-      JOIN ${project_notes} ON ${project_notes.note_id} = ${note_sources.note_id}
-      WHERE ${note_sources.source_id} = ${sources.id}
-        AND ${project_notes.project_id} = ${project}
+      SELECT 1 FROM ${project_sources}
+      WHERE ${project_sources.source_id} = ${sources.id}
+        AND ${project_sources.project_id} = ${project}
     )`
   );
 }

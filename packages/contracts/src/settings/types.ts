@@ -51,7 +51,6 @@ import type {
   agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
-  sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   appearancePreferencesSchema,
@@ -78,7 +77,6 @@ export const defaultAppearancePreferences: AppearancePreferences = {
   glassOpacity: 80,
   animationDurationMs: 150,
   noteWidth: 'full',
-  showNoteComposer: true,
   noteEditorDock: 'side'
 };
 
@@ -89,16 +87,11 @@ export const defaultConcurrencySettings: ConcurrencySettings = {
   maxQueuedAi: 16
 };
 
-export type SidebarSettings = typeof sidebarSettingsSchema.Type;
-
-export const defaultSidebarSettings: SidebarSettings = { settledPageThreshold: 1 };
-
 export type WorkspacePreferences = typeof workspacePreferencesSchema.Type;
 
 export const defaultWorkspacePreferences: WorkspacePreferences = {
   autosaveIntervalSeconds: 3,
   spellcheck: true,
-  submitOnEnter: false,
   defaultExportFormat: 'markdown',
   defaultAiDetail: 'balanced',
   autoTitleNotes: false,
@@ -107,7 +100,6 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
   textConversionStrategy: 'chatgpt',
   sidebarDensity: 'comfortable',
   sidebarCompactNavigation: false,
-  sidebarShowPageCounts: true,
   sidebarTimeFormat: 'relative',
   editorFontSize: 16,
   readerFontSize: 16,

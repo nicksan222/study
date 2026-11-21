@@ -8,6 +8,7 @@ import { NoteBackupStore } from '#server/features/notes/store/backup';
 import { NoteStore } from '#server/features/notes/store/index';
 
 import { noteArchiveOperations } from './archive-operations.ts';
+import { noteBodyOperations } from './body.ts';
 import { noteContextOperations } from './context.ts';
 import { noteDeletionOperations } from './deletion.ts';
 import { noteLibraryOperations } from './library.ts';
@@ -27,6 +28,7 @@ export const Notes = defineService(
   function* () {
     return {
       captureStudyEvidence,
+      ...noteBodyOperations(),
       ...studyNotesOperations,
       ...noteQuestionOperations(),
       ...notePageProposalOperations(),

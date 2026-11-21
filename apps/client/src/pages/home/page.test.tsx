@@ -14,15 +14,18 @@ test.unit.stable(
 );
 
 test.unit.stable.for(['english', 'italian'] as const)(
-  'opens the note composer immediately in %s',
+  'opens an editable note draft immediately in %s',
   async (locale, { page, expect, screen, within }) => {
     await page.open('/notes', { locale });
     const t = catalogs[locale];
 
-    expect(await screen.findByRole('textbox', { name: t.NoteCompose })).toBeVisible();
+    const editor = await screen.findByRole('textbox', { name: t.NoteCompose });
+
+    expect(editor).toBeVisible();
+    expect(editor).toHaveAttribute('contenteditable', 'true');
     const main = within(screen.getByRole('main'));
 
-    expect(main.getByRole('button', { name: t.NoteSaveNote })).toBeDisabled();
+    expect(main.queryByRole('button', { name: t.NoteSaveNote })).not.toBeInTheDocument();
     expect(main.queryByLabelText(t.NoteAttachFiles)).not.toBeInTheDocument();
   }
 );

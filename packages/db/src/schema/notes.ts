@@ -341,19 +341,6 @@ export const note_deletion_correlations = defineTable({
     .references(() => note_deletions.note_id)
 });
 
-/** Manual sidebar placement belongs to the note and disappears with it. */
-export const note_sidebar_preferences = defineTable({ role: 'contributes', entity: 'note' })(
-  'note_sidebar_preferences',
-  {
-    note_id: integer()
-      .$type<NoteId>()
-      .primaryKey()
-      .references(() => notes.id, { onDelete: 'cascade' }),
-    settled: integer({ mode: 'boolean' }).notNull()
-  },
-  (t) => [check('note_sidebar_preferences_settled_check', sql`${t.settled} IN (0, 1)`)]
-);
-
 /** One answer receipt per immutable question version. */
 export const note_question_answers = defineTable({
   role: 'internal',

@@ -10,7 +10,6 @@ import {
   materialSettingsSchema,
   quizSettingsSchema,
   reviewSettingsSchema,
-  sidebarSettingsSchema,
   workspacePreferencesSchema
 } from '@study/contracts';
 import { preferences, sql } from '@study/db';
@@ -103,12 +102,6 @@ export function makeSettingsStore({ db, clock, timestampClock }: StoreResources)
         input: workspacePreferencesSchema,
         output: Schema.Void,
         run: (input) => replace('workspace', { ...input })
-      }),
-      saveSidebarSettings: storeMutation({
-        changes: ['settings'],
-        input: sidebarSettingsSchema,
-        output: Schema.Void,
-        run: (input) => replace('sidebar', { ...input })
       }),
       saveConcurrencySettings: storeMutation({
         changes: ['settings'],

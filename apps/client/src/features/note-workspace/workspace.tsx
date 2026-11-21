@@ -10,7 +10,6 @@ import { useI18n } from '#client/lib/i18n.tsx';
 
 import { NoteDeletion, NoteDeleteDialog, deletionAttempt, useDeletionReceipt } from './deletion';
 import { NoteLayoutControls } from './note-layout-controls';
-import { NoteTitleEdit } from './note-title';
 import { NoteStart } from './start';
 import { creationFlow } from './start.queries';
 import { NoteReadError } from './status';
@@ -136,18 +135,18 @@ function NoteBody({ id }: { id: NoteId }) {
         <NoteStart />
       ) : (
         <WorkspaceSurface.Root variant="desk">
-          <WorkspaceHeader
-            owner={owner}
-            title={state.data?.title}
-            titleAction={
-              editable && state.data && <NoteTitleEdit id={id} title={state.data.title} />
-            }
-          >
+          <WorkspaceHeader owner={owner} title={state.data?.title}>
             {editable && <NoteLayoutControls id={id} />}
           </WorkspaceHeader>
           {deletion.data && <NoteDeletion id={id} />}
           <NoteFeedback state={state} deletion={deletion} />
-          {editable && <NoteWorkbench id={id} onDelete={() => setDeleteDialogOpen(true)} />}
+          {editable && state.data && (
+            <NoteWorkbench
+              id={id}
+              title={state.data.title}
+              onDelete={() => setDeleteDialogOpen(true)}
+            />
+          )}
         </WorkspaceSurface.Root>
       )}
     </NoteUploadRedirect>

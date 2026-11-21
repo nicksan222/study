@@ -67,10 +67,8 @@ function PreferenceSection({
 
 type BooleanField =
   | 'spellcheck'
-  | 'submitOnEnter'
   | 'autoTitleNotes'
   | 'autoAnswerQuestions'
-  | 'sidebarShowPageCounts'
   | 'sidebarCompactNavigation'
   | 'expandPages';
 
@@ -202,11 +200,6 @@ export function WritingSettings() {
         description="WorkspaceSpellcheckHelp"
       />
       <PreferenceToggle
-        field="submitOnEnter"
-        title="WorkspaceEnterCapture"
-        description="WorkspaceEnterCaptureHelp"
-      />
-      <PreferenceToggle
         field="expandPages"
         title="WorkspaceExpandPages"
         description="WorkspaceExpandPagesHelp"
@@ -235,11 +228,6 @@ export function SidebarDisplaySettings() {
           { value: 'relative', label: 'WorkspaceRelativeTime' },
           { value: 'absolute', label: 'WorkspaceAbsoluteTime' }
         ]}
-      />
-      <PreferenceToggle
-        field="sidebarShowPageCounts"
-        title="WorkspacePageCounts"
-        description="WorkspacePageCountsHelp"
       />
       <PreferenceToggle
         field="sidebarCompactNavigation"

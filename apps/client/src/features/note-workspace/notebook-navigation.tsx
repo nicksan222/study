@@ -63,60 +63,28 @@ export function NotebookNavigation({
               : 'NoteNote'
         );
 
+        const value = current?.text ?? '';
+        const label = messageSectionTitle(message) ?? (
+          <NoteSummary value={value} fallback={fallback} />
+        );
+
         return (
-          <MessageMarkers
+          <NotebookRail.Marker
             key={target}
-            id={id}
-            message={message}
             target={target}
-            text={current?.text ?? ''}
-            fallback={fallback}
+            kind={
+              message.format === 'document'
+                ? 'page'
+                : message.role === 'assistant'
+                  ? 'reply'
+                  : 'note'
+            }
+            label={label}
+            preview={value.slice(0, 320) || fallback}
+            onSelect={() => jumpToNotebookTarget(target)}
           />
         );
       })}
     </NotebookRail.Root>
-  );
-}
-
-function MessageMarkers({
-  id,
-  message,
-  target,
-  text,
-  fallback
-}: {
-  id: NoteId;
-  message: Extract<ReturnType<typeof notebookTimeline>[number], { kind: 'message' }>['message'];
-  target: string;
-  text: string;
-  fallback: string;
-}) {
-  return (
-    <>
-      <NotebookRail.Marker
-        target={target}
-        kind={
-          message.format === 'document' ? 'page' : message.role === 'assistant' ? 'reply' : 'note'
-        }
-        label={messageSectionTitle(message) ?? <NoteSummary value={text} fallback={fallback} />}
-        preview={text.slice(0, 320) || fallback}
-        onSelect={() => jumpToNotebookTarget(target)}
-      />
-      {message.format !== 'document' &&
-        message.parts.map((part) => {
-          const attachment = notebookTargetId(id, 'attachment', part.id);
-
-          return (
-            <NotebookRail.Marker
-              key={attachment}
-              target={attachment}
-              kind="attachment"
-              label={part.sourceName}
-              preview={part.sourceName}
-              onSelect={() => jumpToNotebookTarget(attachment)}
-            />
-          );
-        })}
-    </>
   );
 }

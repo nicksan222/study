@@ -34,11 +34,9 @@ export function prepareAsk(
   return draft.askAttempt ?? { ...input, text: draft.text, intentKey };
 }
 
-/** The draft and saved notebook share the same capture shortcut. */
-export function isNoteSubmit(event: KeyboardEvent<HTMLTextAreaElement>, submitOnEnter: boolean) {
+/** Explicit shortcut used by the older capture form. */
+export function isNoteSubmit(event: KeyboardEvent<HTMLTextAreaElement>) {
   return (
-    (event.metaKey || event.ctrlKey || (submitOnEnter && !event.shiftKey && !event.altKey)) &&
-    event.key === 'Enter' &&
-    !event.nativeEvent.isComposing
+    (event.metaKey || event.ctrlKey) && event.key === 'Enter' && !event.nativeEvent.isComposing
   );
 }

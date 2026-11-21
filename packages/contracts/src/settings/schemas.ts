@@ -70,7 +70,6 @@ export const appearancePreferencesSchema = Schema.Struct({
   glassOpacity: Schema.Int.check(Schema.isBetween({ minimum: 40, maximum: 100 })),
   animationDurationMs: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 400 })),
   noteWidth: Schema.Literals(['comfortable', 'wide', 'full']),
-  showNoteComposer: Schema.Boolean,
   noteEditorDock: Schema.Literals(['side', 'bottom'])
 });
 
@@ -85,14 +84,9 @@ export const concurrencySettingsSchema = Schema.Struct({
   maxQueuedAi: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 64 }))
 });
 
-export const sidebarSettingsSchema = Schema.Struct({
-  settledPageThreshold: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
-});
-
 export const workspacePreferencesSchema = Schema.Struct({
   autosaveIntervalSeconds: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 30 })),
   spellcheck: Schema.Boolean,
-  submitOnEnter: Schema.Boolean,
   defaultExportFormat: exportFormatSchema,
   defaultAiDetail: Schema.Literals(['brief', 'balanced', 'detailed']),
   autoTitleNotes: Schema.Boolean,
@@ -101,7 +95,6 @@ export const workspacePreferencesSchema = Schema.Struct({
   textConversionStrategy: conversionStrategyIdSchema,
   sidebarDensity: Schema.Literals(['comfortable', 'compact']),
   sidebarCompactNavigation: Schema.Boolean,
-  sidebarShowPageCounts: Schema.Boolean,
   sidebarTimeFormat: Schema.Literals(['relative', 'absolute']),
   editorFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
   readerFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),

@@ -9,7 +9,6 @@ import {
   agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
-  sidebarSettingsSchema,
   appSettingsSchema,
   concurrencySettingsSchema,
   appearancePreferencesSchema,
@@ -114,24 +113,6 @@ export const settingsEndpoints = {
     'settings.saveWorkspacePreferences',
     {
       payload: workspacePreferencesSchema,
-      success: saved,
-      error: failureSchema
-    },
-    { changes: [dependency.settings] }
-  ),
-  sidebarSettings: liveQuery(
-    'settings.sidebarSettings',
-    {
-      payload: {},
-      success: sidebarSettingsSchema,
-      error: failureSchema
-    },
-    { dependencies: allDependencies, refresh: 'database' }
-  ),
-  saveSidebarSettings: mutation(
-    'settings.saveSidebarSettings',
-    {
-      payload: sidebarSettingsSchema,
       success: saved,
       error: failureSchema
     },

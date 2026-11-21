@@ -12,12 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts';
-import { setNoteSettledInputSchema } from '@study/contracts';
 import { noteSummariesSchema } from '@study/contracts';
-import { eq, sql } from '@study/db';
-import { notes, note_deletions, note_sidebar_preferences } from '@study/db';
-import { defineStore, storeQuery, storeMutation } from '@study/server';
+import { notes, sql } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
 
 /** Aggregate the canonical memberships and workflow receipts in a single database read. */
@@ -34,9 +31,6 @@ export const NoteSummaryStore = defineStore({
           items: db.orm
             .select({
               id: notes.id,
-              settledOverrideValue: sql<
-                bigint | null
-              >`(SELECT p.settled FROM note_sidebar_preferences p WHERE p.note_id = ${notes}.${notes.id})`,
               generatedPageCount: sql<bigint>`(
             SELECT count(*) FROM note_pages sd
             JOIN pages d ON d.id = sd.page_id
@@ -68,44 +62,13 @@ export const NoteSummaryStore = defineStore({
             })
             .from(notes)
             .all()
-            .map(({ settledOverrideValue, ...row }) => ({
+            .map((row) => ({
               ...row,
-              settledOverride: settledOverrideValue === null ? null : settledOverrideValue === 1n,
               running: row.activity !== 'idle'
             }))
         })
       })
     },
-    mutations: {
-      setNoteSettled: storeMutation({
-        changes: ['notes'],
-        input: setNoteSettledInputSchema,
-        output: Schema.Struct({}),
-        run: ({ id, settled }) => {
-          if (!db.orm.select({ id: notes.id }).from(notes).where(eq(notes.id, id)).get())
-            throw new StudyError('not_found', 'Note not found');
-
-          if (
-            db.orm
-              .select({ id: note_deletions.note_id })
-              .from(note_deletions)
-              .where(eq(note_deletions.note_id, id))
-              .get()
-          )
-            throw new StudyError('invalid_input', 'Note deletion is in progress');
-
-          db.orm
-            .insert(note_sidebar_preferences)
-            .values({ note_id: id, settled })
-            .onConflictDoUpdate({
-              target: note_sidebar_preferences.note_id,
-              set: { settled }
-            })
-            .run();
-
-          return {};
-        }
-      })
-    }
+    mutations: {}
   })
 });

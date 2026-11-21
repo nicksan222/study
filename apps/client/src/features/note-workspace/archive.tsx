@@ -1,13 +1,12 @@
 import type {
   MessageId,
   NoteId,
-  SourceId,
   PageId,
   ArchivedNoteItem,
   NoteArchiveTarget
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { PageIcon, ConvertedMessageIcon, RestoreIcon } from '@study/icons';
+import { PageIcon, RestoreIcon } from '@study/icons';
 import {
   RetryButton,
   Button,
@@ -24,7 +23,6 @@ import { useI18n } from '#client/lib/i18n.tsx';
 
 import { PageNotebookDeletion } from '../document-editing';
 import { DocumentReader } from '../document-presentation';
-import { SourceDeletion } from '../source-library';
 import { useItemArchive } from './archive.queries';
 import { MessageContent, useMessageCitations } from './message-citations';
 import { MessageDeletion } from './message-deletion';
@@ -37,7 +35,9 @@ export function ArchivePanel({ id }: { id: NoteId }) {
   const items = rpc.notes.archivedItems.useQuery({ noteId: id });
   const [selected, setSelected] = useState<string>();
   const [search, setSearch] = useState('');
-  const available = items.isError ? [] : (items.data ?? []);
+  const available = items.isError
+    ? []
+    : (items.data ?? []).filter((item) => item.target.kind !== 'source');
   const active = available.find((item) => itemKey(item.target) === selected);
 
   return (
@@ -143,13 +143,7 @@ function ArchiveNavigation({
               label={item.name}
               aria-current={itemKey(item.target) === selected ? 'page' : undefined}
               onClick={() => onSelect(itemKey(item.target))}
-              icon={
-                item.target.kind === 'source' ? (
-                  <ConvertedMessageIcon aria-hidden="true" />
-                ) : (
-                  <PageIcon aria-hidden="true" />
-                )
-              }
+              icon={<PageIcon aria-hidden="true" />}
             />
           </li>
         ))}
@@ -169,7 +163,7 @@ function ArchivedPreview({ noteId, item }: { noteId: NoteId; item: ArchivedNoteI
 
   if (item.target.kind === 'page') return <ArchivedPage {...props} id={item.target.id} />;
 
-  return <ArchivedSource {...props} id={item.target.id} />;
+  return null;
 }
 
 type PreviewProps = { noteId: NoteId; onDeleted: () => void };
@@ -299,50 +293,6 @@ function ArchivedPage({ id, noteId, onDeleted }: PreviewProps & { id: PageId }) 
                 disabled={pending}
                 onClick={actions.onDeleteItem}
               >
-                {t('NoteDeletePermanently')}
-              </Button>
-            )}
-          </ArchiveActions>
-        )}
-      />
-    </Surface.ArchiveFrame>
-  );
-}
-
-function ArchivedSource({ id, noteId, onDeleted }: PreviewProps & { id: SourceId }) {
-  const { t } = useI18n();
-  const source = rpc.sources.get.useQuery({ id: id });
-  const extraction = rpc.sources.currentExtraction.useQuery({ id: id });
-
-  if (source.error)
-    return <NoteReadError error={source.error} retry={() => void source.refetch()} />;
-
-  if (!source.data) return <Loading label={t('LoadingStudy')} />;
-
-  return (
-    <Surface.ArchiveFrame>
-      <Surface.ArchiveReading>
-        <Surface.ArchiveContent>
-          <ArchiveContext>
-            {extraction.error ? (
-              <NoteReadError error={extraction.error} retry={() => void extraction.refetch()} />
-            ) : extraction.isPending ? (
-              <Loading label={t('LoadingStudy')} />
-            ) : extraction.data ? (
-              <DocumentReader document={extraction.data.document} />
-            ) : (
-              <Notebook.Status>{t('NoteReadUnavailable')}</Notebook.Status>
-            )}
-          </ArchiveContext>
-        </Surface.ArchiveContent>
-      </Surface.ArchiveReading>
-      <SourceDeletion
-        source={source.data}
-        onDeleted={onDeleted}
-        renderTrigger={(show, open) => (
-          <ArchiveActions noteId={noteId} target={{ kind: 'source', id }} blocked={open}>
-            {(pending) => (
-              <Button size="sm" variant="ghost-destructive" disabled={pending} onClick={show}>
                 {t('NoteDeletePermanently')}
               </Button>
             )}

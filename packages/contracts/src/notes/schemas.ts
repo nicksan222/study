@@ -334,7 +334,6 @@ export const publishTitleInputSchema = Schema.Struct({
 });
 
 const noteSummarySchema = Schema.Struct({
-  settledOverride: Schema.optional(Schema.NullOr(Schema.Boolean)),
   id: noteIdSchema,
   generatedPageCount: Schema.BigInt,
   running: Schema.Boolean,

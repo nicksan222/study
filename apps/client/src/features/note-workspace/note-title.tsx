@@ -1,16 +1,5 @@
 import type { NoteId } from '@study/contracts';
-import { EditIcon } from '@study/icons';
-import {
-  Button,
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogFormActions,
-  DialogHeading,
-  Input,
-  Notebook,
-  WorkspaceSurface
-} from '@study/ui';
+import { WritingTitle } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -18,68 +7,45 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { useNoteTitle } from './note-title.queries';
 import { NoteError } from './status';
 
-/** Exposes the existing manual title operation beside the note breadcrumb. */
 export function NoteTitleEdit({ id, title }: { id: NoteId; title: string }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(title);
-  const mutation = useNoteTitle(id);
-  const fieldId = `note-title-${id}`;
+  const rename = useNoteTitle(id);
+  const [draft, setDraft] = useState<string>();
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (mutation.isPending) return;
+    <>
+      <WritingTitle
+        aria-label={t('NoteName')}
+        value={draft ?? title}
+        placeholder={t('NoteUntitled')}
+        maxLength={200}
+        readOnly={rename.isPending}
+        onChange={(event) => setDraft(event.currentTarget.value.replace(/\n/g, ' '))}
+        onBlur={() => {
+          if (rename.isPending) return;
 
-        if (next) {
-          setDraft(title);
-          mutation.reset();
-        }
+          const next = draft?.trim();
 
-        setOpen(next);
-      }}
-    >
-      <DialogTrigger
-        render={<Button variant="ghost-muted" size="icon-sm" />}
-        aria-label={t('NoteRename')}
-        title={t('NoteRename')}
-      >
-        <EditIcon aria-hidden="true" />
-      </DialogTrigger>
-      <DialogPopup closeLabel={t('Close')} showCloseButton={!mutation.isPending}>
-        <DialogHeading title={<> {t('NoteRename')} </>} />
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
+          if (!next || next === title) {
+            setDraft(undefined);
 
-            if (!draft.trim() || mutation.isPending) return;
+            return;
+          }
 
-            void mutation.mutate(draft.trim()).then(
-              () => setOpen(false),
-              () => {}
-            );
-          }}
-        >
-          <WorkspaceSurface.ContextDialogBody>
-            <Notebook.Label htmlFor={fieldId}>{t('NoteName')}</Notebook.Label>
-            <Input
-              id={fieldId}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              maxLength={200}
-              disabled={mutation.isPending}
-            />
-            {mutation.error && <NoteError error={mutation.error} />}
-          </WorkspaceSurface.ContextDialogBody>
-          <DialogFormActions
-            cancelLabel={t('Cancel')}
-            submitLabel={t(mutation.isPending ? 'NoteSaving' : 'Save')}
-            pending={mutation.isPending}
-            disabled={!draft.trim()}
-          />
-        </form>
-      </DialogPopup>
-    </Dialog>
+          setDraft(next);
+          void rename.mutate(next).then(
+            () => setDraft(undefined),
+            () => {}
+          );
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+
+          event.preventDefault();
+          event.currentTarget.blur();
+        }}
+      />
+      {rename.error && <NoteError error={rename.error} />}
+    </>
   );
 }

@@ -334,16 +334,17 @@ test.browser.describe('Image extraction with a controlled Responses API peer', (
         })
       );
 
-      const announcement = page
+      const item = page
         .getByRole('navigation', { name: copy.UploadedMaterials })
-        .getByRole('link', { name: source.name, exact: true })
-        .locator('[aria-live="polite"]');
+        .getByRole('link', { name: source.name, exact: true });
+      const announcement = item.locator('[aria-live="polite"]');
 
       try {
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto(`/projects/${project.id}/sources/${source.id}?fromUploads=1`);
         await requested.promise;
         await expect(announcement).toContainText(copy.MaterialExtractionRunning);
+        await expect(item.getByText(copy.MaterialExtractionRunning, { exact: true })).toBeVisible();
         await check('running', copy.MaterialExtractionRunning);
         const processing = await runPromise(client['sources.sourceProcessing']({ id: source.id }));
 

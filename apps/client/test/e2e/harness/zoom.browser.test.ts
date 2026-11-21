@@ -10,30 +10,24 @@ test.browser.stable(
   async ({ journey: { page, expectScreenshot }, expect }) => {
     await page.goto('/notes');
 
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
+    const starter = page.getByRole('textbox', { name: copy.NoteCompose, exact: true });
+    const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const scrollHost = page.locator('[data-notebook-scroll-host]');
+    const first = editor.getByText(/^Observation 0\./);
+    const last = editor.getByText(/^Observation 59\./);
 
     await expect(page.locator('html')).toHaveCSS('zoom', '1.25');
-    await expect(composer).toBeInViewport({ ratio: 1 });
-    await composer.fill(
+    await expect(starter).toBeInViewport({ ratio: 1 });
+    await starter.fill(
       Array.from(
         { length: 60 },
         (_, i) => `Observation ${i}. ${'Field notes remain readable. '.repeat(20)}`
       ).join('\n\n')
     );
-    await expect(composer).toBeInViewport({ ratio: 1 });
-    await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
-      ratio: 1
-    });
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(page).toHaveURL(/\/notes\/.+/);
-
-    const notebook = page.getByRole('region', { name: copy.NoteNotebook });
-    const body = notebook.locator('.chat-message-text');
-    const add = page.getByRole('button', { name: copy.NoteAddCapture, exact: true });
-    const scrollHost = page.locator('[data-notebook-scroll-host]');
     const noteUrl = page.url();
 
-    await expect(notebook).toContainText('Observation 59.');
+    await expect(editor).toContainText('Observation 59.');
 
     for (const [zoom, viewport] of [
       [125, { width: 2560, height: 1440 }],
@@ -67,34 +61,11 @@ test.browser.stable(
         await dialog.getByRole('button', { name: copy.Close }).click();
       }
 
-      await expect(composer).toBeHidden();
-      await scrollHost.press('Home');
-      await expect(body).toHaveVisibleText('Observation 0.');
-      await scrollHost.press('End');
-      await expect(body).not.toHaveVisibleText('Observation 0.');
-      await expect(body).toHaveVisibleText('Observation 59.');
-      await expect(add).toBeInViewport({ ratio: 1 });
-      await add.click();
-      await expect(composer).toBeFocused();
-      await expect
-        .poll(async () => {
-          const text = await body.boundingBox();
-          const scroll = await scrollHost.boundingBox();
-          const input = await composer.boundingBox();
-
-          return (
-            !!text &&
-            !!scroll &&
-            !!input &&
-            text.y + text.height > scroll.y &&
-            text.y + text.height <= input.y
-          );
-        })
-        .toBe(true);
-      await expect(composer).toBeInViewport({ ratio: 1 });
-      await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
-        ratio: 1
-      });
+      await first.scrollIntoViewIfNeeded();
+      await expect(first).toHaveVisibleText('Observation 0.');
+      await last.scrollIntoViewIfNeeded();
+      await expect(last).toHaveVisibleText('Observation 59.');
+      await expect(scrollHost).toBeInViewport({ ratio: 1 });
       await expect
         .poll(async () => {
           const shell = await page.locator('.study-shell').boundingBox();
@@ -109,16 +80,13 @@ test.browser.stable(
           );
         })
         .toBe(true);
-      await page.getByRole('button', { name: copy.NoteHideCapture, exact: true }).click();
-      await expect(composer).toBeHidden();
       await page.getByRole('combobox', { name: copy.ChooseProject }).click();
       await page.getByRole('link', { name: copy.Projects, exact: true }).click();
       await expect(page.getByRole('heading', { name: copy.Projects })).toBeInViewport({
         ratio: 1
       });
       await page.goto(noteUrl);
-      await expect(notebook).toContainText('Observation 59.');
-      await expect(composer).toBeHidden();
+      await expect(editor).toContainText('Observation 59.');
       await expect(page.locator('html')).toHaveCSS('zoom', String(zoom / 100));
     }
 

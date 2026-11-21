@@ -1,5 +1,6 @@
 /** @file Schedules automatic section naming without delaying raw capture or changing document generation. */
 
+import { notebookBodyCaptureKey } from '@study/contracts';
 import type { ChatMessage } from '@study/contracts';
 import { publicationTransaction, transaction } from '@study/server';
 import type { Transaction } from '@study/server';
@@ -23,6 +24,8 @@ function requestStillOwned(tx: Transaction, correlationId: string, eventId: stri
 
 /** A restored section can renew successfully retired work without duplicating pending requests. */
 export function scheduleSectionTitle(tx: Transaction, message: ChatMessage) {
+  if (message.captureKey === notebookBodyCaptureKey) return;
+
   const version = message.versions.find((item) => item.id === message.activeVersionId);
 
   if (message.format === 'document' || version?.status !== 'complete' || !version.text.trim())

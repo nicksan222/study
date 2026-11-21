@@ -8,34 +8,27 @@ const name = 'river-survey.pdf';
 
 const fixture = new URL('./fixtures/river-survey.pdf', import.meta.url);
 
-async function attachPdf(
+async function importPdf(
   { page, rpc }: Pick<test.browser.Context, 'page' | 'rpc'>,
   filename: string,
   buffer: Buffer
 ) {
+  const project = await rpc.runPromise(rpc.client['projects.createProject']({ name: 'Fieldwork' }));
   const source = await rpc.runPromise(
-    rpc.client['sources.createSource']({ name: filename, bytes: buffer, projectId: null })
-  );
-  const note = await rpc.runPromise(
-    rpc.client['notes.createUntitledNote']({
-      initialMessage: { text: 'River survey lecture', sourceIds: [source.id] }
-    })
+    rpc.client['sources.createSource']({ name: filename, bytes: buffer, projectId: project.id })
   );
 
-  await page.goto(`/notes/${note.id}`);
+  await page.goto(`/projects/${project.id}/sources/${source.id}?fromUploads=1`);
 }
 
 test.browser.stable(
-  'Read a multipage PDF attached to a note',
+  'Read a multipage PDF in Materials',
   async ({ page, expect, expectScreenshot, rpc }) => {
     const buffer = Buffer.from(await Bun.file(fixture).arrayBuffer());
 
-    await attachPdf({ page, rpc }, name, buffer);
+    await importPdf({ page, rpc }, name, buffer);
 
-    const attachment = page
-      .getByRole('region', { name: copy.NoteNotebook })
-      .getByRole('button', { name, exact: true });
-    const panel = page.getByRole('tabpanel');
+    const panel = page.locator('[data-materials-reader]');
     const viewer = panel.getByRole('region', { name: copy.PdfDocument });
     const canvas = viewer.locator('canvas');
     const next = panel.getByRole('button', { name: copy.PdfNextPage });
@@ -44,8 +37,9 @@ test.browser.stable(
     const zoomOut = panel.getByRole('button', { name: copy.PdfZoomOut });
     const fit = panel.getByRole('button', { name: copy.PdfFitWidth });
 
-    await attachment.press('Enter');
-    await expect(page.getByRole('tab', { name, selected: true })).toBeVisible();
+    await panel
+      .getByRole('button', { name: copy.UploadedMaterialsOriginal, exact: true })
+      .press('Enter');
     await expectScreenshot('pdf-page-one', {
       target: 'viewport',
       ready: async () => {
@@ -121,9 +115,8 @@ test.browser.stable(
     await page.setViewportSize({ width: 1024, height: 860 });
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', 'it');
-    await page
-      .getByRole('region', { name: catalogs.italian.NoteNotebook })
-      .getByRole('button', { name, exact: true })
+    await panel
+      .getByRole('button', { name: catalogs.italian.UploadedMaterialsOriginal, exact: true })
       .click();
     const italianViewer = panel.getByRole('region', { name: catalogs.italian.PdfDocument });
 
@@ -144,17 +137,19 @@ test.browser.stable(
   async ({ page, expect, expectScreenshot, rpc }) => {
     const filename = 'damaged.pdf';
 
-    await attachPdf({ page, rpc }, filename, Buffer.from('%PDF-1.7\nDamaged document'));
-    await page
-      .getByRole('region', { name: copy.NoteNotebook })
-      .getByRole('button', { name: filename, exact: true })
-      .click();
+    await importPdf({ page, rpc }, filename, Buffer.from('%PDF-1.7\nDamaged document'));
 
-    const panel = page.getByRole('tabpanel');
+    const panel = page.locator('[data-materials-reader]');
+    const item = page
+      .getByRole('navigation', { name: copy.UploadedMaterials })
+      .getByRole('link', { name: filename, exact: true });
+
+    await panel.getByRole('button', { name: copy.UploadedMaterialsOriginal, exact: true }).click();
 
     await expectScreenshot('pdf-open-error', {
       target: 'viewport',
       ready: async () => {
+        await expect(item.getByText(copy.UploadedMaterialsFailed, { exact: true })).toBeVisible();
         await expect(panel.getByRole('alert', { name: copy.PdfOpenFailed })).toBeVisible();
         await expect(panel.getByRole('button', { name: copy.ReaderOriginal })).toBeEnabled();
       }

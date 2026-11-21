@@ -16,12 +16,10 @@ import {
   defaultAppearancePreferences,
   defaultConcurrencySettings,
   defaultQuizSettings,
-  defaultSidebarSettings,
   defaultWorkspacePreferences,
   materialSettingsSchema,
   quizSettingsSchema,
   reviewSettingsSchema,
-  sidebarSettingsSchema,
   workspacePreferencesSchema
 } from '@study/contracts';
 import { useStore, validatedMutation } from '@study/server';
@@ -113,23 +111,6 @@ export function* settingsPreferenceOperations() {
       message: 'Invalid workspace preferences',
       write: (tx, input) => {
         tx.store(SettingsStore).saveWorkspacePreferences(input);
-
-        return {};
-      }
-    }),
-    sidebarSettings: () =>
-      store.preference('sidebar').pipe(
-        Effect.map((v) => {
-          const resolved = { ...defaultSidebarSettings, ...v };
-
-          return Schema.is(sidebarSettingsSchema)(resolved) ? resolved : defaultSidebarSettings;
-        })
-      ),
-    saveSidebarSettings: validatedMutation({
-      input: sidebarSettingsSchema,
-      message: 'Invalid sidebar settings',
-      write: (tx, input) => {
-        tx.store(SettingsStore).saveSidebarSettings(input);
 
         return {};
       }

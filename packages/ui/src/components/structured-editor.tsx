@@ -203,7 +203,7 @@ function StructuredDocumentPreview(props: StructuredEditorProps) {
       editor={editor}
       labels={props.labels}
       disabled
-      readOnly
+      mode="read-only"
       spellcheck={false}
       fontSize={props.fontSize}
     />

@@ -1,17 +1,9 @@
 import {
   StudyError,
   chatMessageSchema,
-  summarySchema as materialSummarySchema,
-  sourceKinds
+  summarySchema as materialSummarySchema
 } from '@study/contracts';
-import { mediaSize } from '@study/localization';
 import { test } from '@study/testing';
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRouter,
-  RouterProvider
-} from '@tanstack/react-router';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 
@@ -248,63 +240,6 @@ test.unit.stable.for(['text', undefined] as const)(
     expect(view.container.querySelector('.workspace-desk-page')).toBeNull();
     expect(screen.queryByRole('button', { name: 'NoteOpenPage' })).toBeNull();
     expect(onOpen).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'shows a linked attachment card with kind and size for every canonical source kind',
-  async ({ vi, screen, expect, within, rpcHandlersTransport, render }) => {
-    const attached = Schema.decodeUnknownSync(chatMessageSchema)({
-      ...message,
-      format: 'text',
-      parts: sourceKinds.map((kind, index) => ({
-        id: BigInt(index + 1),
-        sourceId: BigInt(index + 100),
-        sourceName: `Attached ${kind}`,
-        sourceKind: kind
-      }))
-    });
-
-    rpc.thread.mockResolvedValue({ items: [attached], next: null });
-    rpc.material.mockImplementation(({ sourceId }: { sourceId: bigint }) =>
-      Promise.resolve({ id: sourceId + 1000n })
-    );
-    rpc.source.mockImplementation(async ({ id }: { id: bigint }) => ({
-      id,
-      name: `Source ${id}`,
-      kind: sourceKinds[Number(id - 100n)],
-      mime: 'application/octet-stream',
-      origin: 'attachment',
-      projectId: null,
-      projectName: null,
-      sha256: new Uint8Array(),
-      uri: null,
-      createdAt: 1n,
-      sizeBytes: 2048n
-    }));
-    const root = createRootRoute({
-      component: () => <History id={message.noteId} onOpen={vi.fn()} />
-    });
-    const router = createRouter({
-      routeTree: root,
-      history: createMemoryHistory({ initialEntries: ['/'] })
-    });
-
-    mount({ rpcHandlersTransport, render }, <RouterProvider router={router} />);
-
-    for (const [index, kind] of sourceKinds.entries()) {
-      const link = await screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
-
-      expect(link).toHaveAttribute('href', `/sources/${index + 100}`);
-      expect(
-        await within(link).findByText(
-          `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
-        )
-      ).toBeVisible();
-      expect(link.querySelector('svg')).not.toBeNull();
-    }
-
-    expect(screen.getAllByRole('link')).toHaveLength(sourceKinds.length);
   }
 );
 

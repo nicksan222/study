@@ -272,6 +272,20 @@ export const NoteSourcesStore = defineStore({
               })
               .onConflictDoNothing()
               .run();
+
+            db.orm
+              .insert(s.project_sources)
+              .select(
+                db.orm
+                  .select({
+                    project_id: s.project_notes.project_id,
+                    source_id: sql<typeof s.sources.$inferSelect.id>`${v.sourceId}`.as('source_id')
+                  })
+                  .from(s.project_notes)
+                  .where(eq(s.project_notes.note_id, v.noteId))
+              )
+              .onConflictDoNothing()
+              .run();
           }
         }),
         detachSource: storeMutation({

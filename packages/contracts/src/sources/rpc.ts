@@ -50,7 +50,7 @@ export const correctBlockInputSchema = Schema.Struct({
 });
 
 export const sourcePageInputSchema = Schema.Struct({
-  uploadedFor: Schema.optional(projectIdSchema),
+  uploadedFor: Schema.optional(Schema.NullOr(projectIdSchema)),
   nameContains: Schema.optional(Schema.String.check(Schema.isMaxLength(255))),
   projectId: Schema.optional(projectIdSchema),
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
@@ -222,24 +222,6 @@ export const sourcesEndpoints = {
       error: failureSchema
     },
     { dependencies: allDependencies, refresh: 'database' }
-  ),
-  attachSource: mutation(
-    'sources.attachSource',
-    {
-      payload: sourceLinkSchema,
-      success: Schema.Void,
-      error: failureSchema
-    },
-    { changes: [dependency.sources] }
-  ),
-  detachSource: mutation(
-    'sources.detachSource',
-    {
-      payload: sourceLinkSchema,
-      success: Schema.Void,
-      error: failureSchema
-    },
-    { changes: [dependency.sources] }
   ),
   importCapability: liveQuery(
     'sources.importCapability',

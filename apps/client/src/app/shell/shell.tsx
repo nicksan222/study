@@ -204,7 +204,7 @@ function useShellRoute() {
   } = match?.staticData ?? {};
   const fromUploads = useSearch({
     from: '__root__',
-    select: (search) => search.fromUploads && search.project
+    select: (search) => search.fromUploads === '1'
   });
   const materialReader = title === 'AnswerSources' && fromUploads;
   const metadata = materialReader

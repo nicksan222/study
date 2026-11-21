@@ -1,7 +1,13 @@
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
+import type { Page } from 'playwright';
 
 const copy = catalogs.english;
+
+async function openHistory(page: Page) {
+  await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
+  await page.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
+}
 
 test.browser.stable(
   'Empty edits pause and discard without replacing the saved note',
@@ -15,6 +21,7 @@ test.browser.stable(
     );
 
     await page.goto('/notes/' + String(note.id));
+    await openHistory(page);
     const entry = page.locator('[data-role="user"]');
     const body = entry.locator('.chat-message-text');
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
@@ -90,6 +97,7 @@ test.browser.stable(
     await expect(dialog).toBeHidden();
     await expect(body).toHaveText(corrected);
     await page.reload();
+    await openHistory(page);
     await expect(body).toHaveText(corrected);
     await expect(entry).toHaveCount(1);
     await expect(resume).toHaveCount(0);
