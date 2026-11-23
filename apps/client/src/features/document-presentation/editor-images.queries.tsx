@@ -1,5 +1,5 @@
-import { StudyError, sniff } from '@study/contracts';
-import type { ContentSnapshotId, ProjectId } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import type { ContentSnapshotId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -72,11 +72,7 @@ function ImageSubscription({
   return null;
 }
 
-export function useDocumentEditorImages(
-  document: EditableDocument,
-  snapshotId: ContentSnapshotId,
-  projectId?: ProjectId
-) {
+export function useDocumentEditorImages(document: EditableDocument, snapshotId: ContentSnapshotId) {
   const [previews, setPreviews] = useState<Record<string, Preview>>({});
   const [retry, setRetry] = useState(0);
   const publish = useCallback(
@@ -111,23 +107,6 @@ export function useDocumentEditorImages(
       active.flatMap(([identity, preview]) => (preview.url ? [[identity, preview.url]] : []))
     ),
     error: active.find(([, value]) => value.error)?.[1].error,
-    retry: () => setRetry((value) => value + 1),
-    upload: async (file: File) => {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-
-      if (sniff(file.name, bytes).kind !== 'image')
-        throw new StudyError('invalid_input', 'The selected file is not an image');
-
-      const source = await rpc.sources.create.call({
-        name: file.name,
-        bytes,
-        projectId: projectId ?? null
-      });
-
-      if (source.kind !== 'image')
-        throw new StudyError('invalid_input', 'The retained source is not an image');
-
-      return { sourceId: String(source.id), revision: 1, alt: source.name };
-    }
+    retry: () => setRetry((value) => value + 1)
   };
 }

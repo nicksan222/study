@@ -129,7 +129,7 @@ function List({ items }: { items: Extract<BlockContent, { type: 'list_item' }>['
   return groups(roots);
 }
 
-function Content({ content, image }: { content: BlockContent; image?: string }) {
+function Content({ content }: { content: BlockContent }) {
   switch (content.type) {
     case 'paragraph':
     case 'segment':
@@ -161,37 +161,23 @@ function Content({ content, image }: { content: BlockContent; image?: string }) 
         </p>
       );
     case 'image':
-      return <ImageContent content={content} image={image} />;
+      return <ImageContent content={content} />;
     case 'table':
       return <TableContent content={content} />;
   }
 }
 
-export function DocumentReader({
-  document,
-  images = {},
-  renderImage,
-  showOmissions = true
-}: {
-  document: typeof documentSchema.Type;
-  images?: Record<string, string>;
-  renderImage?: (block: (typeof documentSchema.Type.blocks)[number]) => ReactNode;
-  showOmissions?: boolean;
-}) {
+export function DocumentReader({ document }: { document: typeof documentSchema.Type }) {
   const { t } = useI18n();
   const preferences = useWorkspacePreferences();
 
   return (
     <MaterialLibrary.Prose fontSize={preferences.readerFontSize}>
-      {showOmissions && <DocumentOmissions document={document} />}
+      <DocumentOmissions document={document} />
       {document.blocks.length === 0 && <p>{t('ReaderNoText')}</p>}
       {document.blocks.map((block) => (
         <section id={`block-${block.id}`} key={block.id} data-block-id={block.id}>
-          {block.content.type === 'image' && renderImage ? (
-            renderImage(block)
-          ) : (
-            <Content content={block.content} image={images[block.id]} />
-          )}
+          <Content content={block.content} />
         </section>
       ))}
     </MaterialLibrary.Prose>
@@ -244,22 +230,12 @@ function keyed<T>(items: readonly T[]) {
   });
 }
 
-function ImageContent({
-  content,
-  image
-}: {
-  content: Extract<BlockContent, { type: 'image' }>;
-  image?: string;
-}) {
+function ImageContent({ content }: { content: Extract<BlockContent, { type: 'image' }> }) {
   const { t } = useI18n();
 
   return (
     <figure>
-      {image ? (
-        <img src={image} alt={content.alt} width={content.width} height={content.height} />
-      ) : (
-        <p>{t('ReaderImageUnavailable')}</p>
-      )}
+      <p>{t('ReaderImageUnavailable')}</p>
       <figcaption>{content.alt}</figcaption>
     </figure>
   );
