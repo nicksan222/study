@@ -6,8 +6,8 @@ import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
+import type * as __StudyMockType1 from '#client/pages/settings/data/data-owner.queries.ts';
 import type * as __StudyMockType0 from '#client/pages/settings/data/files.ts';
-import type * as __StudyMockType1 from '#client/pages/settings/data/use-data.ts';
 
 import type * as MockModule0 from './files';
 
@@ -57,7 +57,7 @@ test.unit.beforeEach(async ({ mock }) => {
   const __studyMockModule0 = await import('./files');
 
   downloadBackup = __studyMockModule0.downloadBackup;
-  const __studyMockModule1 = await import('./use-data');
+  const __studyMockModule1 = await import('./data-owner.queries');
 
   dataOwner = __studyMockModule1.dataOwner;
   useDataSettings = __studyMockModule1.useDataSettings;

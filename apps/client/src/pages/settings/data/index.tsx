@@ -17,7 +17,7 @@ import { useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { useDataSettings } from './use-data';
+import { useDataSettings } from './data-owner.queries';
 
 type BackupDeletion = { id: BackupId } | 'recovery';
 

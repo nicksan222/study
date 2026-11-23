@@ -3,10 +3,8 @@ import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
+import type * as __StudyMockType1 from '#client/pages/settings/data/data-owner.queries.ts';
 import type * as __StudyMockType0 from '#client/pages/settings/data/index.tsx';
-import type * as __StudyMockType1 from '#client/pages/settings/data/use-data.ts';
-
-import type * as MockModule0 from './use-data';
 
 let DataSettings: typeof __StudyMockType0.DataSettings;
 
@@ -15,8 +13,8 @@ let dataOwner: typeof __StudyMockType1.dataOwner;
 let useDataSettings: typeof __StudyMockType1.useDataSettings;
 
 test.unit.beforeEach(async ({ mock }) => {
-  mock('#client/pages/settings/data/use-data.ts', async (load) => ({
-    ...(await load<typeof MockModule0>()),
+  mock('#client/pages/settings/data/data-owner.queries.ts', async (load) => ({
+    ...(await load<typeof __StudyMockType1>()),
     useDataSettings: mock.fn()
   }));
   mock('#client/lib/i18n.tsx', () => ({
@@ -30,7 +28,7 @@ test.unit.beforeEach(async ({ mock }) => {
   const __studyMockModule0 = await import('./index');
 
   DataSettings = __studyMockModule0.DataSettings;
-  const __studyMockModule1 = await import('./use-data');
+  const __studyMockModule1 = await import('./data-owner.queries');
 
   dataOwner = __studyMockModule1.dataOwner;
   useDataSettings = __studyMockModule1.useDataSettings;
