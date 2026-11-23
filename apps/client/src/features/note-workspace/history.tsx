@@ -18,7 +18,6 @@ import {
   WorkspaceDeskSurface as Desk
 } from '@study/ui';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -41,8 +40,6 @@ import { QuestionActions } from './question-actions';
 import { messageSectionTitle } from './section-title';
 import { NoteReadError } from './status';
 
-export { CapturedContext } from './captured-context';
-
 type Message = typeof chatMessageSchema.Type;
 
 type HistoryProps = {
@@ -52,7 +49,6 @@ type HistoryProps = {
   pages?: readonly PageSummary[];
   onOpenPage?: (material: PageSummary) => void;
   activeAuthoredPage?: string;
-  capture?: ReactNode;
 };
 
 type ThreadState = ReturnType<typeof useThreadPage>;
@@ -75,7 +71,6 @@ function HistoryContent({
   pages = [],
   onOpenPage,
   activeAuthoredPage,
-  capture,
   state
 }: HistoryProps & { state: ThreadState }) {
   const { t } = useI18n();
@@ -128,7 +123,6 @@ function HistoryContent({
             )}
           </Notebook.IndexTarget>
         ))}
-        {capture}
       </Notebook.History>
     </ChatNote>
   );

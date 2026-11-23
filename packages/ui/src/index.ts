@@ -240,7 +240,6 @@ export { ExecutionLog } from './components/execution-log.tsx';
 export type { ExecutionLogItem } from './components/execution-log.tsx';
 export { FlashcardReviewView } from './components/flashcard-review-view.tsx';
 export type { FlashcardRating } from './components/flashcard-review-view.tsx';
-export { NotebookComposer } from './components/notebook-composer.tsx';
 export { PracticePresentationProvider } from './components/practice-presentation.tsx';
 export type {
   PracticeMessageKey,

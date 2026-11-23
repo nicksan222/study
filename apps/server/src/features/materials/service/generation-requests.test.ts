@@ -18,7 +18,7 @@ import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contr
 import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db';
-import { ServerContext, Database, decodeEvent, emitEvent } from '@study/server';
+import { ServerContext, Database, decodeEvent, emitEvent, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -99,7 +99,9 @@ test.server.stable(
             bytes: new TextEncoder().encode('Cells have membranes.')
           });
 
-          yield* sources.attachSource({ noteId: note.id, sourceId: file.id });
+          yield* transaction((tx) =>
+            Sources.attachInTransaction(tx, { noteId: note.id, sourceId: file.id })
+          );
           yield* projects.removeNote({ projectId: biology.id, noteId: note.id });
           yield* projects.addNote({ projectId: history.id, noteId: note.id });
           const stored = context.db.orm

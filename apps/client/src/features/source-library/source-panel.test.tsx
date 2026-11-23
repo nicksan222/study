@@ -2,7 +2,6 @@ import {
   StudyError,
   sourceIdSchema,
   contentSnapshotIdSchema,
-  noteIdSchema,
   executionIdSchema
 } from '@study/contracts';
 import type { executionSchema } from '@study/contracts';
@@ -96,12 +95,11 @@ function processing(requestId: string | null) {
 test.unit.stable(
   'keeps an uncertain exact copy request across caller remount and newer source extraction',
   async ({ rpcHandlersTransport, render, act, expect, waitFor }) => {
-    const note = noteIdSchema.make(8n);
     const harness = rpcHandlersTransport({ 'pages.copySource': rpc.copy });
     let current: ReturnType<typeof useSourceCopy> | undefined;
 
     function Probe() {
-      const state = useSourceCopy(source, note);
+      const state = useSourceCopy(source);
 
       useLayoutEffect(() => {
         current = state;
@@ -136,10 +134,10 @@ test.unit.stable(
 
     expect(attempt).toMatchObject({
       sourceId: source,
-      noteId: note,
       revision: 1n,
       snapshotId: 11n
     });
+    expect(attempt?.noteId).toBeUndefined();
     act(() => state().acknowledge());
     view.rerender(<harness.wrapper>{null}</harness.wrapper>);
     view.rerender(

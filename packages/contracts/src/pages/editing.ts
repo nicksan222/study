@@ -51,15 +51,13 @@ export const compareSchema = Schema.Struct({
   currentVersionId: pageVersionIdSchema
 });
 
-export const blockDifferenceSchema = documentBlockDifferenceSchema;
-
 export const comparisonSchema = Schema.Struct({
   ...compareSchema.fields,
   before: versionSchema,
   proposed: versionSchema,
   current: versionSchema,
-  proposedChanges: Schema.Array(blockDifferenceSchema),
-  currentChanges: Schema.Array(blockDifferenceSchema),
+  proposedChanges: Schema.Array(documentBlockDifferenceSchema),
+  currentChanges: Schema.Array(documentBlockDifferenceSchema),
   evidence: Schema.Literal('structural_only')
 });
 

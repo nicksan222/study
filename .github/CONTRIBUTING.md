@@ -4,9 +4,8 @@ Thank you for helping with Study.
 
 ## The rules
 
-- **Read [AGENTS.md](../AGENTS.md) first.** Its golden rules, crate map and commands apply to
-  people as much as to agents. Everything else is in the code, beginning with each crate's
-  `src/lib.rs`.
+- **Read [AGENTS.md](../AGENTS.md) first.** Its architecture rules and commands apply to
+  everyone. Use its package map to find the code that owns the behavior.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Record agreed architecture requirements in `doc/adr`.** Follow
   [Architecture decision records](../doc/adr/architecture-decision-records.md).
@@ -37,9 +36,6 @@ Thank you for helping with Study.
 
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-CI dependency installation sets `ONNXRUNTIME_NODE_INSTALL=skip` to avoid optional CUDA
-downloads. The package’s bundled CPU runtime remains available for the checks.
-
 ## Set up
 
 ### In the devcontainer
@@ -60,9 +56,8 @@ preview rendering failures are caught by pull-request CI before deployment.
 
 The devcontainer installs root and landing dependencies from their committed locks. To
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
-run `bun run check`. The former Rust
-server and browser bridge have been retired; the replacement server does not yet provide
-all application features. Browser screenshots use the devcontainer's lockfile-pinned Playwright Chromium; setup installs it before tests. The system Chromium remains for desktop tools.
+run `bun run check`. Browser screenshots use the devcontainer's lockfile-pinned Playwright
+Chromium. Setup installs it before tests. The system Chromium remains for desktop tools.
 
 ### Native Linux setup
 
@@ -187,18 +182,19 @@ JavaScript package or Cargo build.
 
 ## Where data lives
 
-- `~/.local/share/study/`: the database (`study.sqlite3`) and `diagnostics.log`.
+- The desktop app’s OS application data directory contains `study.sqlite` and `diagnostics.log`.
 - Explicitly installed dictation assets live beside the selected database in `<database>.voice/ready`.
   Removing Voice deletes those downloadable assets; drafts and settings remain in SQLite.
 - Existing caches from retired local-model implementations are not imported or used.
 
-Existing data is retained. Native development selects `target/dev-data`; no reset or seed
-command is provided during the server transition.
+The Linux native development launcher selects `target/dev-data`. The browser development
+database defaults to `target/web/study.sqlite`. The `seed` script replaces the selected browser
+development database. Stop Study and point `STUDY_DATABASE` at a disposable path before running it.
 
 ## Captures of the app
 
-The README demo and website stills and clips are committed from an earlier release.
-The former capture runner was retired with the Rust server.
+The website’s older stills and clips are retained as recorded examples. For current UI changes,
+use the browser inspection and visual-reference workflows below.
 
 ## The agent team
 
@@ -273,10 +269,10 @@ then restarts against that database without depending on a system Bun installati
 Before publishing, a macOS 27 runner installs Study from the built disk image into a
 temporary directory and requires the WebView to receive a healthy live RPC snapshot
 with an isolated database.
-On macOS, even read-only startup validation selects the bundled SQLite library before
-opening a connection. Release size reports use the same Cargo output directory. Run
-`bun run desktop:runtime` to stage it independently. macOS development also requires
-`brew install sqlite`, since Bun’s system SQLite cannot load the vector extension.
+On macOS, startup validation selects the bundled SQLite library before opening a
+connection. Local development and runtime staging resolve SQLite through Homebrew, so
+install it with `brew install sqlite`. Use `bun run desktop:runtime` to stage the private
+server runtime independently. Release size reports use the same Cargo output directory.
 Linux CI and the devcontainer use the pinned Patchelf 0.19.3 from
 `tooling/scripts/devcontainer/install-patchelf.sh`; older ELF rewriters corrupt Bun’s ARM64 symbol-version pointers.
 
@@ -297,7 +293,7 @@ not part of the current release target set.
 `bun run package linux-x86_64` (or `linux-aarch64`, `macos-aarch64`, `windows-x86_64`) invokes
 Tauri on a matching native runner; signed builds require the same updater key environment as CI. Output lives beneath the Cargo target directory's
 platform `release/bundle` directory. CI uses the same Tauri config at
-`apps/desktop/src-tauri/tauri.conf.json`, with no cargo-packager dependency.
+`apps/desktop/src-tauri/tauri.conf.json`.
 
 ## License
 
@@ -308,8 +304,8 @@ conditions.
 
 The TypeScript server uses Drizzle with schema modules in `packages/db/src/schema`.
 Run `bun gen` after changing the schema and `bun gen:check` to check drift.
-`apps/server` owns the tRPC router and inferred client contract; it needs no code generation.
-Desktop, CLI, and web clients use the same typed procedures.
+`packages/contracts` owns the typed Effect RPC groups and schemas. The shared desktop
+and browser client calls the feature handlers in `apps/server` through those contracts.
 
 `@study/db` exports `Db` and the schema; it contains no business rules. Procedures live in
 `apps/server`, grouped by domain with input validation and a sibling `.test.ts` for each
@@ -386,13 +382,13 @@ WebView health check used before publishing.
 `bun run web:e2e` builds the real frontend once, then runs Playwright Test under Bun
 with fresh real SQLite/RPC state. `bun run web:e2e:compare` uses the same Turbo task
 and reuses a matching build from its cache. Use native runner filters, for example
-`bun run web:e2e:compare --grep "Notes preserve multiple edits after reopening"`.
+`bun run web:e2e:compare --grep "Home navigation reaches Projects"`.
 Playwright owns browsers, isolated contexts, worker scheduling, test timeouts, traces,
 failure screenshots and the HTML report. Application fixtures own the real database,
 RPC server and Vite preview through standard asynchronous disposal.
 
 Journeys import `test` from `@study/testing`. Define a journey directly:
-`test.browser.stable('Notes preserve edits after reopening', async ({ page, expect,
+`test.browser.stable('Home navigation reaches Projects', async ({ page, expect,
 expectScreenshot }) => { ... })`. The readable title also determines its baseline and
 artifact directory. Suite-wide preflight rejects duplicate normalized titles across files,
 including punctuation collisions, before any journey runs. Await named screenshots
@@ -424,7 +420,7 @@ From the host:
 ```sh
 devcontainer up --workspace-folder .
 devcontainer exec --workspace-folder . bun run web:e2e
-devcontainer exec --workspace-folder . bun run web:e2e:update notes-preserve-multiple-edits-after-reopening
+devcontainer exec --workspace-folder . bun run web:e2e:update home-navigation-reaches-projects
 ```
 
 Inside the container, use ordinary `bun run web:e2e`, `web:e2e:compare`,
@@ -440,8 +436,8 @@ zoom before checking journey readiness. Element screenshots retain their
 natural bounds within that viewport. The native report attaches capture profile metadata
 alongside the observed browser version and workflow identity.
 
-`bun run web:e2e:update notes-preserve-multiple-edits-after-reopening` explicitly generates candidate
-references for one workflow; append `/editing` to update only that screenshot.
+`bun run web:e2e:update home-navigation-reaches-projects` explicitly generates candidate
+references for one workflow; append `/projects` to update only that screenshot.
 Updates are forbidden in CI. Inspect candidate PNGs before
 accepting them; generation does not approve a design. No Git hook updates or stages
 images. Native Playwright screenshot assertions use a 0.2 perceptual color threshold and
@@ -461,7 +457,7 @@ CI also enables Vitest's built-in JUnit reporter. Every package writes under its
 Turbo caches restore report files with deterministic test results. Use `CI=true` for the
 same reporters locally; ordinary local runs keep console output only.
 
-Selected Projects, Settings, composer and bilingual note-edit checkpoints also run
+Selected Projects, Settings and bilingual notebook-edit checkpoints also run
 `@axe-core/playwright` WCAG 2.1 A/AA scans through `expectAccessibility(name)`.
 Violations fail the journey and the native report includes the complete axe JSON result.
 Keep keyboard and focus assertions alongside these automated scans.

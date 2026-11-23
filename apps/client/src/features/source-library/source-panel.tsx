@@ -1,11 +1,4 @@
-import type {
-  SourceId,
-  NoteId,
-  ContentSnapshotId,
-  Page,
-  documentSchema,
-  Source
-} from '@study/contracts';
+import type { SourceId, ContentSnapshotId, Page, documentSchema, Source } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { CopyIcon, OptionsIcon, DeleteIcon, InfoIcon } from '@study/icons';
 import {
@@ -196,7 +189,6 @@ function SourceHistoryActions({
 
 function SourceToolbar({
   sourceId,
-  noteId,
   source,
   extraction,
   copy,
@@ -208,7 +200,6 @@ function SourceToolbar({
   onDeleted
 }: {
   sourceId: SourceId;
-  noteId?: NoteId;
   source: ReturnType<typeof rpc.sources.get.useQuery>;
   extraction: ReturnType<typeof useSourceExtraction>;
   copy: ReturnType<typeof useSourceCopy>;
@@ -224,7 +215,7 @@ function SourceToolbar({
 
   return (
     <SourceReader.Header>
-      {!noteId && source.data && <SourceReader.Title>{source.data.name}</SourceReader.Title>}
+      {source.data && <SourceReader.Title>{source.data.name}</SourceReader.Title>}
       <SourceReader.Actions ref={setMenuContainer}>
         <OriginalDownload sourceId={sourceId} revision={downloadRevision} withLabel={fileOnly} />
         <MaterialEditAction source={source.data} pinned={!!selected} inMaterials={inMaterials} />
@@ -292,8 +283,6 @@ function SourcePanelContent({
   );
 }
 
-type ReaderMode = Parameters<typeof SourceAttachmentView>[0]['mode'];
-
 function shouldShowExtractionJob(
   extraction: ReturnType<typeof useSourceExtraction>,
   pinned: boolean,
@@ -306,7 +295,7 @@ function SourcePanelView({
   sourceId,
   source,
   extraction,
-  mode,
+  inMaterials,
   pinned,
   copyError,
   onCopy
@@ -314,13 +303,12 @@ function SourcePanelView({
   sourceId: SourceId;
   source: ReturnType<typeof rpc.sources.get.useQuery>;
   extraction: ReturnType<typeof useSourceExtraction>;
-  mode: ReaderMode;
+  inMaterials: boolean;
   pinned: boolean;
   copyError: unknown;
   onCopy: () => void;
 }) {
   const content = <SourcePanelContent source={source} extraction={extraction} />;
-  const inMaterials = mode === 'materials';
   const showJob = shouldShowExtractionJob(extraction, pinned, inMaterials);
   const job = useExtractionJob(sourceId, source.data, showJob);
 
@@ -331,7 +319,7 @@ function SourcePanelView({
         <SourceAttachmentView
           source={source.data}
           pinned={pinned}
-          mode={mode}
+          inMaterials={inMaterials}
           job={showJob && inMaterials ? job : undefined}
           extraction={extraction.data}
         >
@@ -350,14 +338,12 @@ function SourcePanelView({
 export function SourcePanel({
   sourceId,
   exact,
-  noteId,
   presentation,
   onOpenPage,
   onDeleted
 }: {
   sourceId: SourceId;
   exact?: { revision: bigint; snapshotId: ContentSnapshotId };
-  noteId?: NoteId;
   presentation?: 'materials';
   onOpenPage: (page: Page) => void;
   onDeleted?: () => void;
@@ -372,10 +358,8 @@ export function SourcePanel({
 
   const state = useSourceExtraction(sourceId, selected, !deleted);
 
-  const copy = useSourceCopy(sourceId, noteId);
-
-  const mode = presentation ?? (noteId ? 'note' : 'citation');
-  const inMaterials = mode === 'materials';
+  const copy = useSourceCopy(sourceId);
+  const inMaterials = presentation === 'materials';
   const openCopy = () => void copy.open(state.data, onOpenPage);
 
   if (deleted) return <StatusMessage>{t('SourceDeletedNotice')}</StatusMessage>;
@@ -387,7 +371,6 @@ export function SourcePanel({
     >
       <SourceToolbar
         sourceId={sourceId}
-        noteId={noteId}
         source={source}
         extraction={state}
         copy={copy}
@@ -405,7 +388,7 @@ export function SourcePanel({
         sourceId={sourceId}
         source={source}
         extraction={state}
-        mode={mode}
+        inMaterials={inMaterials}
         pinned={!!selected}
         copyError={copy.error}
         onCopy={openCopy}

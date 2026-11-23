@@ -2,7 +2,7 @@
 
 import type * as e from '@study/contracts';
 import { StudyError } from '@study/contracts';
-import { publicationTransaction, transaction, useStore } from '@study/server';
+import { transaction, useStore } from '@study/server';
 import { Option } from 'effect';
 
 import { PageComparisonsStore, PageProposalsStore } from '#server/features/pages/store/index';
@@ -44,8 +44,6 @@ export function* pageProposalOperations() {
           );
 
         return proposalCommitted(tx, tx.store(PageProposalsStore).keepProposal(v));
-      }),
-    proposeGenerated: (v: typeof e.publishSchema.Type) =>
-      publicationTransaction((tx) => tx.store(PageProposalsStore).proposeGenerated(v))
+      })
   };
 }

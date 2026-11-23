@@ -20,7 +20,6 @@ export {
 } from 'drizzle-orm';
 export type { SQL } from 'drizzle-orm';
 
-export { defineTable, collectSchemaRegistry } from './table.ts';
 export { aiUsage } from './schema.ts';
 export { assistant_chat_starts } from './schema.ts';
 export { assistant_memory } from './schema.ts';

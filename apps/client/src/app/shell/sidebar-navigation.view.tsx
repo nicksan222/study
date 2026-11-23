@@ -12,7 +12,8 @@ import type { useSidebarCounts } from './sidebar-counts.queries';
 const sections = [
   ['/notes', 'notes', NoteIcon, 'Notes'],
   ['/uploads', 'uploads', SourcesIcon, 'UploadedMaterials'],
-  ['/practice', 'practice', QuizIcon, 'Practice']
+  ['/practice', 'practice', QuizIcon, 'Practice'],
+  ['/assistant', 'assistant', AssistantIcon, 'Assistant']
 ] as const;
 
 /** Preserves subject scope in section links and passes resolved workspace ownership into settings. */
@@ -42,7 +43,11 @@ export function SidebarNavigation({
           <Sidebar.NavigationItem
             key={to}
             label={t(label)}
-            count={currentSection === 'uploads' ? undefined : counts?.[currentSection].count}
+            count={
+              currentSection === 'notes' || currentSection === 'practice'
+                ? counts?.[currentSection].count
+                : undefined
+            }
             render={
               <Link
                 to={to}
@@ -55,19 +60,6 @@ export function SidebarNavigation({
             <Icon aria-hidden="true" />
           </Sidebar.NavigationItem>
         ))}
-        <Sidebar.NavigationItem
-          label={t('Assistant')}
-          render={
-            <Link
-              to="/assistant"
-              search={project ? { project } : {}}
-              aria-current={!settings && section === 'assistant' ? 'page' : undefined}
-              onClick={onNavigate}
-            />
-          }
-        >
-          <AssistantIcon aria-hidden="true" />
-        </Sidebar.NavigationItem>
       </Sidebar.Navigation>
       <Sidebar.Footer aria-label={t('Settings')}>
         <SettingsMenu active={settings} onOpen={onNavigate} workspaceProject={workspaceProject} />

@@ -142,7 +142,7 @@ export const settingsTools = {
     schemas.workspacePreferencesSchema,
     'Change writing, reading, export, sidebar display and automatic assistance preferences.',
     {
-      when: 'Tune autosave, spellcheck, Enter behavior, font sizes, AI detail, automatic titles or answers, text/PDF conversion mode and strategy, sidebar density/counts/time, export format and expanded pages.',
+      when: 'Tune autosave, spellcheck, font sizes, AI detail, automatic titles or answers, text/PDF conversion mode and strategy, sidebar density, compact navigation and time format, export format and expanded pages.',
       examples: ['Save notes every five seconds and use a larger reader font.'],
       limits:
         'Changes affect future actions; they do not rewrite existing content. Export formats are markdown, html, aid_json and csv.'

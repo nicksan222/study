@@ -16,13 +16,13 @@ export const yoursEn = {
     },
     local: {
       title: 'Your library stays here',
-      body: 'Your notes, sources and pages live on your computer. You choose the material for each task. Work that needs a model runs on',
+      body: 'Your notes, materials and study notes live on your computer. You choose the material for each task. Work that needs a model runs on',
       never: 'your ChatGPT plan',
       end: '.'
     },
     plan: {
       title: 'No extra AI bill',
-      body: 'It runs on the ChatGPT Plus or Pro plan you already have. No API keys, no subscription to us. Each request carries only what its task needs, like the pages to read or the passages found for your question.'
+      body: 'It runs on the ChatGPT Plus or Pro plan you already have. No API keys, no subscription to us. Each request carries only what its task needs, like the selected study notes or the passages found for your question.'
     },
     open: {
       title: 'Apache 2.0 or MIT',
@@ -46,13 +46,13 @@ export const yoursIt: Shape<typeof yoursEn> = {
     },
     local: {
       title: 'La tua libreria resta qui',
-      body: 'Appunti, fonti e pagine vivono sul tuo computer. Scegli tu il materiale per ogni attività. Il lavoro che richiede un modello usa',
+      body: 'Note, materiali e appunti di studio vivono sul tuo computer. Scegli tu il materiale per ogni attività. Il lavoro che richiede un modello usa',
       never: 'il tuo piano ChatGPT',
       end: '.'
     },
     plan: {
       title: 'Nessun costo AI in più',
-      body: 'Usa il piano ChatGPT Plus o Pro che hai già. Niente chiavi API, nessun abbonamento con noi. Ogni richiesta porta solo ciò che serve al suo compito, come le pagine da leggere o i passaggi trovati per la tua domanda.'
+      body: 'Usa il piano ChatGPT Plus o Pro che hai già. Niente chiavi API, nessun abbonamento con noi. Ogni richiesta porta solo ciò che serve al suo compito, come gli appunti di studio selezionati o i passaggi trovati per la tua domanda.'
     },
     open: {
       title: 'Apache 2.0 or MIT',

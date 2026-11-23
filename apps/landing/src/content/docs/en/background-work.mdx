@@ -10,20 +10,20 @@ stage:
 
 import DocStep from '../../../components/DocStep.astro';
 
-Reading source material, transforming notes and generating practice can continue while you work. Study shows the status beside the note, page or practice material involved.
+File processing and generation can continue while you work. Check the status in **Materials** or **Practice**.
 
 <DocStep number={1} example="activity">
 <header slot="intro">
 
 ## Follow the operation
 
-Follow an operation where you started it and see its current status.
+Check the status before starting the same operation again.
 
 </header>
 
-A note shows pending source conversion and answer or transformation work. Practice generation has its own progress entry in the sidebar and makes the saved set available when ready.
+In **Materials**, check the status next to the file. In **Practice**, watch the sidebar for quiz or flashcard generation and **Generation activity** for study notes. The notebook’s Assistant panel shows progress on its own requests.
 
-An accepted request can still be waiting or running. Read the current status before starting the same operation again. Saved content and the in-progress operation are separate: an existing page can remain available while another result is being prepared.
+An accepted request can still be waiting or running. You can keep using saved material while a new result is being prepared.
 
 </DocStep>
 
@@ -38,7 +38,7 @@ Stop unwanted work or use the recovery action offered after a failure.
 
 Use the stop or cancel action offered by the operation. Cancellation can take time; wait for the reported outcome rather than assuming the result from a click alone.
 
-When work fails, read its explanation and use the available retry action. Check your ChatGPT connection for model work and the source status for file conversion. A failed or empty extraction is not a completed source page.
+When work fails, read its explanation and use the available retry action. Check your ChatGPT connection for model work and the source status for file conversion. You can still consult the original file if extraction fails.
 
 </DocStep>
 
@@ -51,8 +51,8 @@ Come back to your saved material after work finishes.
 
 </header>
 
-Study keeps saved work and durable operation state in its database. After reopening the app, check the operation's current status before retrying. Unsaved composer text is not part of a saved note transformation.
+Study keeps saved work and durable operation state in its database. After reopening the app, check the operation's current status before retrying. When selecting a note for generation, check that the notebook has saved your latest edits.
 
-For the complete path, see [notes](../notes/), [pages](../pages/) and [practice](../practice/).
+For the complete path, see [notes](../notes/), [study notes](../pages/) and [practice](../practice/).
 
 </DocStep>

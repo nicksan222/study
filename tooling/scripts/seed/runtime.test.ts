@@ -57,6 +57,15 @@ test.server.stable(
 
               expect(notes.items).toHaveLength(expected);
               expect(new Set(notes.items.map((note) => note.title)).size).toBe(expected);
+
+              if (project.name === 'Cell Biology') {
+                const notebook = notes.items.find((note) => note.title === 'Protein trafficking');
+
+                expect(notebook).toBeDefined();
+                const body = yield* client['notes.body']({ noteId: notebook!.id });
+
+                expect(body.text).toBe('Trace a secreted protein through the cell.');
+              }
             }
 
             const pages = yield* client['pages.pages']({ limit: 100, archived: false });

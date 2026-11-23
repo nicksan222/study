@@ -59,7 +59,9 @@ test.server.stable(
             projectId: null
           });
 
-          yield* sources.attachSource({ noteId: note.id, sourceId: file.id });
+          yield* transaction((tx) =>
+            Sources.attachInTransaction(tx, { noteId: note.id, sourceId: file.id })
+          );
           yield* projects.removeNote({ projectId: biology.id, noteId: note.id });
           yield* projects.removeNote({ projectId: history.id, noteId: note.id });
           yield* projects.addNote({ projectId: math.id, noteId: note.id });
@@ -1233,14 +1235,18 @@ test.server.stable(
             sql`INSERT INTO notes(title,title_source,created_at,updated_at) VALUES('Note','user',1,1) RETURNING id`
           )!;
 
-          yield* sources.attachSource({
-            noteId: note.id as NoteId,
-            sourceId: source.id
-          });
-          yield* sources.attachSource({
-            noteId: note.id as NoteId,
-            sourceId: source.id
-          });
+          yield* transaction((tx) =>
+            Sources.attachInTransaction(tx, {
+              noteId: note.id as NoteId,
+              sourceId: source.id
+            })
+          );
+          yield* transaction((tx) =>
+            Sources.attachInTransaction(tx, {
+              noteId: note.id as NoteId,
+              sourceId: source.id
+            })
+          );
           assert.strictEqual(
             (yield* sources.noteSources({
               noteId: note.id as NoteId,
@@ -1291,10 +1297,13 @@ test.server.stable(
               'not_found'
           );
           expect(context.db.orm.get<{ n: number }>(sql`SELECT count(*) n FROM pages`)!.n).toBe(0n);
-          yield* sources.detachSource({
-            noteId: note.id as NoteId,
-            sourceId: source.id
-          });
+          yield* transaction((tx) =>
+            Sources.archiveNoteInTransaction(tx, {
+              noteId: note.id as NoteId,
+              sourceId: source.id,
+              archivedAt: 1n
+            })
+          );
           expect(
             yield* sources.noteSources({
               noteId: note.id as NoteId,

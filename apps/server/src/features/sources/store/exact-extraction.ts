@@ -287,20 +287,6 @@ export const NoteSourcesStore = defineStore({
               .onConflictDoNothing()
               .run();
           }
-        }),
-        detachSource: storeMutation({
-          changes: ['sources'],
-          input: c.sourceLinkSchema,
-          output: Schema.Void,
-          run: (v) => {
-            assertNote(v.noteId);
-            db.orm
-              .delete(s.note_sources)
-              .where(
-                and(eq(s.note_sources.note_id, v.noteId), eq(s.note_sources.source_id, v.sourceId))
-              )
-              .run();
-          }
         })
       }
     };

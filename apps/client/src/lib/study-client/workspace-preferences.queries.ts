@@ -21,7 +21,6 @@ export function useWorkspacePreferenceControls() {
     query,
     mutation: {
       isPending: autosave.pending,
-      isError: autosave.error,
       error: autosave.error,
       reset: autosave.retry,
       mutate: autosave.update

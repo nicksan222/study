@@ -135,7 +135,7 @@ export function* integrationImportOperations() {
       return state;
     }),
     import: (input: Key) => imports.integrationImport(input.id),
-    imports: (input: { limit: number }) => imports.integrationImports(input),
+    imports: imports.integrationImports,
     startImport: (input: typeof startIntegrationImportSchema.Type) =>
       transaction((tx) => beginImport(tx, input)),
     cancelImport: (input: Key) =>
@@ -173,12 +173,8 @@ export function* integrationImportOperations() {
         advanceImport(tx, input, (state) => publishImportItem(tx, state, input.key))
       ),
     settleImport: (input: Attempt & { errorKind: ErrorKind | null; key?: string }) =>
-      publicationTransaction((tx) => {
-        const state = tx.store(IntegrationImportsStore).integrationImport(input.id);
-
-        if (state.status !== 'running' || state.attempt !== input.attempt) return state;
-
-        const next: State = {
+      publicationTransaction((tx) =>
+        advanceImport(tx, input, (state) => ({
           ...state,
           status: input.errorKind ? 'failed' : 'completed',
           errorKind: input.errorKind,
@@ -187,11 +183,7 @@ export function* integrationImportOperations() {
               ? { ...item, status: 'failed', errorKind: input.errorKind }
               : item
           )
-        };
-
-        tx.store(IntegrationImportsStore).progress(next);
-
-        return next;
-      })
+        }))
+      )
   };
 }

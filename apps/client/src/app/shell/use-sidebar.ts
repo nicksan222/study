@@ -6,10 +6,7 @@ import { useContext, useState } from 'react';
 
 import { ReplayContext } from '#client/features/onboarding/index.tsx';
 import type { PageMetadata } from '#client/lib/navigation/route-contract.ts';
-import {
-  sidebarContent,
-  sidebarSubjectDestination
-} from '#client/lib/navigation/sidebar-config.ts';
+import { sidebarSubjectDestination } from '#client/lib/navigation/sidebar-config.ts';
 import type { Notes, Subjects } from '#client/lib/study-client/types.ts';
 
 import { useSidebarActions } from './sidebar-actions.queries';
@@ -54,7 +51,7 @@ export function useSidebar({ metadata, collapsed, hidden = false, onToggle }: Si
     global,
     project,
     canSearch,
-    content: sidebarContent(metadata)
+    section
   });
   const visibleNotes = ready
     ? sidebarNotes(noteList.query.data?.items ?? noNotes, invalidSubject, requestedProject, project)

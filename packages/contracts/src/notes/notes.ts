@@ -1,9 +1,7 @@
 import { Schema } from 'effect';
 
 import { noteIdSchema, recordingIdSchema, versionIdSchema } from '../ids.ts';
-import type { noteSchema, titleSourceSchema } from './schemas.ts';
-
-export type TitleSource = typeof titleSourceSchema.Type;
+import type { noteSchema } from './schemas.ts';
 
 export type Note = typeof noteSchema.Type;
 

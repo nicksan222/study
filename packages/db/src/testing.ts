@@ -4,7 +4,7 @@ import { Effect, FileSystem, Layer, Path } from 'effect';
 
 import { Db } from './db.ts';
 
-export type TestDatabaseOpenOptions = { migrations: 'current' };
+type TestDatabaseOpenOptions = { migrations: 'current' };
 
 let migrated: Promise<Uint8Array> | undefined;
 
@@ -23,7 +23,6 @@ export async function createTestDatabase(migrationsFolder?: string) {
   );
 
   resources.defer(() => directory[Symbol.asyncDispose]());
-  let prepared = false;
   let preparing: Promise<string> | undefined;
 
   function prepare(): Promise<string> {
@@ -31,7 +30,7 @@ export async function createTestDatabase(migrationsFolder?: string) {
   }
 
   async function prepareOnce() {
-    if (prepared || migrationsFolder !== undefined || (await Bun.file(path).exists())) return path;
+    if (migrationsFolder !== undefined || (await Bun.file(path).exists())) return path;
 
     if (!migrated) {
       migrated = (async () => {
@@ -53,8 +52,6 @@ export async function createTestDatabase(migrationsFolder?: string) {
         })
       );
     }
-
-    prepared = true;
 
     return path;
   }

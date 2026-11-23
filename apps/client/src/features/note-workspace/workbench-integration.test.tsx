@@ -127,7 +127,6 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
   }));
-  mock('#client/features/note-workspace/composer', () => ({ Composer: () => null }));
   const __mockModule0 = await import('../assistant');
 
   AssistantProvider = __mockModule0.AssistantProvider;
@@ -200,16 +199,12 @@ function ImportedPanel() {
   return id ? (
     <NotePagePanel pageId={id} />
   ) : (
-    <SourcePanel
-      noteId={noteId}
-      sourceId={sourceIdSchema.make(41n)}
-      onOpenPage={(next) => setId(next.id)}
-    />
+    <SourcePanel sourceId={sourceIdSchema.make(41n)} onOpenPage={(next) => setId(next.id)} />
   );
 }
 
 test.unit.stable(
-  'Edit a copy pins the exact source revision and opens its independent authored page',
+  'copying a standalone source pins its exact revision and opens an independent authored page',
   async ({ expect, screen, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <ImportedPanel />);
     expect(await screen.findByText('Current extraction 41', { selector: 'p' })).toBeVisible();
@@ -217,7 +212,6 @@ test.unit.stable(
     fireEvent.click(screen.getByRole('button', { name: 'PageEditCopy' }));
     await waitFor(() => expect(rpc.copy).toHaveBeenCalledTimes(1));
     expect(rpc.copy.mock.calls[0]![0]).toEqual({
-      noteId,
       title: 'Current extraction 41',
       sourceId: sourceIdSchema.make(41n),
       revision: 3n,

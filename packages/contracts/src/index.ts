@@ -356,17 +356,8 @@ export {
   messageConversionSchema
 } from './notes/conversion.ts';
 export { noteDeletionSchema } from './notes/deletion.ts';
-export type {
-  ChatMessage,
-  MessagePart,
-  MessageVersion,
-  NewMessage,
-  Recording,
-  VersionOrigin,
-  VersionStatus
-} from './notes/messages.ts';
-export { newMessageSchema } from './notes/messages.ts';
-export type { Note, TitleSource } from './notes/notes.ts';
+export type { ChatMessage, MessageVersion, Recording } from './notes/messages.ts';
+export type { Note } from './notes/notes.ts';
 export {
   copyNoteContentSchema,
   notebookBodyCaptureKey,
@@ -451,7 +442,6 @@ export {
 export {
   applyProposalSchema,
   authoredPageInputLimit,
-  blockDifferenceSchema,
   compareSchema,
   comparisonSchema,
   createGeneratedOutcomeSchema,
@@ -730,8 +720,6 @@ export {
   sourceOriginSchema,
   viewerExtension
 } from './sources/sniff.ts';
-export type { NewSource } from './sources/types.ts';
-export { newSourceSchema } from './sources/types.ts';
 export type { BackupId, BackupManifest, RestorePreview } from './system/backups.ts';
 export {
   acceptRestoreSchema,
