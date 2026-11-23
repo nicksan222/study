@@ -11,9 +11,36 @@ function readingViewport(node: HTMLDivElement | null) {
   return node?.closest<HTMLDivElement>('[data-notebook-scroll-host]') ?? node;
 }
 
+function followLatest(
+  viewport: HTMLDivElement,
+  content: HTMLDivElement | null,
+  keepFocusedControlVisible: boolean
+) {
+  const focused = viewport.ownerDocument.activeElement;
+
+  // A shared scroll host can also contain a focused workspace control above the timeline.
+  if (
+    keepFocusedControlVisible &&
+    focused !== viewport &&
+    viewport.contains(focused) &&
+    !content?.contains(focused)
+  )
+    return;
+
+  viewport.scrollTop = viewport.scrollHeight;
+}
+
 /** Adapted from coss Chat UI's note contract: follow only while the reader is at the end. */
 
-function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstItemKey?: string }) {
+function useChatScroll({
+  itemCount,
+  firstItemKey,
+  keepFocusedControlVisible
+}: {
+  itemCount: number;
+  firstItemKey?: string;
+  keepFocusedControlVisible: boolean;
+}) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -27,12 +54,12 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
 
     const before = previous.current;
 
-    if (atBottom.current) viewport.scrollTop = viewport.scrollHeight;
+    if (atBottom.current) followLatest(viewport, contentRef.current, keepFocusedControlVisible);
     else if (itemCount > before.count && firstItemKey !== before.first)
       viewport.scrollTop += viewport.scrollHeight - before.height;
 
     previous.current = { count: itemCount, first: firstItemKey, height: viewport.scrollHeight };
-  }, [itemCount, firstItemKey]);
+  }, [itemCount, firstItemKey, keepFocusedControlVisible]);
 
   useEffect(() => {
     const viewport = readingViewport(viewportRef.current);
@@ -51,7 +78,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
     }
 
     const observer = new ResizeObserver(() => {
-      if (atBottom.current) viewport.scrollTop = viewport.scrollHeight;
+      if (atBottom.current) followLatest(viewport, content, keepFocusedControlVisible);
 
       onScroll();
     });
@@ -64,7 +91,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
       viewport.removeEventListener('scroll', onScroll);
       observer.disconnect();
     };
-  }, []);
+  }, [keepFocusedControlVisible]);
 
   function scrollToLatest() {
     const viewport = readingViewport(viewportRef.current);
@@ -88,7 +115,8 @@ export function ChatNote({
   jumpLabel,
   itemCount,
   firstItemKey,
-  navigation
+  navigation,
+  keepFocusedControlVisible = false
 }: {
   children: ReactNode;
   label: string;
@@ -96,8 +124,9 @@ export function ChatNote({
   itemCount: number;
   firstItemKey?: string;
   navigation?: ReactNode;
+  keepFocusedControlVisible?: boolean;
 }) {
-  const scroll = useChatScroll({ itemCount, firstItemKey });
+  const scroll = useChatScroll({ itemCount, firstItemKey, keepFocusedControlVisible });
   const [overlay, setOverlay] = useState<HTMLElement | null>(null);
 
   const viewportRef = scroll.viewportRef;

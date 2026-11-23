@@ -65,7 +65,7 @@ export function NoteWorkbench({
 }) {
   const { t } = useI18n();
   const { noteWidth } = model.appearance;
-  const { history, openHistory, closeHistory, backToEditor, editor, cardCoversNotebook } =
+  const { history, openHistory, closeHistory, backToEditor, editor, cardCoversNotebook, phone } =
     useNotebookHistory(model.cardVisible);
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
@@ -100,6 +100,7 @@ export function NoteWorkbench({
                     <History
                       id={id}
                       state={thread}
+                      keepFocusedControlVisible={phone}
                       pages={pages.data?.items}
                       onOpenPage={openPage}
                       activeAuthoredPage={
@@ -159,7 +160,8 @@ export function NoteWorkbench({
 
 /** Transfers focus after the writing or history surface becomes available. */
 function useNotebookHistory(cardVisible: boolean) {
-  const cardCoversNotebook = usePhoneLayout() && cardVisible;
+  const phone = usePhoneLayout();
+  const cardCoversNotebook = phone && cardVisible;
   const [historyView, setHistoryView] = useState<{ open: boolean }>();
   const history = historyView?.open ?? false;
   const focusedView = useRef<typeof historyView>(undefined);
@@ -184,6 +186,7 @@ function useNotebookHistory(cardVisible: boolean) {
   return {
     history,
     cardCoversNotebook,
+    phone,
     backToEditor,
     editor,
     openHistory: () => setHistoryView({ open: true }),

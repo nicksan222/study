@@ -49,6 +49,7 @@ type HistoryProps = {
   pages?: readonly PageSummary[];
   onOpenPage?: (material: PageSummary) => void;
   activeAuthoredPage?: string;
+  keepFocusedControlVisible?: boolean;
 };
 
 type ThreadState = ReturnType<typeof useThreadPage>;
@@ -71,6 +72,7 @@ function HistoryContent({
   pages = [],
   onOpenPage,
   activeAuthoredPage,
+  keepFocusedControlVisible,
   state
 }: HistoryProps & { state: ThreadState }) {
   const { t } = useI18n();
@@ -84,6 +86,7 @@ function HistoryContent({
       jumpLabel={t('JumpToLatest')}
       itemCount={entries.length}
       firstItemKey={timelineKey(entries[0])}
+      keepFocusedControlVisible={keepFocusedControlVisible}
       navigation={
         <NotebookNavigation
           id={id}

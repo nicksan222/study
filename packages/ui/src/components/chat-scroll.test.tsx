@@ -6,11 +6,13 @@ function Note({ count = 2, first = 'first' }: { count?: number; first?: string }
   return (
     <div className="workspace-desk-notebook">
       <div data-notebook-scroll-host>
+        <button type="button">Back to writing</button>
         <ChatNote
           label="Notebook"
           jumpLabel="Latest"
           itemCount={count}
           firstItemKey={first}
+          keepFocusedControlVisible
           navigation={<nav aria-label="Page index">Markers</nav>}
         >
           <p>Notebook content</p>
@@ -119,6 +121,16 @@ test.unit.stable(
     await act(async () => resize(content));
     expect(host.scrollTop).toBe(100);
     expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
+
+    const back = screen.getByRole('button', { name: 'Back to writing' });
+
+    back.focus();
+    dimensions(host, 375, 250);
+    await act(async () => resize(content));
+    expect(back).toHaveFocus();
+    expect(host.scrollTop).toBe(100);
+
+    back.blur();
     dimensions(host, 1050, 250);
     await act(async () => resize(content));
     expect(host.scrollTop).toBe(800);
