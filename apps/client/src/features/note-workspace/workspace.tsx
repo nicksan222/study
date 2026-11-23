@@ -170,16 +170,16 @@ function EditableNote({
   const workspace = useRef<HTMLDivElement>(null);
   const contextPanel = useRef<HTMLElement>(null);
   const contextToggle = useRef<HTMLButtonElement>(null);
-  const cardFollowsWidth = useRef(true);
+  const cardVisibleWhenNarrow = useRef(false);
   const wide = useWorkspaceWide(workspace, () => {
-    if (cardFollowsWidth.current && contextPanel.current?.contains(document.activeElement))
+    if (!cardVisibleWhenNarrow.current && contextPanel.current?.contains(document.activeElement))
       contextToggle.current?.focus();
   });
   const model = useWorkbench(id, wide);
 
   useLayoutEffect(() => {
-    cardFollowsWidth.current = model.cardHidden === undefined;
-  }, [model.cardHidden]);
+    cardVisibleWhenNarrow.current = model.cardVisibleWhenNarrow;
+  }, [model.cardVisibleWhenNarrow]);
 
   return (
     <WorkspaceCard.Provider

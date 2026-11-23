@@ -71,7 +71,7 @@ function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandl
     'pages.page': rpc.material,
     'pages.pages': rpc.materials,
     'notes.thread': rpc.thread,
-    'notes.body': async () => ({ text: 'Notebook body', versionId: null }),
+    'notes.body': rpc.body,
     'notes.noteAssistant': rpc.assistant,
     'notes.assistantAsk': rpc.ask,
     'notes.assistantContext': async () => ({
@@ -140,6 +140,7 @@ function createMockState(mock: test.Mock) {
       material: mock.fn(),
       materials: mock.fn(),
       thread: mock.fn(),
+      body: mock.fn(),
       post: mock.fn(),
       assistant: mock.fn(),
       ask: mock.fn()
@@ -189,6 +190,7 @@ test.unit.beforeEach(({ vi }) => {
     updatedAt: 1n
   }));
   rpc.thread.mockResolvedValue({ items: [], next: null });
+  rpc.body.mockResolvedValue({ text: 'Notebook body', versionId: null });
   rpc.materials.mockImplementation(async () => ({
     items: created ? [created] : [],
     nextCursor: null
@@ -333,6 +335,26 @@ test.unit.stable.for([false, true])(
     expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(editor);
     expect(editor).toBeVisible();
     await waitFor(() => expect(editor).toHaveFocus());
+  }
+);
+
+test.unit.stable(
+  'focuses the writing editor when the notebook body loads after returning from history',
+  async ({ act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
+    const body = Promise.withResolvers<{ text: string; versionId: null }>();
+
+    rpc.body.mockReturnValue(body.promise);
+    mount({ render, rpcHandlersTransport }, <Notebook wide />);
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteHistory' }));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteBackToEditor' }));
+    expect(screen.queryByRole('textbox', { name: 'NotePageEditor' })).toBeNull();
+
+    await act(async () => {
+      body.resolve({ text: 'Notebook body', versionId: null });
+    });
+    const editor = await screen.findByRole('textbox', { name: 'NotePageEditor' });
+
+    expect(editor).toHaveFocus();
   }
 );
 

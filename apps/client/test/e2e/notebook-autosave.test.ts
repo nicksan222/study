@@ -115,6 +115,28 @@ test.browser.stable(
       .poll(async () => (await practice.boundingBox())?.height ?? 0)
       .toBeGreaterThanOrEqual(44);
 
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await expect(title).toBeVisible();
+    await practice.focus();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(title).not.toBeVisible();
+    await expect(practice).toBeFocused();
+
+    await actions.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
+    const back = page.getByRole('button', { name: copy.NoteBackToEditor, exact: true });
+
+    await expect(back).toBeFocused();
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await practice.focus();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
+    await back.press('Enter');
+    await expect(editor).toBeFocused();
+    await expect(editor).toHaveText(draft);
+    await toggle.press('Enter');
+
     await page.setViewportSize({ width: 860, height: 320 });
     const remove = actions.getByRole('button', { name: copy.NoteDelete, exact: true });
 

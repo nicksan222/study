@@ -3,7 +3,7 @@ import { rpc } from '@study/contracts/react';
 import { BackIcon, ClosePanelIcon, MaximizeIcon, MinimizeIcon, PageIcon } from '@study/icons';
 import { Button, IconButton, WorkspaceDeskSurface as Desk, WorkspacePanel } from '@study/ui';
 import type { RichNoteEditorHandle } from '@study/ui';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
@@ -164,22 +164,28 @@ function useNotebookHistory(wide: boolean, cardVisible: boolean) {
   const history = historyView?.open ?? false;
   const focusedView = useRef<typeof historyView>(undefined);
   const backToEditor = useRef<HTMLButtonElement>(null);
-  const editor = useRef<RichNoteEditorHandle>(null);
+  const editor = useCallback(
+    (handle: RichNoteEditorHandle | null) => {
+      if (!handle || historyView?.open !== false || focusedView.current === historyView) return;
+
+      focusedView.current = historyView;
+      handle.restoreSelection(handle.selection());
+    },
+    [historyView]
+  );
 
   useLayoutEffect(() => {
-    if (!historyView || focusedView.current === historyView) return;
+    if (!historyView?.open || focusedView.current === historyView) return;
 
     // On a phone, the notebook stays hidden until the disclosure has closed.
-    if (historyView.open && !wide && cardVisible) return;
+    if (!wide && cardVisible) return;
 
     const focus = () => {
       focusedView.current = historyView;
-
-      if (historyView.open) backToEditor.current?.focus();
-      else if (editor.current) editor.current.restoreSelection(editor.current.selection());
+      backToEditor.current?.focus();
     };
 
-    if (historyView.open && !wide) {
+    if (!wide) {
       // Chromium can keep the notebook's old inherited visibility through the next paint.
       let frame = requestAnimationFrame(() => {
         frame = requestAnimationFrame(focus);

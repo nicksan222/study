@@ -48,8 +48,10 @@ export function useWorkbench(id: NoteId, wide: boolean) {
   const thread = useThreadPage(id);
   const messages = thread.data?.items ?? [];
   const update = (change: (value: Workbench) => Workbench) => cache.update(atom, change);
-  const cardOpen = (value: Workbench) =>
-    !value.visible && !(value.cardHidden ?? !wide) && (wide || !value.narrowCardDismissed);
+  const cardOpen = (value: Workbench, wideLayout = wide) =>
+    !value.visible &&
+    !(value.cardHidden ?? !wideLayout) &&
+    (wideLayout || !value.narrowCardDismissed);
 
   function open(target: WorkbenchTarget) {
     const identity = workbenchIdentity(target);
@@ -101,6 +103,7 @@ export function useWorkbench(id: NoteId, wide: boolean) {
     tabs,
     dock: model.dock ?? appearance.noteEditorDock,
     cardVisible: cardOpen(model),
+    cardVisibleWhenNarrow: cardOpen(model, false),
     toggleCard: () =>
       update((value) => ({
         ...value,

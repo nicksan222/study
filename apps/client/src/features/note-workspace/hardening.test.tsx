@@ -1104,8 +1104,8 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'returns focus from default notebook actions when the workspace narrows',
-  async ({ screen, expect, userEvent, act, vi, render, rpcHandlersTransport }) => {
+  'returns focus from notebook actions when narrowing closes the card',
+  async ({ screen, expect, userEvent, waitFor, act, vi, render, rpcHandlersTransport }) => {
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     let width = 960;
     let resizeWorkspace = () => {};
@@ -1159,6 +1159,32 @@ test.unit.stable(
       });
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(editor);
+
+      await user.click(toggle);
+      primary.focus();
+      act(() => {
+        width = 959;
+        resizeWorkspace();
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(primary).toHaveFocus();
+
+      await user.click(screen.getByRole('button', { name: 'NoteHistory' }));
+      const back = screen.getByRole('button', { name: 'NoteBackToEditor' });
+
+      await waitFor(() => expect(back).toHaveFocus());
+      act(() => {
+        width = 960;
+        resizeWorkspace();
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      primary.focus();
+      act(() => {
+        width = 959;
+        resizeWorkspace();
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveFocus();
     } finally {
       vi.unstubAllGlobals();
     }
