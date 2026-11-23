@@ -27,6 +27,7 @@ import type { ReactNode } from 'react';
 import type * as __MockType0 from '../document-editing/test-support';
 import type * as __MockType1 from '../material-library/test/support';
 import type * as BodyAutosave from './body-autosave.queries';
+import type * as CapturedContextModule from './captured-context';
 import type * as __MockType6 from './deletion';
 import type * as __MockType7 from './history';
 import type * as __MockType2 from './start-drafts.queries';
@@ -73,7 +74,7 @@ let NoteDeleteDialog: typeof __MockType6.NoteDeleteDialog;
 
 let History: typeof __MockType7.History;
 
-let CapturedContext: typeof __MockType7.CapturedContext;
+let CapturedContext: typeof CapturedContextModule.CapturedContext;
 
 let NoteWorkspace: typeof __MockType10.NoteWorkspace;
 
@@ -254,7 +255,7 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule7 = await import('./history');
 
   History = __mockModule7.History;
-  CapturedContext = __mockModule7.CapturedContext;
+  ({ CapturedContext } = await import('./captured-context'));
 
   const __mockModule10 = await import('./workspace');
 

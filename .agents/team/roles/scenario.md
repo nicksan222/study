@@ -25,10 +25,10 @@ Read the current code and the acceptance criteria before making data. Distinguis
   use a real login in mock traffic, download a model, or spend quota merely to seed data.
 
 Use the `sqlite-persistence` skill for database work and `see-the-app` for desktop work.
-Use typed Store APIs in `packages/core` and existing fixtures in the TypeScript package
-tests. For provider behavior, inspect `packages/ai/test`. The old Rust seed and browser
-fixture runner are retired. Do not add a parallel schema, raw SQL workaround or production
-simulation switch. Extend existing fixtures only in files assigned by the lead.
+Use the owning TypeScript feature’s Store APIs and existing test fixtures. The application
+features and provider implementations live in `apps/server/src`. Do not add a parallel schema,
+raw SQL workaround or production simulation switch. Extend existing fixtures only in files
+assigned by the lead.
 If a requested live-desktop simulation has no injection seam, report that limit and the
 smallest needed implementation to the lead; a seeded final result cannot stand in for
 an observed loading/error/retry sequence.
@@ -40,15 +40,17 @@ assignment, with its own `data/`. Resolve an absolute path. Never seed `target/d
 synthetic, small and clearly identifiable as sample data. Fix inputs and random seeds;
 record the clock/timezone when dates matter. Rebuild from the recipe when it goes stale.
 
-No baseline seed command is available. Prepare custom cases through the owning
-TypeScript Store APIs and verify the records; record the exact setup in the handoff.
+For bundled sample coursework, run `STUDY_DATABASE="$scenario_database" bun seed` with
+`scenario_database` set to an unused absolute SQLite path inside the scenario’s `data/`.
+The seed command replaces its target, so use a disposable path. Prepare custom cases through
+the owning feature’s Store APIs and record the exact setup and verification in the handoff.
 
 For desktop use, obtain exclusive control from the lead, close the existing app normally,
 then connect to the existing desktop and launch the scenario instance:
 
 ```sh
 . target/desktop.env
-XDG_DATA_HOME="$scenario_data" bun run desktop:dev
+XDG_DATA_HOME="$scenario_data" STUDY_DATABASE="$scenario_database" bun run desktop:dev
 ```
 
 Do not use `bun run run` or `bun run desktop-run` for this launch: they deliberately select the
