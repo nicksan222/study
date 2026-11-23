@@ -816,7 +816,11 @@
     background: var(--background);
     overscroll-behavior: contain;
   }
-  .workspace-desk[data-card-open] :is(.workspace-desk-board, [data-notebook-navigation-host]) {
+  /* Keep the writing area in layout while the disclosure covers it. */
+  .workspace-desk-board[inert] {
+    opacity: 0;
+  }
+  .workspace-desk[data-card-open] [data-notebook-navigation-host] {
     visibility: hidden;
   }
   .workspace-desk .ui-workspace-card .ui-workspace-card-item {

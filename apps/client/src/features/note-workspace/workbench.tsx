@@ -20,6 +20,7 @@ import { NotebookBody } from './notebook-body';
 import { NotebookOutline } from './notebook-outline';
 import { PagePanel } from './page-panel';
 import { NoteReadError } from './status';
+import { usePhoneLayout } from './use-phone-layout';
 import { workbenchIdentity } from './workbench.queries';
 import type { useWorkbench, WorkbenchTarget } from './workbench.queries';
 import { WorkspaceContext } from './workspace-context';
@@ -64,10 +65,8 @@ export function NoteWorkbench({
 }) {
   const { t } = useI18n();
   const { noteWidth } = model.appearance;
-  const { history, openHistory, closeHistory, backToEditor, editor } = useNotebookHistory(
-    model.wide,
-    model.cardVisible
-  );
+  const { history, openHistory, closeHistory, backToEditor, editor, cardCoversNotebook } =
+    useNotebookHistory(model.cardVisible);
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
@@ -85,7 +84,7 @@ export function NoteWorkbench({
       <Desk.Notebook>
         <Desk.ScrollArea>
           <Desk.NotebookLayout>
-            <Desk.Board>
+            <Desk.Board inert={cardCoversNotebook}>
               <Desk.BoardBody>
                 {history ? (
                   <>
@@ -159,7 +158,8 @@ export function NoteWorkbench({
 }
 
 /** Transfers focus after the writing or history surface becomes available. */
-function useNotebookHistory(wide: boolean, cardVisible: boolean) {
+function useNotebookHistory(cardVisible: boolean) {
+  const cardCoversNotebook = usePhoneLayout() && cardVisible;
   const [historyView, setHistoryView] = useState<{ open: boolean }>();
   const history = historyView?.open ?? false;
   const focusedView = useRef<typeof historyView>(undefined);
@@ -175,30 +175,15 @@ function useNotebookHistory(wide: boolean, cardVisible: boolean) {
   );
 
   useLayoutEffect(() => {
-    if (!historyView?.open || focusedView.current === historyView) return;
+    if (cardCoversNotebook || !historyView?.open || focusedView.current === historyView) return;
 
-    // On a phone, the notebook stays hidden until the disclosure has closed.
-    if (!wide && cardVisible) return;
-
-    const focus = () => {
-      focusedView.current = historyView;
-      backToEditor.current?.focus();
-    };
-
-    if (!wide) {
-      // Chromium can keep the notebook's old inherited visibility through the next paint.
-      let frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(focus);
-      });
-
-      return () => cancelAnimationFrame(frame);
-    }
-
-    focus();
-  }, [historyView, cardVisible, wide]);
+    focusedView.current = historyView;
+    backToEditor.current?.focus();
+  }, [historyView, cardCoversNotebook]);
 
   return {
     history,
+    cardCoversNotebook,
     backToEditor,
     editor,
     openHistory: () => setHistoryView({ open: true }),

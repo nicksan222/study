@@ -119,7 +119,8 @@ test.browser.stable(
     await expect(title).toBeVisible();
     await practice.focus();
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(title).not.toBeVisible();
+    await expect(page.locator('[inert]').filter({ has: title })).toHaveCount(1);
+    await title.focus();
     await expect(practice).toBeFocused();
 
     await actions.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
