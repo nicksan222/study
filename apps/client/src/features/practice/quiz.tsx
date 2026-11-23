@@ -31,9 +31,9 @@ type ResponseState = {
   phase: 'saving' | 'saved';
 };
 
-type QuizSetupProps = { version: MaterialVersionDetailDto; projectId?: ProjectId; title?: string };
+type QuizSetupProps = { version: MaterialVersionDetailDto; projectId?: ProjectId };
 
-export function Quiz({ version, projectId, title }: QuizSetupProps) {
+export function Quiz({ version, projectId }: QuizSetupProps) {
   const search = useSearch({ from: '__root__' });
 
   if (search.attempt)
@@ -45,11 +45,11 @@ export function Quiz({ version, projectId, title }: QuizSetupProps) {
       />
     );
 
-  return <QuizStart version={version} projectId={projectId} title={title} />;
+  return <QuizStart version={version} projectId={projectId} />;
 }
 
 /** Counts questions matching saved preferences and starts an attempt against the selected immutable version. */
-function QuizStart({ version, projectId, title }: QuizSetupProps) {
+function QuizStart({ version, projectId }: QuizSetupProps) {
   const search = useSearch({ from: '__root__' });
   const navigate = useNavigate();
   const { t, locale } = useI18n();
@@ -84,7 +84,7 @@ function QuizStart({ version, projectId, title }: QuizSetupProps) {
           <h2>{t('PracticeQuizOverview')}</h2>
           <p>{t('PracticeQuizIntro')}</p>
           <Practice.SetupActions>
-            <QuizGenerationAction version={version} projectId={projectId} title={title} />
+            <QuizGenerationAction projectId={projectId} />
           </Practice.SetupActions>
           {count === 0 && (
             <Practice.Muted role="status">{t('QuizNoMatchingQuestions')}</Practice.Muted>

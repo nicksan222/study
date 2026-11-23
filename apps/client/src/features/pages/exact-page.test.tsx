@@ -6,11 +6,12 @@ import { Effect, Schema } from 'effect';
 
 import { authoredPage } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
-import { ExactAuthoredPageContent } from './exact-page';
+import { AuthoredPageReader } from './reader';
 
 test.unit.stable(
-  'retries the exact document and individual image, distinguishes loading, and releases URLs on replacement/unmount',
+  'retries the exact document and individual image, avoids falling back to the current head, and releases URLs on replacement/unmount',
   async ({ vi, rpcHandlersTransport, render, userEvent, screen, expect, act, waitFor }) => {
+    const page = authoredPage(41n, 'Current page', 20n);
     const document = authoredPage(41n).version!;
     const block = createBlock({
       type: 'image',
@@ -31,6 +32,8 @@ test.unit.stable(
     });
     const pending = deferred<typeof image>();
     const rpc = {
+      'pages.page': () => Effect.succeed(page),
+      'pages.versions': () => Effect.succeed({ items: [], nextCursor: null }),
       'pages.version': vi
         .fn<StudyClient['pages.version']>()
         .mockReturnValueOnce(Effect.fail(new StudyError('transient', 'Document read interrupted')))
@@ -58,26 +61,26 @@ test.unit.stable(
     const harness = rpcHandlersTransport(rpc);
     const view = render(
       <harness.wrapper>
-        <ExactAuthoredPageContent id={document.id} pageId={document.pageId} />
+        <AuthoredPageReader id={document.pageId} initialVersion={String(document.id)} />
       </harness.wrapper>
     );
     const user = userEvent.setup();
 
     try {
-      await screen.findByText(catalogs.english.ReaderUnavailable);
-      await user.click(screen.getByRole('button', { name: catalogs.english.LibraryRefresh }));
-      await screen.findByText(catalogs.english.ReaderImageUnavailable);
-      expect(screen.queryByRole('img')).toBeNull();
-      await user.click(screen.getByRole('button', { name: catalogs.english.ReaderRetryImage }));
-      expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
-      expect(screen.queryByText(catalogs.english.ReaderImageUnavailable)).toBeNull();
+      await screen.findByText(catalogs.english.NoteReadErrorTitle);
+      expect(screen.queryByText('Current page')).toBeNull();
+      await user.click(screen.getByRole('button', { name: catalogs.english.Retry }));
+      await screen.findByText(catalogs.english.ReaderReadFailed);
+      expect(screen.queryByAltText('Retained figure')?.getAttribute('src')).toBeFalsy();
+      await user.click(screen.getByRole('button', { name: catalogs.english.Retry }));
+      await waitFor(() => expect(rpc['sources.exportRevision']).toHaveBeenCalledTimes(2));
+      expect(screen.queryByAltText('Retained figure')?.getAttribute('src')).toBeFalsy();
       await act(async () => {
         pending.resolve(image);
         await pending.promise;
       });
-      expect(await screen.findByRole('img', { name: 'Retained figure' })).toHaveAttribute(
-        'src',
-        'blob:first'
+      await waitFor(() =>
+        expect(screen.getByAltText('Retained figure')).toHaveAttribute('src', 'blob:first')
       );
       expect(rpc['pages.version']).toHaveBeenCalledTimes(2);
       expect(rpc['sources.exportRevision']).toHaveBeenCalledTimes(2);
@@ -97,7 +100,7 @@ test.unit.stable(
         await harness.notify();
       });
       await waitFor(() =>
-        expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:replacement')
+        expect(screen.getByAltText('Retained figure')).toHaveAttribute('src', 'blob:replacement')
       );
       expect(revoke).toHaveBeenCalledWith('blob:first');
       view.unmount();
@@ -113,7 +116,8 @@ test.unit.stable(
 
 test.unit.stable(
   'retries one failed image without reacquiring an already displayed neighbor',
-  async ({ vi, rpcHandlersTransport, render, screen, userEvent, expect }) => {
+  async ({ vi, rpcHandlersTransport, render, screen, userEvent, expect, waitFor }) => {
+    const page = authoredPage(41n, 'Current page', 20n);
     const base = authoredPage(41n).version!;
     const asset = Schema.decodeUnknownSync(revisionExportSchema)({
       sourceId: 7n,
@@ -137,6 +141,8 @@ test.unit.stable(
     const document = { ...base, document: { ...base.document, blocks: [first, neighbor] } };
     let interrupted = true;
     const rpc = {
+      'pages.page': () => Effect.succeed(page),
+      'pages.versions': () => Effect.succeed({ items: [], nextCursor: null }),
       'pages.version': vi
         .fn<StudyClient['pages.version']>()
         .mockReturnValue(Effect.succeed(document)),
@@ -166,19 +172,24 @@ test.unit.stable(
     const harness = rpcHandlersTransport(rpc);
     const view = render(
       <harness.wrapper>
-        <ExactAuthoredPageContent id={document.id} pageId={document.pageId} />
+        <AuthoredPageReader id={document.pageId} initialVersion={String(document.id)} />
       </harness.wrapper>
     );
 
     try {
-      const visible = await screen.findByRole('img', { name: 'Available neighbor' });
+      const visible = await screen.findByAltText('Available neighbor');
+
+      await waitFor(() => expect(visible).toHaveAttribute('src', 'blob:figure-1'));
+
       const url = visible.getAttribute('src');
 
       await userEvent
         .setup()
-        .click(await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
-      await screen.findByRole('img', { name: 'Interrupted figure' });
-      expect(screen.getByRole('img', { name: 'Available neighbor' })).toHaveAttribute('src', url);
+        .click(await screen.findByRole('button', { name: catalogs.english.Retry }));
+      await waitFor(() =>
+        expect(screen.getByAltText('Interrupted figure')).toHaveAttribute('src', 'blob:figure-2')
+      );
+      expect(screen.getByAltText('Available neighbor')).toHaveAttribute('src', url);
       const calls = rpc['sources.exportRevision'].mock.calls.map(([input]) => input);
 
       expect(calls.filter((input) => input.sourceId !== asset.sourceId)).toHaveLength(1);

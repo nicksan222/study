@@ -11,7 +11,6 @@ import type {
   ProjectId,
   ContentInput,
   materialGenerationInputSchema,
-  MaterialVersionDetailDto,
   WrittenExamInput,
   QuizSettings,
   studyNotesRequestSchema
@@ -69,13 +68,7 @@ import type { TrackExamRequest } from './written-exam-request';
 import { useWrittenExamOpening } from './written-exam-state';
 import type { ExamOpening } from './written-exam-state';
 
-export function QuizGenerationAction({
-  projectId
-}: {
-  version: MaterialVersionDetailDto;
-  projectId?: ProjectId;
-  title?: string;
-}) {
+export function QuizGenerationAction({ projectId }: { projectId?: ProjectId }) {
   return <GenerationDialog projectId={projectId} inline />;
 }
 

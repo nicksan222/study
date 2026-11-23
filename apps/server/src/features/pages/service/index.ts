@@ -78,13 +78,6 @@ export const Pages = defineService(
       tx: Transaction,
       v: { noteId: NoteId; limit: number; before?: string }
     ) => tx.store(PageTransformsStore).transforms(v),
-    /** Notes/AI can join publication to an existing fenced transaction. */
-    proposeGeneratedInTransaction: (tx: Transaction, v: typeof e.publishSchema.Type) =>
-      tx.store(PageProposalsStore).proposeGenerated(v),
-    createGeneratedInTransaction: (tx: Transaction, v: typeof e.createGeneratedSchema.Type) =>
-      tx.store(PagesStore).createGenerated(v),
-    publishInTransaction: (tx: Transaction, v: typeof e.publishSchema.Type) =>
-      tx.store(PagesStore).publishGenerated(v),
     createInTransaction: (tx: Transaction, v: typeof e.createSchema.Type) =>
       created(tx, tx.store(PagesStore).create(v)),
     pageInTransaction: (tx: Transaction, v: typeof r.pageKeySchema.Type) =>

@@ -442,7 +442,6 @@ export {
 export {
   applyProposalSchema,
   authoredPageInputLimit,
-  blockDifferenceSchema,
   compareSchema,
   comparisonSchema,
   createGeneratedOutcomeSchema,

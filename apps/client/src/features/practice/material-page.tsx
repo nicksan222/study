@@ -95,12 +95,7 @@ function MaterialContent({
       {version.kind === 'flashcards' ? (
         <FlashcardReview key={String(version.id)} version={version} project={project} />
       ) : (
-        <Quiz
-          key={String(version.id)}
-          version={version}
-          projectId={project}
-          title={material.title}
-        />
+        <Quiz key={String(version.id)} version={version} projectId={project} />
       )}
     </>
   );

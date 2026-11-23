@@ -189,12 +189,23 @@ const english = {
   heroLead:
     'Write notes and save original files in Materials. Use your sources to generate study notes, flashcards and practice.',
   explore: 'See how it works',
-  previewLabels: {
-    page: 'Study notes editor, showing a sample about mitosis.',
-    source: 'Source reader, showing two passages from a sample mitosis lecture.',
-    quiz: 'Practice question about prometaphase, with four answer choices.',
-    flashcards: 'Flashcard material preview, showing a question and answer about prophase.',
-    caption: 'The app’s actual components, with sample material. Static preview.'
+  previewMetadata: {
+    page: {
+      title: 'Study notes preview',
+      description: 'Read and edit sample study notes on cell membranes.'
+    },
+    source: {
+      title: 'Source preview',
+      description: 'Read a sample source passage on how the cell membrane controls exchange.'
+    },
+    quiz: {
+      title: 'Quiz preview',
+      description: 'Try sample cell biology questions and review the result.'
+    },
+    flashcards: {
+      title: 'Flashcard preview',
+      description: 'Reveal and rate sample flashcards on cell membranes.'
+    }
   },
   workflow: {
     title: 'Good notes are only the beginning.',
@@ -474,12 +485,23 @@ const italian: Copy = {
   heroLead:
     'Scrivi note e salva i file originali in Materiali. Usa le tue fonti per generare appunti di studio, flashcard ed esercitazioni.',
   explore: 'Scopri come funziona',
-  previewLabels: {
-    page: 'Editor degli appunti di studio, con un esempio sulla mitosi.',
-    source: 'Lettore delle fonti, con due passaggi di una lezione di esempio sulla mitosi.',
-    quiz: 'Domanda di esercitazione sulla prometafase, con quattro possibili risposte.',
-    flashcards: 'Anteprima delle flashcard, con domanda e risposta sulla profase.',
-    caption: 'I componenti dell’app, con materiale di esempio. Anteprima statica.'
+  previewMetadata: {
+    page: {
+      title: 'Anteprima degli appunti di studio',
+      description: 'Leggi e modifica un esempio di appunti sulle membrane cellulari.'
+    },
+    source: {
+      title: 'Anteprima della fonte',
+      description: 'Leggi un passaggio di esempio sugli scambi attraverso la membrana cellulare.'
+    },
+    quiz: {
+      title: 'Anteprima del quiz',
+      description: 'Prova domande di biologia cellulare e rivedi il risultato.'
+    },
+    flashcards: {
+      title: 'Anteprima delle flashcard',
+      description: 'Mostra e valuta le risposte delle flashcard sulle membrane cellulari.'
+    }
   },
   workflow: {
     title: 'Gli appunti sono solo l’inizio.',
