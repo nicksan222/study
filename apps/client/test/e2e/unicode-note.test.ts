@@ -86,14 +86,15 @@ test.browser.stable(
     await rpc.runPromise(
       rpc.client['settings.saveAppSettings']({ ...settings, language: Language.ITALIAN })
     );
-    await page.reload();
     await page.setViewportSize({ width: 390, height: 520 });
+    await page.reload();
     const localized = page.getByRole('textbox', { name: italian.NotePageEditor, exact: true });
     const end = localized.locator('p').last();
 
     await expect(localized).toContainText(opening);
-    await end.hover();
     await expect(end).toContainText('👨‍👩‍👧‍👦 نهاية السجل.');
+    await end.click();
+    await expect(localized).toBeFocused();
     await expectScreenshot('localized-reopened', {
       target: 'viewport',
       ready: () => expect(end).toBeInViewport()
