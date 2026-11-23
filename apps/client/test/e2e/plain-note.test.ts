@@ -14,7 +14,7 @@ const original = ['River garden field notebook', ...paragraphs].join('\n\n');
 
 test.browser.stable(
   'Create edit and reopen a plain note',
-  async ({ page, rpc, expectScreenshot, expect }) => {
+  async ({ page, rpc, expectScreenshot, placeCaretAtEnd, expect }) => {
     const preferences = await rpc.runPromise(rpc.client['settings.workspacePreferences']({}));
 
     await rpc.runPromise(
@@ -51,7 +51,9 @@ test.browser.stable(
 
     await editor.fill(changed);
     await expect(editor).toBeFocused();
-    await editor.press('ControlOrMeta+End');
+    await placeCaretAtEnd(editor.locator('p').last());
+    await editor.press('Enter');
+    await page.keyboard.insertText('Next visit');
     await editor.press('Shift+Enter');
     await page.keyboard.insertText('Verify the gauge calibration next visit.');
     await expect(editor.locator('p').last().locator('br')).toHaveCount(1);
@@ -60,14 +62,14 @@ test.browser.stable(
     await page.goto(noteUrl);
     await expect(editor).toContainText('water level corrected');
     await expect(editor).toContainText('bridge inspection corrected');
-    await expect(editor.locator('p').last()).toContainText(
-      'Verify the gauge calibration next visit.'
-    );
-    await expect(editor.locator('p').last().locator('br')).toHaveCount(1);
-    await editor.locator('p').last().scrollIntoViewIfNeeded();
+    const closing = editor.locator('p').last();
+
+    await expect(closing).toHaveText('Next visitVerify the gauge calibration next visit.');
+    await expect(closing.locator('br')).toHaveCount(1);
+    await closing.scrollIntoViewIfNeeded();
     await expectScreenshot('reopened-hard-break', {
-      target: editor.locator('p').last(),
-      ready: () => expect(editor.locator('p').last()).toBeInViewport()
+      target: closing,
+      ready: () => expect(closing).toBeInViewport({ ratio: 1 })
     });
   }
 );
