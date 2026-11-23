@@ -123,6 +123,11 @@
     min-width: 2.75rem;
   }
 }
+@media (max-width: 600px) {
+  .ui-workspace[data-variant='page'] > .study-workspace-header:has(> .ui-workspace-context-toggle) {
+    gap: 0.5rem;
+  }
+}
 .ui-workspace-card-group {
   padding: 0.5rem;
 }

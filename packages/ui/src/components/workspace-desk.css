@@ -197,6 +197,7 @@
 @media (pointer: coarse) {
   .rich-note-toolbar button,
   .workspace-desk .workspace-panel-tab button,
+  .workspace-desk .workspace-panel-before button,
   .workspace-desk .workspace-panel-after button {
     min-width: 2.75rem;
     min-height: 2.75rem;

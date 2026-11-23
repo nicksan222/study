@@ -327,6 +327,7 @@ test.browser.stable(
     await expect(
       page.getByRole('button', { name: copy.NoteExpandEditor, exact: true })
     ).toBeVisible();
+    await page.locator('.study-workspace-header').getByRole('heading', { level: 1 }).hover();
     await expectScreenshot('unexpanded-page-after-reload', {
       target: 'viewport',
       ready: () => expect(editor).toBeVisible()
