@@ -22,7 +22,12 @@ export function WorkspaceContext({
 
   return (
     <WorkspaceCard.Root aria-label={t('NoteContextPanel')} variant="context" ref={ref}>
-      {actions}
+      {actions && (
+        <>
+          <WorkspaceCard.Heading>{t('NoteActions')}</WorkspaceCard.Heading>
+          {actions}
+        </>
+      )}
       {outline}
       <NotePendingWork key={String(id)} id={id} />
     </WorkspaceCard.Root>

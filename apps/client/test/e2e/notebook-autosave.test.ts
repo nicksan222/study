@@ -74,12 +74,14 @@ test.browser.stable(
     const toggle = page.getByRole('button', { name: copy.NoteActions, exact: true });
     const actions = page.getByRole('complementary', { name: copy.NoteContextPanel, exact: true });
     const practice = actions.getByRole('link', { name: copy.PracticeStudyNotes, exact: true });
+    const heading = actions.getByRole('heading', { name: copy.NoteActions, exact: true });
     const title = page.getByRole('textbox', { name: copy.NoteName, exact: true });
     const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
     await expect(page.locator('.study-workspace-header').getByText('Ecology')).toBeVisible();
     await expect(title).toHaveValue('Wetland survey');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(heading).toBeVisible();
     await expect(practice).toBeVisible();
     await editor.fill('Wetland observations');
     await expect
@@ -107,14 +109,26 @@ test.browser.stable(
     await expect(title).toHaveValue('Wetland survey');
     await toggle.press('Enter');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(heading).toBeInViewport();
     await expect(practice).toBeInViewport();
-    await practice.focus();
+    await expect
+      .poll(async () => (await practice.boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(44);
+
+    await page.setViewportSize({ width: 860, height: 320 });
+    const remove = actions.getByRole('button', { name: copy.NoteDelete, exact: true });
+
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await remove.scrollIntoViewIfNeeded();
+    await expect(remove).toBeInViewport({ ratio: 1 });
+    await remove.focus();
     await page.keyboard.press('Escape');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(toggle).toBeFocused();
     await expect(editor).toHaveText(draft);
     await expect(page.getByText(copy.NoteAutosaved, { exact: true })).toBeVisible();
 
+    await page.setViewportSize({ width: 390, height: 844 });
     await toggle.press('Enter');
     await practice.press('Enter');
     await expect(page).toHaveURL(new RegExp(`/projects/${subject.id}/practice$`));

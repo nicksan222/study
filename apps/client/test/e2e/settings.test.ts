@@ -331,6 +331,17 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(editor).toBeVisible()
     });
+    await page.getByRole('button', { name: copy.NoteDockBelow, exact: true }).click();
+    await page.getByRole('button', { name: copy.NoteExpandEditor, exact: true }).click();
+    const desk = page.locator('.workspace-desk[data-expanded]');
+    const panel = desk.locator('.workspace-panel');
+
+    await expect(panel).toBeVisible();
+    const expandedBounds = await panel.boundingBox();
+    const deskBounds = await desk.boundingBox();
+
+    expect(expandedBounds).toEqual(deskBounds);
+    await page.getByRole('button', { name: copy.NoteRestoreEditor, exact: true }).click();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await writing.click();
     await expect(autosave).toHaveValue('8');

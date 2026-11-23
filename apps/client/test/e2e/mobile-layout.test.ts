@@ -270,6 +270,28 @@ test.browser.stable(
       main.getByRole('heading', { name: otherSubject.name, exact: true })
     ).toBeInViewport();
 
+    const current = `/practice/study-notes/${savedPage.id}${subject}`;
+    const historical = `${current}&pageVersion=${savedPage.headVersionId}`;
+    const editor = main.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const replacement = 'Study reminder: review chromosome inheritance.';
+
+    await page.goto(current);
+    await expect(editor).toHaveText(study.lecture);
+    await editor.fill(replacement);
+    await expect(editor).toBeFocused();
+    await expect(main.getByText(copy.NoteAutosaved, { exact: true })).toBeVisible();
+
+    await page.reload();
+    await expect(editor).toHaveText(replacement);
+    await page.goto(historical);
+    await expect(editor).toHaveAttribute('contenteditable', 'false');
+    await expect(editor).toHaveText(study.lecture);
+    await main.getByRole('button', { name: copy.PageMakeCurrent, exact: true }).tap();
+    await expect(editor).toHaveAttribute('contenteditable', 'true');
+    await expect(editor).toHaveText(study.lecture);
+    await page.goto(current);
+    await expect(editor).toHaveText(study.lecture);
+
     await verifyResizeFocus({ desktopPage, expect });
   }
 );

@@ -1,6 +1,7 @@
 import type { NoteId, PageId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button, WorkspaceDeskSurface as Desk } from '@study/ui';
+import { BackIcon, ClosePanelIcon, MaximizeIcon, MinimizeIcon, PageIcon } from '@study/icons';
+import { Button, IconButton, WorkspaceDeskSurface as Desk, WorkspacePanel } from '@study/ui';
 import { useState } from 'react';
 import type { RefObject } from 'react';
 
@@ -160,22 +161,48 @@ function EditorPanel({
 
   if (!model.visible || !active) return null;
 
+  const hideLabel = t('NoteBackToBoard');
+  const expandLabel = t(model.expanded ? 'NoteRestoreEditor' : 'NoteExpandEditor');
+
   return (
-    <Desk.Panel
+    <WorkspacePanel
+      label={t('NotePageTabs')}
       active={workbenchIdentity(active)}
-      tabs={model.tabs.map((target) => ({
-        id: workbenchIdentity(target),
-        label: <TabLabel target={target} />,
-        closeLabel: t('NoteClosePage')
-      }))}
+      tabs={model.tabs.map((target) => {
+        const id = workbenchIdentity(target);
+
+        return {
+          id,
+          label: <TabLabel target={target} />,
+          icon: <PageIcon size={14} aria-hidden="true" />,
+          close: { label: t('NoteClosePage'), onClick: () => model.close(id) }
+        };
+      })}
       onSelect={model.select}
-      onClose={model.close}
-      onHide={model.hide}
-      onExpand={model.expand}
-      expanded={model.expanded}
-      expandLabel={t(model.expanded ? 'NoteRestoreEditor' : 'NoteExpandEditor')}
-      closeLabel={t('NotePageTabs')}
-      hideLabel={t('NoteBackToBoard')}
+      beforeTabs={
+        <IconButton variant="ghost-muted" size="icon-sm" label={hideLabel} onClick={model.hide}>
+          <BackIcon size={16} aria-hidden="true" />
+        </IconButton>
+      }
+      afterTabs={
+        <>
+          <IconButton
+            variant="ghost-muted"
+            size="icon-sm"
+            label={expandLabel}
+            onClick={model.expand}
+          >
+            {model.expanded ? (
+              <MinimizeIcon size={15} aria-hidden="true" />
+            ) : (
+              <MaximizeIcon size={15} aria-hidden="true" />
+            )}
+          </IconButton>
+          <IconButton variant="ghost-muted" size="icon-sm" label={hideLabel} onClick={model.hide}>
+            <ClosePanelIcon size={15} aria-hidden="true" />
+          </IconButton>
+        </>
+      }
     >
       {active.kind === 'assistant' ? (
         <NoteAssistantPanel key={String(id)} noteId={id} />
@@ -184,7 +211,7 @@ function EditorPanel({
       ) : (
         <PagePanel key={workbenchIdentity(active)} id={id} target={active} />
       )}
-    </Desk.Panel>
+    </WorkspacePanel>
   );
 }
 

@@ -92,6 +92,40 @@
 .ui-workspace[data-variant='note'] > .ui-workspace-card {
   top: 4rem;
 }
+.ui-workspace-card-heading {
+  margin: 0;
+  padding: 0.875rem 1.125rem 0.125rem;
+  color: var(--foreground);
+  font-size: inherit;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ui-workspace-card-primary {
+  gap: var(--workspace-card-action-gap);
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 2.125rem;
+  height: auto;
+  padding-block: 0.3125rem;
+  text-align: start;
+  white-space: normal;
+}
+.ui-workspace-card:has(> .ui-workspace-card-heading) {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
+  scroll-padding-block: 0.5rem;
+}
+@media (pointer: coarse), (max-width: 600px) {
+  .ui-workspace-card:has(> .ui-workspace-card-heading)
+    :is(.ui-workspace-card-item, .ui-workspace-card-primary),
+  .ui-workspace[data-variant='page'] > .study-workspace-header .ui-workspace-context-toggle {
+    min-height: 2.75rem;
+  }
+  .ui-workspace[data-variant='page'] > .study-workspace-header .ui-workspace-context-toggle {
+    min-width: 2.75rem;
+  }
+}
 .ui-workspace-card-group {
   padding: 0.5rem;
 }
@@ -540,10 +574,6 @@
   padding: 0;
   margin: 0;
   list-style: none;
-  max-height: 18rem;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--app-scrollbar-thumb) transparent;
 }
 .ui-workspace-card .note-outline-item {
   align-items: flex-start;
@@ -570,16 +600,4 @@
   gap: 0.5rem;
   margin-block-start: 0.5rem;
   font-size: 0.75rem;
-}
-
-.ui-workspace-card.note-workspace-context:has(.note-outline) {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--app-scrollbar-thumb) transparent;
-}
-@container (max-width: 900px) {
-  .note-outline-list {
-    max-height: none;
-    overflow: visible;
-  }
 }

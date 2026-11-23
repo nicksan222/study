@@ -40,6 +40,7 @@ export function PracticeWorkspace({
         </Sidebar.Topbar>
         <WorkspaceSurface.Content>
           <WorkspaceCard.Root ref={contextPanel} aria-label={t('PracticeActions')}>
+            <WorkspaceCard.Heading>{t('PracticeActions')}</WorkspaceCard.Heading>
             {actions}
           </WorkspaceCard.Root>
           <WorkspaceSurface.Body>{children}</WorkspaceSurface.Body>

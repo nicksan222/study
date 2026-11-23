@@ -324,6 +324,7 @@ export const WorkspaceCard = {
   Provider,
   Toggle,
   Root: Card,
+  Heading: part('h2', 'ui-workspace-card-heading'),
   Group,
   Item,
   Primary,
