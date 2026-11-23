@@ -2,20 +2,20 @@ import type { ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { sidebarContent } from '#client/lib/navigation/sidebar-config.ts';
+import type { Section } from '#client/lib/navigation/route-contract.ts';
 
 export function useSidebarSearch({
   query,
   global,
   project,
   canSearch,
-  content
+  section
 }: {
   query: string;
   global: boolean;
   project: ProjectId | undefined;
   canSearch: boolean;
-  content: ReturnType<typeof sidebarContent>;
+  section: Section;
 }) {
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -25,10 +25,7 @@ export function useSidebarSearch({
     return () => clearTimeout(timer);
   }, [query]);
   const searchEnabled =
-    Boolean(query.trim()) &&
-    query.trim() === debouncedQuery &&
-    canSearch &&
-    content === 'workspace';
+    Boolean(query.trim()) && query.trim() === debouncedQuery && canSearch && section === 'notes';
   const searchResult = rpc.system.search.useQuery(
     {
       query: query.trim(),

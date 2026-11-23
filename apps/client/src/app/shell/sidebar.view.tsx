@@ -38,7 +38,6 @@ import { UploadMaterialAction } from '#client/features/source-library/index.ts';
 import { SubjectIdentity } from '#client/features/subjects/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#client/lib/navigation/search-results.ts';
-import { sidebarContent } from '#client/lib/navigation/sidebar-config.ts';
 import { Page as SettingsPage } from '#client/pages/settings/page.tsx';
 
 import { RichSidebarNotes } from './rich-sidebar';
@@ -649,7 +648,7 @@ function projectPickerEmpty(
 }
 
 function SidebarContentBody(model: SidebarViewModel) {
-  if (sidebarContent(model.metadata) !== 'workspace') return model.collection;
+  if (model.section !== 'notes') return model.collection;
 
   if (model.query.trim()) return <SidebarSearchResults {...model} />;
 
