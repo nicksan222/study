@@ -342,7 +342,7 @@ test.browser.stable(
 async function openHistory(
   page: test.browser.Context['page'],
   expect: test.browser.Context['expect'],
-  language: Record<'NoteActions' | 'NoteHistory' | 'NoteContextPanel', string>
+  language: Record<'NoteActions' | 'NoteHistory' | 'NoteContextPanel' | 'NoteBackToEditor', string>
 ) {
   const context = page.getByRole('button', { name: language.NoteActions, exact: true });
 
@@ -350,9 +350,10 @@ async function openHistory(
 
   await expect(context).toHaveAttribute('aria-expanded', 'true');
   await panel.getByRole('button', { name: language.NoteHistory, exact: true }).click();
-  await expect(context).toHaveAttribute('aria-expanded', 'false');
-  await context.click();
-  await expect(panel).toBeVisible();
+  await expect(context).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    page.getByRole('button', { name: language.NoteBackToEditor, exact: true })
+  ).toBeFocused();
 }
 
 async function openStudyNotes(page: test.browser.Context['page']) {

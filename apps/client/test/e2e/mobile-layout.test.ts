@@ -148,6 +148,17 @@ test.browser.stable(
       '/assistant',
       page.getByRole('textbox', { name: copy.StudyChatMessage })
     );
+    const historyToggle = main.getByRole('button', { name: copy.AssistantHistory, exact: true });
+    const history = main.getByRole('complementary', { name: copy.AssistantHistory, exact: true });
+
+    await expect(historyToggle).toHaveAttribute('aria-expanded', 'false');
+    await historyToggle.press('Enter');
+    await expect(history).toBeInViewport();
+    const newChat = history.getByRole('button', { name: copy.AssistantNewChat, exact: true });
+
+    await newChat.press('Escape');
+    await expect(history).toBeHidden();
+    await expect(historyToggle).toBeFocused();
     await capture(
       captureContext,
       'practice',

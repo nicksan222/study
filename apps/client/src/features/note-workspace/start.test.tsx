@@ -5,7 +5,6 @@ import {
   defaultWorkspacePreferences
 } from '@study/contracts';
 import { test } from '@study/testing';
-import { WorkspaceCard } from '@study/ui';
 import {
   createRootRoute,
   createRoute,
@@ -74,11 +73,7 @@ function mount({
   const start = createRoute({
     getParentRoute: () => root,
     path: '/notes',
-    component: () => (
-      <WorkspaceCard.Provider>
-        <NoteStart />
-      </WorkspaceCard.Provider>
-    )
+    component: NoteStart
   });
   const saved = createRoute({
     getParentRoute: () => root,

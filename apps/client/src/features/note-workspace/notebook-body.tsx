@@ -1,7 +1,8 @@
 import type { NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Loading, WritingSurface } from '@study/ui';
-import type { ReactNode } from 'react';
+import type { RichNoteEditorHandle } from '@study/ui';
+import type { ReactNode, Ref } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -11,12 +12,21 @@ import { NoteTitleEdit } from './note-title';
 import { SaveRecoveryNotice } from './save-recovery';
 import { NoteReadError } from './status';
 
-export function NotebookBody({ id, title }: { id: NoteId; title: string }) {
+export function NotebookBody({
+  id,
+  title,
+  editorRef
+}: {
+  id: NoteId;
+  title: string;
+  editorRef?: Ref<RichNoteEditorHandle>;
+}) {
   const { t } = useI18n();
   const body = rpc.notes.body.useQuery({ noteId: id });
   const heading = <NoteTitleEdit id={id} title={title} />;
 
-  if (body.data) return <NotebookWriting id={id} saved={body.data} heading={heading} />;
+  if (body.data)
+    return <NotebookWriting id={id} saved={body.data} heading={heading} editorRef={editorRef} />;
 
   return (
     <WritingSurface heading={heading}>
@@ -32,11 +42,13 @@ export function NotebookBody({ id, title }: { id: NoteId; title: string }) {
 function NotebookWriting({
   id,
   saved,
-  heading
+  heading,
+  editorRef
 }: {
   id: NoteId;
   saved: Parameters<typeof useBodyAutosave>[1];
   heading: ReactNode;
+  editorRef?: Ref<RichNoteEditorHandle>;
 }) {
   const { t } = useI18n();
   const { draft, focus, setText, retry, acceptSaved } = useBodyAutosave(id, saved);
@@ -52,6 +64,7 @@ function NotebookWriting({
         <SaveRecoveryNotice conflict={!!draft.conflict} onAccept={acceptSaved} onRetry={retry} />
       )}
       <NoteEditor
+        ref={editorRef}
         targetKey={id}
         value={draft.text}
         onChange={setText}

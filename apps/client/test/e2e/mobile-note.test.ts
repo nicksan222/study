@@ -73,8 +73,12 @@ test.browser.stable(
     await actions.getByRole('button', { name: copy.NoteHistory }).tap();
     const history = page.getByRole('region', { name: copy.NoteNotebook, exact: true });
 
+    const backToEditor = page.getByRole('button', { name: copy.NoteBackToEditor, exact: true });
+
     await expect(history.getByText(text)).toBeVisible();
-    await page.getByRole('button', { name: copy.NoteBackToEditor, exact: true }).tap();
+    await expect(context).toHaveAttribute('aria-expanded', 'false');
+    await expect(backToEditor).toBeFocused();
+    await backToEditor.tap();
     await page.getByRole('button', { name: copy.NoteAssistantOpen, exact: true }).tap();
     await expect(page.getByRole('button', { name: copy.NoteDockBelow })).toHaveCount(0);
     await expect(page.getByRole('button', { name: copy.NoteDockBeside })).toHaveCount(0);

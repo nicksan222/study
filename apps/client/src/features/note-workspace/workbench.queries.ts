@@ -29,6 +29,7 @@ type Workbench = {
   expanded?: boolean;
   dock?: 'side' | 'bottom';
   cardHidden?: boolean;
+  narrowCardDismissed?: boolean;
 };
 
 const workbenchState = Atom.family((_id: NoteId) =>
@@ -47,6 +48,8 @@ export function useWorkbench(id: NoteId, wide: boolean) {
   const thread = useThreadPage(id);
   const messages = thread.data?.items ?? [];
   const update = (change: (value: Workbench) => Workbench) => cache.update(atom, change);
+  const cardOpen = (value: Workbench) =>
+    !value.visible && !(value.cardHidden ?? !wide) && (wide || !value.narrowCardDismissed);
 
   function open(target: WorkbenchTarget) {
     const identity = workbenchIdentity(target);
@@ -93,17 +96,21 @@ export function useWorkbench(id: NoteId, wide: boolean) {
   return {
     ...model,
     appearance,
+    wide,
     expanded: model.expanded ?? preferences.expandPages,
     tabs,
     dock: model.dock ?? appearance.noteEditorDock,
-    cardVisible: !model.visible && !(model.cardHidden ?? !wide),
+    cardVisible: cardOpen(model),
     toggleCard: () =>
       update((value) => ({
         ...value,
         visible: false,
-        cardHidden: value.visible ? false : !(value.cardHidden ?? !wide)
+        cardHidden: cardOpen(value),
+        narrowCardDismissed: false
       })),
-    hideCard: () => update((value) => ({ ...value, cardHidden: true })),
+    dismissNarrowCard: () => {
+      if (!wide) update((value) => ({ ...value, narrowCardDismissed: true }));
+    },
     showEditor: (dock: 'side' | 'bottom') =>
       update((value) => {
         if (!value.tabs.length) return value;

@@ -2,7 +2,8 @@ import type { NoteId, PageId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { BackIcon, ClosePanelIcon, MaximizeIcon, MinimizeIcon, PageIcon } from '@study/icons';
 import { Button, IconButton, WorkspaceDeskSurface as Desk, WorkspacePanel } from '@study/ui';
-import { useState } from 'react';
+import type { RichNoteEditorHandle } from '@study/ui';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
@@ -63,7 +64,36 @@ export function NoteWorkbench({
 }) {
   const { t } = useI18n();
   const { noteWidth } = model.appearance;
-  const [history, setHistory] = useState(false);
+  const [historyView, setHistoryView] = useState<{ open: boolean }>();
+  const history = historyView?.open ?? false;
+  const focusedView = useRef<typeof historyView>(undefined);
+  const backToEditor = useRef<HTMLButtonElement>(null);
+  const editor = useRef<RichNoteEditorHandle>(null);
+
+  useLayoutEffect(() => {
+    if (!historyView || focusedView.current === historyView) return;
+
+    // On a phone, the notebook stays hidden until the disclosure has closed.
+    if (historyView.open && !model.wide && model.cardVisible) return;
+
+    const focus = () => {
+      focusedView.current = historyView;
+
+      if (historyView.open) backToEditor.current?.focus();
+      else if (editor.current) editor.current.restoreSelection(editor.current.selection());
+    };
+
+    if (historyView.open && !model.wide) {
+      // Chromium can keep the notebook's old inherited visibility through the next paint.
+      let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(focus);
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }
+
+    focus();
+  }, [historyView, model.cardVisible, model.wide]);
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
@@ -85,7 +115,12 @@ export function NoteWorkbench({
               <Desk.BoardBody>
                 {history ? (
                   <>
-                    <Button size="sm" variant="ghost-muted" onClick={() => setHistory(false)}>
+                    <Button
+                      ref={backToEditor}
+                      size="sm"
+                      variant="ghost-muted"
+                      onClick={() => setHistoryView({ open: false })}
+                    >
                       {t('NoteBackToEditor')}
                     </Button>
                     <BoardFeedback listError={pages.error} reload={() => void pages.refetch()} />
@@ -108,9 +143,10 @@ export function NoteWorkbench({
                       pending={pages.isFetching}
                     />
                   </>
-                ) : (
-                  <NotebookBody id={id} title={title} />
-                )}
+                ) : null}
+                <div hidden={history}>
+                  <NotebookBody id={id} title={title} editorRef={editor} />
+                </div>
               </Desk.BoardBody>
             </Desk.Board>
             <WorkspaceContext
@@ -121,7 +157,7 @@ export function NoteWorkbench({
                     id={id}
                     thread={thread}
                     pages={pages}
-                    onNavigate={model.hideCard}
+                    onNavigate={model.dismissNarrowCard}
                   />
                 ) : undefined
               }
@@ -131,8 +167,8 @@ export function NoteWorkbench({
                   id={id}
                   project={project}
                   onHistory={() => {
-                    setHistory(true);
-                    model.hideCard();
+                    setHistoryView({ open: true });
+                    model.dismissNarrowCard();
                   }}
                   onDelete={onDelete}
                 />

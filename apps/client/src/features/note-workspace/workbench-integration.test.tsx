@@ -97,8 +97,8 @@ function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandl
 
 const noteId = noteIdSchema.make(12n);
 
-function Notebook() {
-  const model = useWorkbench(noteId, false);
+function Notebook({ wide = false }: { wide?: boolean }) {
+  const model = useWorkbench(noteId, wide);
 
   return (
     <WorkspaceCard.Provider open={model.cardVisible} onOpenChange={model.toggleCard}>
@@ -302,6 +302,37 @@ test.unit.stable(
     expect(await screen.findByRole('tab', { name: 'NoteAssistant' })).toBeVisible();
     expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(notebook);
     expect(rpc.create).not.toHaveBeenCalled();
+  }
+);
+
+test.unit.stable.for([false, true])(
+  'keeps the editor mounted and focuses history after opening it with wide=%s',
+  async (wide, { screen, expect, within, waitFor, userEvent, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <Notebook wide={wide} />);
+    const user = userEvent.setup();
+    const toggle = await screen.findByRole('button', { name: 'NoteActions' });
+    const editor = await screen.findByRole('textbox', { name: 'NotePageEditor' });
+
+    if (!wide) await user.click(toggle);
+
+    await user.click(screen.getByRole('button', { name: 'NoteHistory' }));
+    const back = screen.getByRole('button', { name: 'NoteBackToEditor' });
+
+    expect(toggle).toHaveAttribute('aria-expanded', String(wide));
+    await waitFor(() => expect(back).toHaveFocus());
+    expect(editor).toBeInTheDocument();
+    expect(editor).not.toBeVisible();
+
+    if (wide) {
+      const panel = screen.getByRole('complementary', { name: 'NoteContextPanel' });
+
+      expect(within(panel).getByRole('navigation', { name: 'NoteOutline' })).toBeVisible();
+    }
+
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(editor);
+    expect(editor).toBeVisible();
+    await waitFor(() => expect(editor).toHaveFocus());
   }
 );
 

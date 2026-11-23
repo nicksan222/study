@@ -316,8 +316,15 @@ test.unit.stable(
 
     act(() => view.result.current.toggleCard());
     await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    act(() => view.result.current.dismissNarrowCard());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
     view.rerender({ noteId: id, wide: true });
     expect(view.result.current.cardVisible).toBe(true);
+    view.rerender({ noteId: id, wide: false });
+    expect(view.result.current.cardVisible).toBe(false);
+    act(() => view.result.current.toggleCard());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    view.rerender({ noteId: id, wide: true });
     act(() => view.result.current.toggleCard());
     await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
     view.rerender({ noteId: id, wide: false });
