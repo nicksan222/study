@@ -11,8 +11,6 @@ function BlockText(props: Omit<ComponentPropsWithRef<typeof Textarea>, 'classNam
 export const Notebook = {
   SectionTitle: part('h3', 'note-section-title'),
   FieldHeading: part('div', 'note-field-heading'),
-  Attachments: part('div', 'note-attachments'),
-  FileButton: part('label', 'note-file-button'),
   AttemptRecovery: part('section', 'note-attempt-recovery'),
   Workspace: part('section', 'note-workspace'),
   Canvas: part('div', 'note-canvas'),
@@ -45,7 +43,6 @@ export const Notebook = {
   BatchDeletionItem: part('section', 'note-batch-deletion-item'),
   PageNotes: part('section', 'page-notes'),
   PageSourceList: part('ul', 'page-source-list'),
-  Preferences: part('details', 'note-preferences'),
   Section: part('details', 'note-section'),
   Page: part('section', 'note-page'),
   PageNavigation: part('div', 'note-page-navigation'),

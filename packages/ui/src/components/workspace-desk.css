@@ -392,11 +392,6 @@
   flex: 1;
 }
 
-.workspace-desk-board .ui-composer[data-variant='notebook'] {
-  --composer-input-height: 3rem;
-  --composer-radius: 1.125rem;
-}
-
 .workspace-desk-board .note-history > .workspace-desk-page {
   margin-block-end: 0.875rem;
 }
