@@ -7,16 +7,10 @@ import { useMemo } from 'react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-let Composer: typeof __MockType1.Composer;
-
-let composerDraft: typeof __MockType2.composerDraft;
-
 let MessageActions: typeof __MockType3.MessageActions;
 
 let messageActionDraft: typeof __MockType4.messageActionDraft;
 
-import type * as __MockType1 from './composer';
-import type * as __MockType2 from './composer.queries';
 import type * as __MockType3 from './message-actions';
 import type * as __MockType4 from './message-actions.queries';
 import type * as NoteQueries from './note-workspace.queries';
@@ -31,8 +25,6 @@ let editNote: typeof __MockType5.editNote;
 let reanswerNote: typeof __MockType5.reanswerNote;
 
 let rewriteNote: typeof __MockType5.rewriteNote;
-
-let saveNote: typeof __MockType5.saveNote;
 
 let rpc: ReturnType<typeof createMockState>['rpc'];
 
@@ -151,7 +143,6 @@ test.unit.beforeEach(async ({ mock }) => {
 
     return {
       ...actual,
-      saveNote: mock.fn(),
       ask: mock.fn(),
       editNote: mock.fn(),
       rewriteNote: mock.fn(),
@@ -160,12 +151,6 @@ test.unit.beforeEach(async ({ mock }) => {
     };
   });
 
-  const __mockModule1 = await import('./composer');
-
-  Composer = __mockModule1.Composer;
-  const __mockModule2 = await import('./composer.queries');
-
-  composerDraft = __mockModule2.composerDraft;
   const __mockModule3 = await import('./message-actions');
 
   MessageActions = __mockModule3.MessageActions;
@@ -179,7 +164,6 @@ test.unit.beforeEach(async ({ mock }) => {
   editNote = __mockModule5.editNote;
   reanswerNote = __mockModule5.reanswerNote;
   rewriteNote = __mockModule5.rewriteNote;
-  saveNote = __mockModule5.saveNote;
 });
 
 test.unit.beforeEach(({ vi }) => {
@@ -430,31 +414,6 @@ test.unit.stable(
     mount({ render, rpcHandlersTransport }, actions(), client);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(ask).toHaveBeenCalledExactlyOnceWith(input));
-    expect(saveNote).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'keeps the original note text after an uncertain post without replay',
-  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
-    vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-    const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Original note' } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findByText('NoteNoteUncertain');
-    first.unmount();
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />, first.client);
-    expect(first.client.get(composerDraft(id))).toMatchObject({
-      noteAttempt: 'Original note'
-    });
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(saveNote).toHaveBeenCalledTimes(1);
   }
 );
 

@@ -127,7 +127,6 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
   }));
-  mock('#client/features/note-workspace/composer', () => ({ Composer: () => null }));
   const __mockModule0 = await import('../assistant');
 
   AssistantProvider = __mockModule0.AssistantProvider;
