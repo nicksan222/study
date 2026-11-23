@@ -276,11 +276,10 @@ test.browser.stable(
       })
     );
     const openHistoricalPage = async () => {
-      await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
-      await page
-        .getByRole('complementary', { name: copy.NoteContextPanel })
-        .getByRole('button', { name: copy.NoteHistory, exact: true })
-        .click();
+      const actions = page.getByRole('complementary', { name: copy.NoteContextPanel });
+
+      await expect(actions).toBeVisible();
+      await actions.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
       await page.locator('.workspace-desk-page').filter({ hasText: pageText }).click();
       await expect(editor).toBeVisible();
     };

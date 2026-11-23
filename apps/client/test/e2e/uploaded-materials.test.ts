@@ -129,7 +129,6 @@ test.browser.stable(
     await rpc.runPromise(rpc.client['settings.saveAppSettings'](settings));
     await page.setViewportSize({ width: 2560, height: 1440 });
     await page.goto(`/projects/${project.id}/notes/${note!.id}`);
-    await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
     const noteContext = page.getByRole('complementary', { name: copy.NoteContextPanel });
 
     await expect(noteContext).toBeVisible();

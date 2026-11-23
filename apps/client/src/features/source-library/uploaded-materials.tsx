@@ -11,6 +11,7 @@ import {
   Spinner,
   toastManager,
   SubjectWorkspace,
+  WorkspaceSurface,
   useNowMinute
 } from '@study/ui';
 import { Link, useParams } from '@tanstack/react-router';
@@ -31,14 +32,20 @@ export function UploadedMaterialsPage() {
   const { t } = useI18n();
 
   return (
-    <SubjectWorkspace.Empty>
-      <SubjectWorkspace.EmptyContent>
-        <SubjectWorkspace.EmptyIcon>
-          <SourcesIcon aria-hidden="true" />
-        </SubjectWorkspace.EmptyIcon>
-        <SubjectWorkspace.EmptyTitle>{t('UploadedMaterialsChoose')}</SubjectWorkspace.EmptyTitle>
-      </SubjectWorkspace.EmptyContent>
-    </SubjectWorkspace.Empty>
+    <WorkspaceSurface.Root variant="page">
+      <WorkspaceSurface.Content inset="none">
+        <SubjectWorkspace.Empty>
+          <SubjectWorkspace.EmptyContent>
+            <SubjectWorkspace.EmptyIcon>
+              <SourcesIcon aria-hidden="true" />
+            </SubjectWorkspace.EmptyIcon>
+            <SubjectWorkspace.EmptyTitle>
+              {t('UploadedMaterialsChoose')}
+            </SubjectWorkspace.EmptyTitle>
+          </SubjectWorkspace.EmptyContent>
+        </SubjectWorkspace.Empty>
+      </WorkspaceSurface.Content>
+    </WorkspaceSurface.Root>
   );
 }
 

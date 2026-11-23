@@ -150,8 +150,8 @@ function Root({
   );
 }
 
-function Content({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('ui-workspace-content', className)} {...props} />;
+function Content({ className, inset, ...props }: ComponentProps<'div'> & { inset?: 'none' }) {
+  return <div className={cn('ui-workspace-content', className)} data-inset={inset} {...props} />;
 }
 
 function Body({ className, ...props }: ComponentProps<'div'>) {

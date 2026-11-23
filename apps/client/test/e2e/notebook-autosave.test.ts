@@ -56,3 +56,70 @@ test.browser.stable(
     await expect(saveNote).toHaveCount(0);
   }
 );
+
+test.browser.stable(
+  'Notebook actions move from the right rail to disclosure and open scoped Practice',
+  async ({ page, rpc, expect, expectScreenshot }) => {
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 100 }));
+    const subject = await rpc.runPromise(rpc.client['projects.createProject']({ name: 'Ecology' }));
+    const note = await rpc.runPromise(
+      rpc.client['notes.createNote']({ project: subject.id, title: 'Wetland survey' })
+    );
+    const draft = 'Record water levels on both sides of the bridge.';
+
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto(`/notes/${note.id}`);
+    const toggle = page.getByRole('button', { name: copy.NoteActions, exact: true });
+    const actions = page.getByRole('complementary', { name: copy.NoteContextPanel, exact: true });
+    const practice = actions.getByRole('link', { name: copy.PracticeStudyNotes, exact: true });
+    const title = page.getByRole('textbox', { name: copy.NoteName, exact: true });
+    const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+
+    await expect(page.locator('.study-workspace-header').getByText('Ecology')).toBeVisible();
+    await expect(title).toHaveValue('Wetland survey');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(practice).toBeVisible();
+    await editor.fill('Wetland observations');
+    await expect
+      .poll(async () => {
+        const [writing, rail] = await Promise.all([editor.boundingBox(), actions.boundingBox()]);
+
+        return !!writing && !!rail && writing.x + writing.width <= rail.x;
+      })
+      .toBe(true);
+    await expectScreenshot('desktop-right-rail', {
+      target: 'viewport',
+      zoomPercent: 100,
+      ready: async () => {
+        await expect(practice).toBeInViewport();
+        await expect(page.getByText(copy.NoteAutosaved, { exact: true })).toBeVisible();
+      }
+    });
+
+    await editor.fill(draft);
+    await practice.focus();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
+    await expect(editor).toHaveText(draft);
+    await expect(title).toHaveValue('Wetland survey');
+    await toggle.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(practice).toBeInViewport();
+    await practice.focus();
+    await page.keyboard.press('Escape');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
+    await expect(editor).toHaveText(draft);
+    await expect(page.getByText(copy.NoteAutosaved, { exact: true })).toBeVisible();
+
+    await toggle.press('Enter');
+    await practice.press('Enter');
+    await expect(page).toHaveURL(new RegExp(`/projects/${subject.id}/practice$`));
+    await expect(
+      page.getByRole('heading', { name: copy.PagesOverviewTitle, exact: true })
+    ).toBeVisible();
+  }
+);

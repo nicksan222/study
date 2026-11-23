@@ -5,8 +5,10 @@ import type { Page } from 'playwright';
 const copy = catalogs.english;
 
 async function openHistory(page: Page) {
-  await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
-  await page.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
+  await page
+    .getByRole('complementary', { name: copy.NoteContextPanel })
+    .getByRole('button', { name: copy.NoteHistory, exact: true })
+    .click();
 }
 
 test.browser.stable(
@@ -101,6 +103,10 @@ test.browser.stable(
     await page.getByRole('link', { name: copy.Projects, exact: true }).click();
     await expect(page).toHaveURL(/\/projects$/);
     await page.goBack();
+    const actions = page.getByRole('button', { name: copy.NoteActions, exact: true });
+
+    await expect(actions).toHaveAttribute('aria-expanded', 'false');
+    await actions.click();
     await openHistory(page);
     await card.click();
     await page.getByRole('button', { name: copy.VersionHistory, exact: true }).click();

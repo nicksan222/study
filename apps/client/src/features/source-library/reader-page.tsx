@@ -1,5 +1,5 @@
 import { sourceIdSchema, contentSnapshotIdSchema } from '@study/contracts';
-import { MaterialLibrary } from '@study/ui';
+import { MaterialLibrary, WorkspaceSurface } from '@study/ui';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
@@ -45,9 +45,13 @@ export function SourcePage() {
   );
 
   return uploads ? (
-    <EditableMaterial id={id} pinned={!!search.sourceSnapshot}>
-      {panel}
-    </EditableMaterial>
+    <WorkspaceSurface.Root variant="page">
+      <WorkspaceSurface.Content inset="none">
+        <EditableMaterial id={id} pinned={!!search.sourceSnapshot}>
+          {panel}
+        </EditableMaterial>
+      </WorkspaceSurface.Content>
+    </WorkspaceSurface.Root>
   ) : (
     <MaterialLibrary.Reader>{panel}</MaterialLibrary.Reader>
   );
