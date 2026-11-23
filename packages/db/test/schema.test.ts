@@ -38,6 +38,24 @@ async function fixture(
   await run(join(folder.path, 'study.db'));
 }
 
+async function previousMigrations(path: string, through: string) {
+  const current = Bun.fileURLToPath(new URL('../drizzle', import.meta.url));
+  const previous = join(dirname(path), 'previous-drizzle');
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      yield* fs.makeDirectory(previous);
+      const entries = yield* fs.readDirectory(current);
+
+      for (const entry of entries) {
+        if (entry <= through) yield* fs.copy(join(current, entry), join(previous, entry));
+      }
+    })
+  );
+
+  return previous;
+}
+
 test.unit.stable(
   'the Drizzle baseline initializes every modeled table and current code vocabulary',
   ({ expect, temporaryDirectory }) =>
@@ -73,6 +91,156 @@ test.unit.stable(
       const reopened = await Db.open(path);
 
       reopened.close();
+    })
+);
+
+test.unit.stable(
+  'upgrading removes note settlement data and preserves notes and display preferences',
+  ({ expect, temporaryDirectory }) =>
+    fixture({ temporaryDirectory }, async (path) => {
+      const previous = await previousMigrations(path, '20261120183146_practice_note_evidence');
+      const original = await Db.open(path, previous);
+
+      try {
+        const { id } = original.orm
+          .insert(schema.notes)
+          .values({ title: 'Saved note', title_source: 'user', created_at: 1n, updated_at: 2n })
+          .returning({ id: schema.notes.id })
+          .get();
+
+        original.orm.run(sql`INSERT INTO note_sidebar_preferences VALUES (${id}, 1)`);
+        original.orm
+          .insert(schema.preferences)
+          .values([
+            { scope: 'sidebar', key: 'settledPageThreshold', value: '7' },
+            { scope: 'appearance', key: 'showNoteComposer', value: 'false' },
+            { scope: 'appearance', key: 'noteWidth', value: '"wide"' },
+            { scope: 'workspace', key: 'sidebarShowPageCounts', value: 'false' },
+            { scope: 'workspace', key: 'sidebarTimeFormat', value: '"absolute"' }
+          ])
+          .run();
+      } finally {
+        original.close();
+      }
+
+      const upgraded = await Db.open(path);
+
+      try {
+        expect(
+          upgraded.orm.all(
+            sql`SELECT name FROM sqlite_schema WHERE name = 'note_sidebar_preferences'`
+          )
+        ).toEqual([]);
+        expect(
+          upgraded.orm
+            .select()
+            .from(schema.preferences)
+            .where(eq(schema.preferences.scope, 'sidebar'))
+            .all()
+        ).toEqual([]);
+        expect(
+          upgraded.orm
+            .select()
+            .from(schema.preferences)
+            .where(eq(schema.preferences.scope, 'appearance'))
+            .all()
+        ).toEqual([{ scope: 'appearance', key: 'noteWidth', value: '"wide"' }]);
+        expect(
+          upgraded.orm
+            .select()
+            .from(schema.preferences)
+            .where(eq(schema.preferences.scope, 'workspace'))
+            .get()
+        ).toEqual({ scope: 'workspace', key: 'sidebarTimeFormat', value: '"absolute"' });
+        expect(upgraded.orm.select({ title: schema.notes.title }).from(schema.notes).all()).toEqual(
+          [{ title: 'Saved note' }]
+        );
+        expect(upgraded.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+      } finally {
+        upgraded.close();
+      }
+    })
+);
+
+test.unit.stable(
+  'upgrading preserves a historical attachment in all its Materials subjects',
+  ({ expect, temporaryDirectory }) =>
+    fixture({ temporaryDirectory }, async (path) => {
+      const previous = await previousMigrations(path, '20261121085327_remove_note_settlement');
+      const original = await Db.open(path, previous);
+      const bytes = Buffer.from('Original file contents');
+
+      try {
+        const ids = original.orm
+          .insert(schema.projects)
+          .values([
+            { name: 'Biology', created_at: 1n, updated_at: 1n },
+            { name: 'History', created_at: 1n, updated_at: 1n }
+          ])
+          .returning({ id: schema.projects.id })
+          .all();
+        const note = original.orm
+          .insert(schema.notes)
+          .values({ title: 'Saved note', title_source: 'user', created_at: 1n, updated_at: 1n })
+          .returning({ id: schema.notes.id })
+          .get();
+        const source = original.orm
+          .insert(schema.sources)
+          .values({
+            origin: 'attachment',
+            kind: 'text',
+            mime: 'text/plain',
+            name: 'original.txt',
+            size_bytes: BigInt(bytes.length),
+            sha256: Buffer.alloc(32),
+            created_at: 1n
+          })
+          .returning({ id: schema.sources.id })
+          .get();
+
+        original.orm.insert(schema.source_blobs).values({ source_id: source.id, bytes }).run();
+        original.orm
+          .insert(schema.project_notes)
+          .values(ids.map(({ id }) => ({ project_id: id, note_id: note.id })))
+          .run();
+        original.orm
+          .insert(schema.note_sources)
+          .values({ note_id: note.id, source_id: source.id, archived_at: 2n, position: 0n })
+          .run();
+        original.orm
+          .insert(schema.preferences)
+          .values([
+            { scope: 'workspace', key: 'submitOnEnter', value: 'true' },
+            { scope: 'workspace', key: 'spellcheck', value: 'false' }
+          ])
+          .run();
+      } finally {
+        original.close();
+      }
+
+      const upgraded = await Db.open(path);
+
+      try {
+        expect(
+          upgraded.orm
+            .select()
+            .from(schema.project_sources)
+            .orderBy(schema.project_sources.project_id)
+            .all()
+        ).toEqual([
+          { project_id: 1n, source_id: 1n },
+          { project_id: 2n, source_id: 1n }
+        ]);
+        expect(upgraded.orm.select().from(schema.sources).get()?.project_id).toBeNull();
+        expect(upgraded.orm.select().from(schema.source_blobs).get()?.bytes).toEqual(bytes);
+        expect(upgraded.orm.select().from(schema.note_sources).get()?.archived_at).toBe(2n);
+        expect(upgraded.orm.select().from(schema.preferences).all()).toEqual([
+          { scope: 'workspace', key: 'spellcheck', value: 'false' }
+        ]);
+        expect(upgraded.orm.all(sql.raw('PRAGMA foreign_key_check'))).toEqual([]);
+      } finally {
+        upgraded.close();
+      }
     })
 );
 

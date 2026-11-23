@@ -1,4 +1,4 @@
-import type { NoteId, VersionId, SourceId, chatMessageSchema, PageSummary } from '@study/contracts';
+import type { NoteId, VersionId, chatMessageSchema, PageSummary } from '@study/contracts';
 import { HistoryIcon } from '@study/icons';
 import {
   Button,
@@ -23,7 +23,6 @@ import type { ReactNode } from 'react';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { ArchiveMenuItem } from './archive-menu-item';
-import { AttachmentCards } from './attachment-cards';
 import { ItemContextMenu } from './item-context-menu';
 import { ItemDeletionMenu } from './item-deletion-menu';
 import type { ItemDeletionActions } from './item-deletion-menu';
@@ -52,7 +51,6 @@ type HistoryProps = {
   activePage?: string;
   pages?: readonly PageSummary[];
   onOpenPage?: (material: PageSummary) => void;
-  onOpenSource?: (source: { id: SourceId; name: string }) => void;
   activeAuthoredPage?: string;
   capture?: ReactNode;
 };
@@ -76,7 +74,6 @@ function HistoryContent({
   activePage,
   pages = [],
   onOpenPage,
-  onOpenSource,
   activeAuthoredPage,
   capture,
   state
@@ -127,13 +124,7 @@ function HistoryContent({
                 active={String(entry.page.id) === activeAuthoredPage}
               />
             ) : (
-              <HistoryMessage
-                message={entry.message}
-                onOpen={onOpen}
-                activePage={activePage}
-                onOpenSource={onOpenSource}
-                indexAnchors
-              />
+              <HistoryMessage message={entry.message} onOpen={onOpen} activePage={activePage} />
             )}
           </Notebook.IndexTarget>
         ))}
@@ -154,15 +145,11 @@ function timelineKey(entry: ReturnType<typeof notebookTimeline>[number] | undefi
 function HistoryMessage({
   message,
   onOpen,
-  activePage,
-  onOpenSource,
-  indexAnchors
+  activePage
 }: {
   message: Message;
   onOpen?: (message: Message) => void;
   activePage?: string;
-  indexAnchors?: boolean;
-  onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
   return message.format === 'document' && onOpen ? (
     <PageEntry
@@ -171,7 +158,7 @@ function HistoryMessage({
       active={(message.captureKey ?? String(message.id)) === activePage}
     />
   ) : (
-    <MessageEntry message={message} onOpenSource={onOpenSource} indexAnchors={indexAnchors} />
+    <MessageEntry message={message} />
   );
 }
 
@@ -226,16 +213,8 @@ function PageEntry({
   );
 }
 
-/** Renders the selected note version while preserving attachments, citations and pending work. */
-function MessageEntry({
-  message,
-  onOpenSource,
-  indexAnchors
-}: {
-  message: Message;
-  indexAnchors?: boolean;
-  onOpenSource?: (source: { id: SourceId; name: string }) => void;
-}) {
+/** Renders the selected note version and its historical evidence. */
+function MessageEntry({ message }: { message: Message }) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<VersionId>();
   const version =
@@ -257,14 +236,6 @@ function MessageEntry({
           onActive={() => setSelected(undefined)}
           onVersionChange={setSelected}
           citations={citations.items}
-        />
-      )}
-      {message.parts.length > 0 && (
-        <AttachmentCards
-          noteId={message.noteId}
-          parts={message.parts}
-          onOpenSource={onOpenSource}
-          indexNoteId={indexAnchors ? message.noteId : undefined}
         />
       )}
       <MessageSources key={String(contentVersion?.id)} citations={citations.items} />
@@ -300,8 +271,6 @@ function messageEntryLabel(message: Message, version: Message['versions'][number
   if (isQuestionVersion(message, version?.id)) return 'NoteQuestion';
 
   if (message.role === 'assistant' || version?.origin === 'answer') return 'NoteAnswer';
-
-  if (!version?.text.trim() && message.parts.length > 0) return 'NoteEntryAttachment';
 
   return 'NoteEntryNote';
 }

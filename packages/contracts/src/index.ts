@@ -367,7 +367,14 @@ export type {
 } from './notes/messages.ts';
 export { newMessageSchema } from './notes/messages.ts';
 export type { Note, TitleSource } from './notes/notes.ts';
-export { copyNoteContentSchema, recordingCopySchema } from './notes/notes.ts';
+export {
+  copyNoteContentSchema,
+  notebookBodyCaptureKey,
+  noteBodyInputSchema,
+  noteBodySchema,
+  recordingCopySchema,
+  saveNoteBodyInputSchema
+} from './notes/notes.ts';
 export {
   assistantAskInputSchema,
   countNotesInputSchema,
@@ -386,7 +393,6 @@ export {
   postMessageInputSchema,
   renameNoteInputSchema,
   setActiveVersionInputSchema,
-  setNoteSettledInputSchema,
   threadInputSchema,
   threadPageSchema,
   transformSuggestionInputSchema,
@@ -603,7 +609,6 @@ export {
   maxAgentRuleLength,
   quizSettingsSchema,
   reviewSettingsSchema,
-  sidebarSettingsSchema,
   tierSetupSchema,
   workspacePreferencesSchema
 } from './settings/schemas.ts';
@@ -616,7 +621,6 @@ export type {
   MaterialSettings,
   QuizSettings,
   ReviewSettings,
-  SidebarSettings,
   SpecializedPracticeKind,
   TierSetup,
   WorkspacePreferences
@@ -627,7 +631,6 @@ export {
   defaultAppearancePreferences,
   defaultConcurrencySettings,
   defaultQuizSettings,
-  defaultSidebarSettings,
   defaultWorkspacePreferences,
   Language,
   chatGptModelIds,

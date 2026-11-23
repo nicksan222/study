@@ -1,12 +1,5 @@
 import type { NoteId } from '@study/contracts';
-import {
-  AnswerQuestionIcon,
-  AttachmentIcon,
-  BulletListIcon,
-  ComposeIcon,
-  PageIcon,
-  ReplyIcon
-} from '@study/icons';
+import { AnswerQuestionIcon, BulletListIcon, ComposeIcon, PageIcon, ReplyIcon } from '@study/icons';
 import { Button, Loading, WorkspaceAttachments } from '@study/ui';
 import { useLayoutEffect, useState } from 'react';
 
@@ -98,14 +91,6 @@ function OutlineIcon({ entry }: { entry: ReturnType<typeof notebookTimeline>[num
 
   if (entry.message.question?.kind === 'question') return <AnswerQuestionIcon aria-hidden="true" />;
 
-  if (
-    !entry.message.versions.some(
-      (version) => version.id === entry.message.activeVersionId && version.text.trim()
-    ) &&
-    entry.message.parts.length > 0
-  )
-    return <AttachmentIcon aria-hidden="true" />;
-
   return <ComposeIcon aria-hidden="true" />;
 }
 
@@ -136,15 +121,13 @@ function OutlineLabel({ entry }: { entry: ReturnType<typeof notebookTimeline>[nu
   const message = entry.message;
   const version = message.versions.find((item) => item.id === message.activeVersionId);
   const title = messageSectionTitle(message);
-  const fallback =
-    message.parts[0]?.sourceName ||
-    t(
-      message.format === 'document'
-        ? 'NoteNewPage'
-        : message.role === 'assistant'
-          ? 'NoteReply'
-          : 'NoteNote'
-    );
+  const fallback = t(
+    message.format === 'document'
+      ? 'NoteNewPage'
+      : message.role === 'assistant'
+        ? 'NoteReply'
+        : 'NoteNote'
+  );
 
   return title ?? <NoteSummary value={version?.text ?? ''} fallback={fallback} />;
 }

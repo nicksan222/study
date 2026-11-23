@@ -37,8 +37,6 @@ export const SettingsRpcLive = defineRpc(
     'settings.saveQuizSettings': settings.saveQuizSettings,
     'settings.workspacePreferences': () => settings.workspacePreferences(),
     'settings.saveWorkspacePreferences': settings.saveWorkspacePreferences,
-    'settings.sidebarSettings': () => settings.sidebarSettings(),
-    'settings.saveSidebarSettings': settings.saveSidebarSettings,
     'settings.concurrencySettings': () => settings.concurrencySettings(),
     'settings.saveConcurrencySettings': (input) =>
       settings

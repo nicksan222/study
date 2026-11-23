@@ -14,6 +14,7 @@ import { test } from '@study/testing';
 import { toastManager } from '@study/ui';
 import {
   createMemoryHistory,
+  createRoute,
   createRootRoute,
   createRouter,
   stringifySearchWith,
@@ -25,6 +26,7 @@ import type { ReactNode } from 'react';
 
 import type * as __MockType0 from '../document-editing/test-support';
 import type * as __MockType1 from '../material-library/test/support';
+import type * as BodyAutosave from './body-autosave.queries';
 import type * as __MockType6 from './deletion';
 import type * as __MockType7 from './history';
 import type * as __MockType2 from './start-drafts.queries';
@@ -34,6 +36,8 @@ import type * as __MockType10 from './workspace';
 let authoredPage: typeof __MockType0.authoredPage;
 
 let deferred: typeof __MockType1.deferred;
+
+let starterTransfer: typeof BodyAutosave.starterTransfer;
 
 let startDraft: typeof __MockType2.startDraft;
 
@@ -127,6 +131,8 @@ function testFixture(
       'notes.updateNoteSelection': rpc.updateSelection,
       'notes.inspectNoteContext': rpc.context,
       'notes.thread': rpc.thread,
+      'notes.body': rpc.body,
+      'notes.saveBody': rpc.saveBody,
       'pages.pages': rpc.materials,
       'pages.version': rpc.version,
       'pages.versions': () => Effect.succeed({ items: [], nextCursor: null }),
@@ -176,8 +182,10 @@ function mount(
     validateSearch: (value) => value as { id?: string; project?: string },
     component: () => <Provider>{children}</Provider>
   });
+  const notes = createRoute({ getParentRoute: () => root, path: '/notes' });
+  const saved = createRoute({ getParentRoute: () => notes, path: '$noteId' });
   const router = createRouter({
-    routeTree: root,
+    routeTree: root.addChildren([notes.addChildren([saved])]),
     parseSearch: (value) => Object.fromEntries(new URLSearchParams(value)),
     stringifySearch: stringifySearchWith(String),
     history: createMemoryHistory({ initialEntries: [`${path}${search}`] })
@@ -208,6 +216,8 @@ function createMockState(mock: test.Mock) {
       executions: mock.fn(),
       context: mock.fn(),
       thread: mock.fn(),
+      body: mock.fn(),
+      saveBody: mock.fn(),
       materials: mock.fn(),
       version: mock.fn(),
       document: mock.fn()
@@ -230,6 +240,7 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule1 = await import('../material-library/test/support');
 
   deferred = __mockModule1.deferred;
+  ({ starterTransfer } = await import('./body-autosave.queries'));
   const __mockModule2 = await import('./start-drafts.queries');
 
   startDraft = __mockModule2.startDraft;
@@ -266,6 +277,8 @@ test.unit.beforeEach(({ vi }) => {
   rpc.selection.mockResolvedValue(selection());
   rpc.executions.mockResolvedValue({ items: [], next: null });
   rpc.thread.mockResolvedValue({ items: [], next: null });
+  rpc.body.mockResolvedValue({ text: '', versionId: null });
+  rpc.saveBody.mockImplementation(async ({ text }) => ({ text, versionId: 1n }));
   rpc.materials.mockResolvedValue({ items: [], nextCursor: null });
   rpc.version.mockImplementation(({ id }) => pickerPage(id).version);
   rpc.document.mockImplementation(() => pickerPage());
@@ -281,7 +294,9 @@ test.unit.beforeEach(({ vi }) => {
     excludedMessages: 0
   });
 });
-test.unit.afterEach(({ vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
+  cleanup();
+  window.sessionStorage.clear();
   vi.restoreAllMocks();
 
   for (const client of caches.splice(0)) client.dispose();
@@ -314,11 +329,14 @@ test.unit.stable.for(['pending', 'failed', 'completed'] as const)(
       await waitFor(() => expect(rpc.retryDeletion).toHaveBeenCalledWith({ id }));
       await screen.findByText('NoteDeleting');
     } else {
-      await screen.findByText(status === 'pending' ? 'NoteDeleting' : 'NoteNotesTitle');
+      if (status === 'pending') await screen.findByText('NoteDeleting');
 
       if (status === 'completed') {
         expect(screen.queryByText('NoteDeleteHelp')).not.toBeInTheDocument();
-        expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toBeEnabled();
+        expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toHaveAttribute(
+          'contenteditable',
+          'true'
+        );
         await waitFor(() => expect(view.router.state.location.pathname).toBe('/notes'));
         expect(view.router.state.location.search).toEqual({ project: '42' });
       }
@@ -337,15 +355,11 @@ test.unit.stable(
     rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
     const first = mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
 
-    fireEvent.change(await openStarterComposer({ waitFor, screen, fireEvent }), {
-      target: { value: 'First capture' }
-    });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    editNotebook(await screen.findByRole('textbox', { name: 'NoteCompose' }), 'First capture');
     await screen.findByText('NoteCreationUncertain');
     first.unmount();
     mount({ render, rpcHandlersTransport }, <NoteWorkspace />, first.client);
-    expect(await screen.findByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    await screen.findByText('NoteCreationUncertain');
     expect(screen.queryByRole('button', { name: 'NoteCreationReviewed' })).not.toBeInTheDocument();
     await waitFor(() => expect(rpc.notes.mock.calls.length).toBeGreaterThanOrEqual(2));
     await waitFor(() =>
@@ -360,9 +374,7 @@ test.unit.stable(
     expect(screen.queryByRole('button', { name: 'NoteCreationReviewed' })).not.toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'LibraryRefresh' })[0]!);
     fireEvent.click(await screen.findByRole('button', { name: 'NoteCreationReviewed' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
     expect(rpc.create).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
     await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(2));
   }
 );
@@ -372,15 +384,13 @@ test.unit.stable(
   async ({ fireEvent, waitFor, expect, screen, render, rpcHandlersTransport }) => {
     rpc.create.mockRejectedValue(new StudyError('invalid_input', 'Rejected before commit'));
     mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
-    fireEvent.change(await openStarterComposer({ waitFor, screen, fireEvent }), {
-      target: { value: 'First capture' }
-    });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await screen.findByRole('alert');
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled();
+    editNotebook(await screen.findByRole('textbox', { name: 'NoteCompose' }), 'First capture');
+    const retry = await screen.findByRole('button', { name: 'NoteRetrySave' });
+
     expect(screen.queryByText('NoteCreationUncertain')).not.toBeInTheDocument();
     expect(rpc.create).toHaveBeenCalledTimes(1);
+    fireEvent.click(retry);
+    await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(2));
   }
 );
 
@@ -751,7 +761,7 @@ test.unit.stable(
 
 test.unit.stable(
   'starts from a notebook draft, retaining later typing until creation is confirmed',
-  async ({ fireEvent, waitFor, expect, screen, act, render, rpcHandlersTransport }) => {
+  async ({ waitFor, expect, screen, act, render, rpcHandlersTransport }) => {
     const creation = deferred<typeof noteSchema.Type>();
 
     rpc.create.mockReturnValue(creation.promise);
@@ -763,51 +773,51 @@ test.unit.stable(
       updatedAt: 1n
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
-    const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
-    const input = await openStarterComposer({ waitFor, screen, fireEvent });
+    const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace />, cache(), '', '/notes');
+    const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
-    fireEvent.change(input, { target: { value: 'Cell cycle lecture' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    fireEvent.change(input, { target: { value: 'Cell cycle lecture — checkpoint question' } });
-    await act(async () => creation.resolve({ id } as typeof noteSchema.Type));
+    editNotebook(input, 'Cell cycle lecture');
+    await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
+    editNotebook(input, 'Cell cycle lecture — checkpoint question');
     await waitFor(() =>
       expect(view.client.get(startDraft(startDraftKey()))).toBe(
         'Cell cycle lecture — checkpoint question'
       )
     );
+    await act(async () => creation.resolve({ id } as typeof noteSchema.Type));
+    await waitFor(() => expect(view.router.state.location.pathname).toBe(`/notes/${id}`));
+    expect(view.client.get(starterTransfer(id))).toMatchObject({
+      submitted: 'Cell cycle lecture',
+      text: 'Cell cycle lecture — checkpoint question'
+    });
     expect(rpc.create).toHaveBeenCalledExactlyOnceWith({
       project: undefined,
-      initialMessage: { text: 'Cell cycle lecture' }
+      initialMessage: { text: 'Cell cycle lecture', notebookBody: true }
     });
   }
 );
 
 test.unit.stable(
   'retains the start draft through an uncertain creation and remount',
-  async ({ fireEvent, waitFor, expect, screen, render, rpcHandlersTransport }) => {
+  async ({ expect, screen, render, rpcHandlersTransport }) => {
     rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
     const first = mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
 
-    fireEvent.change(await openStarterComposer({ waitFor, screen, fireEvent }), {
-      target: { value: 'Keep these notes' }
-    });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    editNotebook(await screen.findByRole('textbox', { name: 'NoteCompose' }), 'Keep these notes');
     await screen.findByText('NoteCreationUncertain');
     first.unmount();
     mount({ render, rpcHandlersTransport }, <NoteWorkspace />, first.client);
-    expect(await openStarterComposer({ waitFor, screen, fireEvent })).toHaveValue(
+    expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toHaveTextContent(
       'Keep these notes'
     );
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    await screen.findByText('NoteCreationUncertain');
     expect(rpc.create).toHaveBeenCalledTimes(1);
   }
 );
 
 test.unit.stable(
   'replaces a failed note landing page with the shared error state and recovers on retry',
-  async ({ screen, expect, within, fireEvent, render, rpcHandlersTransport, waitFor }) => {
+  async ({ screen, expect, within, fireEvent, render, rpcHandlersTransport }) => {
     rpc.notes.mockRejectedValue(new StudyError('transient', 'Offline'));
     mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
     const alert = await screen.findByRole('alert', { name: 'NoteReadErrorTitle' });
@@ -816,29 +826,36 @@ test.unit.stable(
     expect(screen.queryByRole('textbox', { name: 'NoteCompose' })).not.toBeInTheDocument();
     rpc.notes.mockResolvedValue({ items: [], next: null });
     fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
-    expect(await openStarterComposer({ waitFor, screen, fireEvent })).toBeVisible();
+    expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toBeVisible();
   }
 );
 
 test.unit.stable(
-  'fences repeated start shortcuts before the creation receipt arrives',
-  async ({ fireEvent, waitFor, expect, screen, render, rpcHandlersTransport }) => {
+  'keeps one autosave in flight while the first creation receipt is pending',
+  async ({ act, vi, waitFor, expect, screen, render, rpcHandlersTransport }) => {
     rpc.create.mockReturnValue(new Promise(() => {}));
-    mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
-    const input = await openStarterComposer({ waitFor, screen, fireEvent });
+    const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
+    const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
-    fireEvent.change(input, { target: { value: 'First capture' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
-    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
+    editNotebook(input, 'First capture');
     await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    try {
+      await act(async () => editNotebook(input, 'First capture with another line'));
+      expect(view.client.get(startDraft(startDraftKey()))).toBe('First capture with another line');
+      await act(async () => vi.advanceTimersByTimeAsync(1_000));
+      expect(screen.getByText('NoteAutosaving')).toBeVisible();
+      expect(rpc.create).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   }
 );
 
 test.unit.stable(
-  'keeps the active composer mounted while a missing deletion receipt is refreshed',
-  async ({ screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
+  'keeps the notebook editor mounted while a missing deletion receipt is refreshed',
+  async ({ screen, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
       id,
       title: 'Notebook',
@@ -849,9 +866,10 @@ test.unit.stable(
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
 
-    const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
+    const input = await screen.findByRole('textbox', { name: 'NotePageEditor' });
 
-    fireEvent.change(input, { target: { value: 'Keep writing during refresh' } });
+    editNotebook(input, 'Keep writing during refresh');
+    await screen.findByText('NoteAutosavePending');
 
     await waitFor(() => expect(rpc.deletion).toHaveBeenCalled());
 
@@ -868,25 +886,27 @@ test.unit.stable(
       refresh = view.notify().then(() => {});
     });
     await waitFor(() => expect(rpc.deletion.mock.calls.length).toBeGreaterThan(1));
-    expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toBe(input);
-    expect(input).toHaveValue('Keep writing during refresh');
+    expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(input);
+    expect(input).toHaveTextContent('Keep writing during refresh');
+    await screen.findByText('NoteAutosavePending');
 
     await act(async () => {
       receipt.resolve(undefined);
       await refresh;
     });
-    expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toBe(input);
-    expect(input).toHaveValue('Keep writing during refresh');
+    expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(input);
+    expect(input).toHaveTextContent('Keep writing during refresh');
     const reads = rpc.deletion.mock.calls.length;
 
     await act(async () => {});
     expect(rpc.deletion).toHaveBeenCalledTimes(reads);
+    await drainNotebookSave({ act, screen });
   }
 );
 
 test.unit.stable(
   'blocks editing after a failed deletion refresh despite a cached missing receipt',
-  async ({ screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
+  async ({ screen, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
       id,
       title: 'Notebook',
@@ -897,23 +917,27 @@ test.unit.stable(
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
 
-    const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
+    const input = await screen.findByRole('textbox', { name: 'NotePageEditor' });
 
-    fireEvent.change(input, { target: { value: 'Retained while status is unknown' } });
+    editNotebook(input, 'Retained while status is unknown');
+    await screen.findByText('NoteAutosavePending');
 
     await waitFor(() => expect(rpc.deletion).toHaveBeenCalled());
     rpc.deletion.mockRejectedValue(new StudyError('transient', 'Receipt read unavailable'));
     await act(async () => {
       await view.notify().then(() => {});
     });
-    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'NoteCompose' })).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'NotePageEditor' })).toBeNull()
+    );
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     await act(async () => {
       await view.notify().then(() => {});
     });
-    expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toHaveValue(
+    expect(await screen.findByRole('textbox', { name: 'NotePageEditor' })).toHaveTextContent(
       'Retained while status is unknown'
     );
+    await drainNotebookSave({ act, screen });
   }
 );
 
@@ -979,7 +1003,7 @@ test.unit.stable(
     );
 
     await waitFor(() =>
-      expect(view.container.querySelector('.note-canvas textarea')).not.toBeNull()
+      expect(view.container.querySelector('[contenteditable="true"]')).not.toBeNull()
     );
     const dialog = screen.getByRole('alertdialog');
 
@@ -988,13 +1012,15 @@ test.unit.stable(
     });
     fireEvent.click(await within(dialog).findByRole('button', { name: 'NoteConfirmDelete' }));
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
-    await waitFor(() => expect(view.container.querySelector('.note-canvas textarea')).toBeNull());
+    await waitFor(() =>
+      expect(view.container.querySelector('[contenteditable="true"]')).toBeNull()
+    );
   }
 );
 
 test.unit.stable.for(['', '?project=9007199254740997'])(
   'uses the active note authoritative owner in the direct path breadcrumb %s',
-  async (search, { screen, expect, within, render, rpcHandlersTransport }) => {
+  async (search, { screen, expect, within, fireEvent, render, rpcHandlersTransport }) => {
     const owner = Schema.decodeUnknownSync(projectSchema)({
       id: 9007199254740995n,
       name: 'Biology',
@@ -1027,11 +1053,12 @@ test.unit.stable.for(['', '?project=9007199254740997'])(
       `/notes/${id}`
     );
 
-    await screen.findByRole('heading', { name: 'Cell division' });
+    expect(await screen.findByRole('textbox', { name: 'NoteName' })).toHaveValue('Cell division');
     const header = view.container.querySelector('.study-workspace-header')!;
 
     expect(within(header as HTMLElement).getByText('Biology')).toBeVisible();
     expect(within(header as HTMLElement).queryByText('History')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
     const context = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
 
     expect(within(context).queryByRole('combobox')).toBeNull();
@@ -1041,7 +1068,7 @@ test.unit.stable.for(['', '?project=9007199254740997'])(
 
 test.unit.stable(
   'keeps notebook actions in the context card',
-  async ({ screen, expect, within, render, rpcHandlersTransport }) => {
+  async ({ screen, expect, within, fireEvent, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
       id,
       title: 'Notebook',
@@ -1051,6 +1078,8 @@ test.unit.stable(
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteActions' }));
     const panel = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
 
     expect(within(panel).getByRole('button', { name: 'NoteArchived' })).toBeInTheDocument();
@@ -1082,7 +1111,7 @@ test.unit.stable(
     );
 
     await waitFor(() =>
-      expect(view.container.querySelector('.note-canvas textarea')).not.toBeNull()
+      expect(view.container.querySelector('[contenteditable="true"]')).not.toBeNull()
     );
 
     await waitFor(() => expect(rpc.deletion).toHaveBeenCalled());
@@ -1095,7 +1124,7 @@ test.unit.stable(
     fireEvent.click(within(dialog).getByRole('button', { name: 'NoteConfirmDelete' }));
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
     await waitFor(() => expect(screen.queryByText('NoteDeleting')).toBeNull());
-    expect(view.container.querySelector('.note-canvas textarea')).toBeNull();
+    expect(view.container.querySelector('[contenteditable="true"]')).toBeNull();
     view.unmount();
     const remounted = mount(
       { render, rpcHandlersTransport },
@@ -1104,7 +1133,7 @@ test.unit.stable(
     );
 
     await act(async () => {});
-    expect(remounted.container.querySelector('.note-canvas textarea')).toBeNull();
+    expect(remounted.container.querySelector('[contenteditable="true"]')).toBeNull();
   }
 );
 
@@ -1167,6 +1196,7 @@ test.unit.stable(
     const notify = vi.spyOn(toastManager, 'add');
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
 
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteActions' }));
     fireEvent.click(await screen.findByRole('button', { name: 'NoteDelete' }));
     const dialog = within(await screen.findByRole('alertdialog'));
 
@@ -1189,7 +1219,7 @@ test.unit.stable(
 
     rpc.deletion.mockResolvedValue(receipt);
     await act(async () => completion.resolve(receipt));
-    await screen.findByText('NoteNotesTitle');
+    await screen.findByRole('textbox', { name: 'NoteCompose' });
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(notify).toHaveBeenCalledExactlyOnceWith({ title: 'NoteDeleted', type: 'success' });
     await waitFor(() => expect(view.router.state.location.pathname).toBe('/notes'));
@@ -1197,18 +1227,16 @@ test.unit.stable(
   }
 );
 
-async function openStarterComposer({
-  waitFor,
-  screen,
-  fireEvent
-}: Pick<test.unit.Context, 'waitFor' | 'screen' | 'fireEvent'>) {
-  const entry = await waitFor(
-    () =>
-      screen.queryByRole('textbox', { name: 'NoteCompose' }) ??
-      screen.getByRole('button', { name: 'NoteStartWithNote' })
-  );
+function editNotebook(input: HTMLElement, text: string) {
+  const paragraph = document.createElement('p');
 
-  if (entry.tagName === 'BUTTON') fireEvent.click(entry);
+  paragraph.textContent = text;
+  input.replaceChildren(paragraph);
+}
 
-  return screen.findByRole('textbox', { name: 'NoteCompose' });
+async function drainNotebookSave({ act, screen }: Pick<test.unit.Context, 'act' | 'screen'>) {
+  await act(async () => {
+    window.dispatchEvent(new Event('pagehide'));
+  });
+  await screen.findByText('NoteAutosaved');
 }

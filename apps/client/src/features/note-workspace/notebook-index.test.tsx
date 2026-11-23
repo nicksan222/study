@@ -90,7 +90,6 @@ function Notebook() {
       pages={pages.data?.items}
       onOpen={() => undefined}
       onOpenPage={() => undefined}
-      onOpenSource={() => undefined}
     />
   );
 }
@@ -103,7 +102,7 @@ function mount(
   return render(
     <Provider rpcHandlersTransport={rpcHandlersTransport}>
       {board && <Notebook />}
-      <WorkspaceContext id={noteId} onOpenSource={() => undefined} />
+      {noteId && <WorkspaceContext id={noteId} />}
     </Provider>
   );
 }
@@ -153,24 +152,22 @@ test.unit.afterEach(({ cleanup, vi }) => {
 });
 
 test.unit.stable(
-  'shows a starter index hint without fetching note content',
-  ({ expect, screen, render, rpcHandlersTransport }) => {
-    mount({ render, rpcHandlersTransport });
-    expect(screen.getByText('NoteAttachmentsStart')).toBeVisible();
-    expect(rpc.thread).not.toHaveBeenCalled();
-    expect(rpc.materials).not.toHaveBeenCalled();
-  }
-);
-test.unit.stable(
-  'jumps and focuses actual rendered note, attachment and document targets without preview dialogs',
+  'keeps mixed captures and authored documents navigable while hiding attachment-only captures',
   async ({ screen, within, expect, vi, userEvent, render, rpcHandlersTransport }) => {
     const attached = Schema.decodeUnknownSync(chatMessageSchema)({
       ...message,
       parts: [{ id: 101n, sourceId: 201n, sourceName: 'Lecture notes.pdf', sourceKind: 'pdf' }]
     });
 
+    const fileOnly = Schema.decodeUnknownSync(chatMessageSchema)({
+      ...attached,
+      id: 97n,
+      parts: [{ id: 103n, sourceId: 203n, sourceName: 'Only a file.pdf', sourceKind: 'pdf' }],
+      versions: attached.versions.map((version) => ({ ...version, text: '' }))
+    });
+
     rpc.thread.mockResolvedValue({
-      items: [attached, attached, { ...message, noteId: other, id: 99n }],
+      items: [fileOnly, attached, attached, { ...message, noteId: other, id: 99n }],
       next: null
     });
     rpc.materials.mockResolvedValue({
@@ -180,7 +177,7 @@ test.unit.stable(
     mount({ render, rpcHandlersTransport }, id, true);
     const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
 
-    for (const name of ['Current note', 'Lecture notes.pdf', 'Study outline']) {
+    for (const name of ['Current note', 'Study outline']) {
       const link = await within(index).findByRole('button', { name });
       const target = document.getElementById(link.getAttribute('data-target')!)!;
 
@@ -197,17 +194,15 @@ test.unit.stable(
       expect(target).toHaveFocus();
     }
 
-    expect(within(index).getAllByRole('button')).toHaveLength(3);
+    expect(within(index).getAllByRole('button')).toHaveLength(2);
     expect(within(index).queryByText('Original note')).toBeNull();
     expect(within(index).queryByText('Different branch')).toBeNull();
     const card = screen.getByRole('complementary', { name: 'NoteContextPanel' });
 
     expect(within(card).queryByText('Current note')).toBeNull();
     expect(within(card).queryByText('Original note')).toBeNull();
-    expect(within(card).getByRole('button', { name: 'Lecture notes.pdf' })).toBeVisible();
-    expect(within(card).getByRole('button', { name: 'NoteOpenPage' })).toHaveTextContent(
-      'Study outline'
-    );
+    expect(screen.queryByText('Lecture notes.pdf')).toBeNull();
+    expect(screen.queryByText('Only a file.pdf')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(rpc.generations).not.toHaveBeenCalled();
   }
@@ -248,9 +243,9 @@ test.unit.stable(
   'does not claim an empty index while data is pending or has failed',
   async ({ expect, screen, render, rpcHandlersTransport }) => {
     rpc.thread.mockRejectedValue(new Error('Read failed'));
-    mount({ render, rpcHandlersTransport }, id);
+    mount({ render, rpcHandlersTransport }, id, true);
     expect(await screen.findByRole('alert')).toBeVisible();
-    expect(screen.queryByText('NoteAttachmentsEmpty')).toBeNull();
+    expect(screen.queryByText('NoteNotebookEmpty')).toBeNull();
   }
 );
 

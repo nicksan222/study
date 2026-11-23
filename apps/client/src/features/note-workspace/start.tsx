@@ -4,43 +4,33 @@ import type { NoteId } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import {
   Button,
-  ComposerSurface,
   Loading,
-  Notebook,
   NoteStarter,
   StatusMessage,
-  WorkspaceCard,
   WorkspaceSurface,
+  WritingSurface,
   WorkspaceDeskSurface as Desk
 } from '@study/ui';
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { Effect, Schema } from 'effect';
-import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
 
-import {
-  DictationButton,
-  DictationSubmissionScope,
-  useDictationSubmission,
-  useTextDictation
-} from '#client/features/voice/index.ts';
+import { DictationSubmissionScope, useDictationSubmission } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
-import { isNoteSubmit } from './draft';
+import { starterTransfer } from './body-autosave.queries';
+import { NoteEditor } from './note-editor';
 import { useNoteList } from './note-reads';
 import { NoteWindowNavigation } from './note-window-navigation';
-import { NotebookHeading } from './notebook-heading';
 import {
   startDraftKey,
   startDraft,
   openStartDraft,
-  finishStartDraft
+  dismissStartDraft
 } from './start-drafts.queries';
 import { creationFlow, startNote } from './start.queries';
 import { NoteError, NoteReadError } from './status';
-import { usePhoneLayout } from './use-phone-layout';
-import { WorkspaceContext } from './workspace-context';
 import { WorkspaceHeader } from './workspace-header';
 
 /** One unsent starter draft is cached independently for each subject. */
@@ -57,11 +47,81 @@ function useStartDraft(project: string | undefined) {
   return { draftKey, draft };
 }
 
-/** Creation owns the shared uncertainty fence and transfers only the submitted draft keys. */
-
-function useNoteStart() {
+function useStarterNavigation(
+  scope: string | undefined,
+  submission: ReturnType<typeof useDictationSubmission>
+) {
   const cache = useContext(RegistryContext);
   const navigate = useNavigate();
+  const router = useRouter();
+  const deferred = useRef<{ id: NoteId; scope: string | null } | undefined>(undefined);
+  const editor = useRef<HTMLDivElement>(null);
+  const [navigationError, setNavigationError] = useState<unknown>();
+
+  async function select(id: NoteId, project = scope ?? null) {
+    cache.set(creationFlow, { id, scope: project, pending: true });
+
+    try {
+      await navigate({
+        to: '/notes/$noteId',
+        params: { noteId: id },
+        search: project ? { project } : {}
+      });
+      dismissStartDraft(cache, project ?? undefined);
+      cache.set(creationFlow, {});
+      setNavigationError(undefined);
+    } catch (error) {
+      cache.set(creationFlow, { id, scope: project });
+      setNavigationError(error);
+    }
+  }
+
+  const selectDeferred = useEffectEvent(select);
+
+  useEffect(() => {
+    if (submission.blocked || !deferred.current) return;
+
+    const pending = deferred.current;
+
+    deferred.current = undefined;
+
+    if (pending.scope === (scope ?? null)) void selectDeferred(pending.id, pending.scope);
+  }, [scope, submission.blocked]);
+
+  async function openCreated(id: NoteId, input: Parameters<typeof startNote>[0]) {
+    const project = input.project ? String(input.project) : undefined;
+    const location = router.state.location;
+    const active = /^\/notes\/?$/.test(location.pathname) && location.search.project === project;
+
+    cache.set(starterTransfer(id), {
+      submitted: input.text,
+      text: cache.get(startDraft(input.draftKey)) ?? input.text,
+      focus: active && hasWritingFocus(editor.current)
+    });
+
+    if (!active) {
+      cache.set(creationFlow, {});
+      dismissStartDraft(cache, project);
+    } else if (submission.isBlocked()) {
+      deferred.current = { id, scope: project ?? null };
+      cache.set(creationFlow, { id, scope: project ?? null });
+    } else {
+      await select(id, project ?? null);
+    }
+  }
+
+  return { editor, navigationError, openCreated, select };
+}
+
+function hasWritingFocus(editor: HTMLDivElement | null) {
+  const focused = document.activeElement;
+
+  return !!focused?.matches('[contenteditable="true"]') && !!editor?.contains(focused);
+}
+
+/** Keeps one creation attempt in flight and hands subsequent typing to the new note. */
+function useNoteStart() {
+  const cache = useContext(RegistryContext);
   const search = useSearch({ from: '__root__' });
   const project = search.project
     ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(search.project))
@@ -69,25 +129,12 @@ function useNoteStart() {
   const state = useNoteList(project);
   const { draftKey, draft } = useStartDraft(search.project);
   const flow = { data: useAtomValue(creationFlow) };
-  const [navigationError, setNavigationError] = useState<unknown>();
   const [reviewed, setReviewed] = useState(false);
-
-  async function select(id: NoteId, scope: string | null = search.project ?? null) {
-    cache.set(creationFlow, { id, pending: true });
-
-    try {
-      await navigate({
-        to: '/notes/$noteId',
-        params: { noteId: id },
-        search: scope ? { project: scope } : {}
-      });
-      cache.set(creationFlow, {});
-      setNavigationError(undefined);
-    } catch (error) {
-      cache.set(creationFlow, { id });
-      setNavigationError(error);
-    }
-  }
+  const submission = useDictationSubmission();
+  const { editor, navigationError, openCreated, select } = useStarterNavigation(
+    search.project,
+    submission
+  );
 
   const create = useIndependentMutation((input: Parameters<typeof startNote>[0]) =>
     Effect.tryPromise({
@@ -97,8 +144,7 @@ function useNoteStart() {
         try {
           const created = await startNote(input);
 
-          await select(created.id, input.project ? String(input.project) : null);
-          finishStartDraft(cache, input);
+          await openCreated(created.id, input);
 
           return created;
         } catch (error) {
@@ -116,7 +162,7 @@ function useNoteStart() {
   function beginNote() {
     const current = cache.get(creationFlow) ?? {};
 
-    if (current.id || current.uncertain || current.pending) return;
+    if (current.id || current.uncertain || current.pending || submission.isBlocked()) return;
 
     cache.set(creationFlow, { uncertain: true, pending: true });
     const text = cache.get(startDraft(draftKey)) ?? '';
@@ -130,7 +176,16 @@ function useNoteStart() {
     void create.mutate({ project, draftKey, text }).catch(() => {});
   }
 
-  const blocked = create.isPending || !!flow.data.id || !!flow.data.uncertain;
+  const blocked = !!flow.data.id || !!flow.data.uncertain || !!create.error;
+  const onIdle = useEffectEvent(beginNote);
+
+  useEffect(() => {
+    if (!draft.data.trim() || blocked || submission.blocked) return;
+
+    const timer = window.setTimeout(onIdle, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [draft.data, draftKey, blocked, submission.blocked]);
 
   return {
     cache,
@@ -143,9 +198,9 @@ function useNoteStart() {
     reviewed,
     setReviewed,
     create,
-    beginNote,
-    select,
-    blocked
+    editor,
+    submission,
+    select
   };
 }
 
@@ -159,9 +214,6 @@ export function NoteStart() {
   const { state, flow } = view;
   const subjects = rpc.projects.list.useQuery({ limit: 100 });
   const owner = subjects.data?.items.find((subject) => String(subject.id) === view.search.project);
-  const phone = usePhoneLayout();
-  const [cardPreference, setCardVisible] = useState<boolean>();
-  const cardVisible = cardPreference ?? !phone;
 
   if (state.isError && !flow.data.uncertain && !flow.data.id) {
     return <NoteReadError error={state.error} retry={() => void state.refetch()} layout="page" />;
@@ -169,36 +221,43 @@ export function NoteStart() {
 
   return (
     <WorkspaceSurface.Root variant="desk">
-      <WorkspaceHeader owner={owner} title={t('NewNote')}>
-        <Desk.LayoutControls aria-label={t('NoteLayout')}>
-          <WorkspaceCard.Toggle
-            label={t('NoteActions')}
-            open={cardVisible}
-            onOpenChange={setCardVisible}
-          />
-        </Desk.LayoutControls>
-      </WorkspaceHeader>
-      <Desk.Root open={false} expanded={false} cardOpen={cardVisible}>
+      <WorkspaceHeader owner={owner} title={t('NewNote')} />
+      <Desk.Root open={false} expanded={false}>
         <Desk.Notebook>
           <Desk.ScrollArea>
             <Desk.NotebookLayout>
               <Desk.Board>
                 <Desk.BoardBody>
-                  <Notebook.History aria-label={t('NoteNotebook')}>
-                    <NotebookHeading />
-                    <WorkspaceSurface.Heading>
-                      <h3>{t('NoteNotesEmpty')}</h3>
-                      <p>{t('NoteStartHelp')}</p>
-                    </WorkspaceSurface.Heading>
-                  </Notebook.History>
-                  <CreationRecovery view={view} />
-                  <Desk.InlineComposer>
-                    <StarterComposer view={view} />
+                  <WritingSurface
+                    ref={view.editor}
+                    heading={<h1>{t('NewNote')}</h1>}
+                    status={flow.data.pending ? t('NoteAutosaving') : undefined}
+                  >
+                    <CreationRecovery view={view} />
                     <CreationStatus view={view} />
-                  </Desk.InlineComposer>
+                    <DictationSubmissionScope value={view.submission.scope}>
+                      <NoteEditor
+                        key={view.draftKey}
+                        targetKey={view.draftKey}
+                        label={t('NoteCompose')}
+                        value={view.draft.data}
+                        disabled={!!flow.data.id && flow.data.pending}
+                        onChange={(text) => {
+                          view.cache.set(startDraft(view.draftKey), text);
+                          const { id, scope } = flow.data;
+
+                          if (id && scope === (view.search.project ?? null))
+                            view.cache.update(
+                              starterTransfer(id),
+                              (pending) => pending && { ...pending, text }
+                            );
+                        }}
+                        variant="writing"
+                      />
+                    </DictationSubmissionScope>
+                  </WritingSurface>
                 </Desk.BoardBody>
               </Desk.Board>
-              <WorkspaceContext hidden={!cardVisible} onDismiss={() => setCardVisible(false)} />
             </Desk.NotebookLayout>
           </Desk.ScrollArea>
           <Desk.NavigationHost />
@@ -208,81 +267,13 @@ export function NoteStart() {
   );
 }
 
-/** The notebook composer submits its first capture before navigating to the saved note. */
-
-function StarterComposer({ view }: { view: StartView }) {
-  const { t } = useI18n();
-  const noteId = useId();
-  const preferences = useWorkspacePreferences();
-  const { cache, draftKey, draft, blocked, beginNote } = view;
-  const input = useRef<HTMLTextAreaElement>(null);
-  const submission = useDictationSubmission();
-  const submit = () => {
-    if (!blocked && !submission.isBlocked()) beginNote();
-  };
-  const dictation = useTextDictation({
-    value: draft.data,
-    onChange: (text) => cache.set(startDraft(draftKey), text),
-    input
-  });
-
-  return (
-    <ComposerSurface.Root variant="notebook" aria-label={t('NoteCompose')}>
-      <Notebook.Label htmlFor={noteId}>{t('NoteCompose')}</Notebook.Label>
-      <ComposerSurface.Input
-        id={noteId}
-        ref={input}
-        rows={1}
-        spellCheck={preferences.spellcheck}
-        aria-label={t('NoteCompose')}
-        aria-describedby="note-start-hint"
-        placeholder={t('NoteComposeHint')}
-        value={draft.data}
-        onChange={(event) => cache.set(startDraft(draftKey), event.target.value)}
-        onKeyDown={(event) => {
-          if (isNoteSubmit(event, preferences.submitOnEnter)) {
-            event.preventDefault();
-
-            submit();
-          }
-        }}
-      />
-      <ComposerSurface.Footer variant="notebook">
-        <Notebook.CaptureTools>
-          <DictationSubmissionScope value={submission.scope}>
-            <DictationButton targetKey={draftKey} {...dictation} disabled={blocked} />
-          </DictationSubmissionScope>
-        </Notebook.CaptureTools>
-        <Notebook.Actions>
-          <Button
-            size="sm"
-            disabled={blocked || submission.blocked || !draft.data.trim()}
-            aria-busy={view.flow.data.pending}
-            onClick={submit}
-          >
-            {t('NoteSaveNote')}
-          </Button>
-        </Notebook.Actions>
-      </ComposerSurface.Footer>
-      <WorkspaceSurface.ComposerHint id="note-start-hint">
-        {t('NoteNotebookHint')}
-      </WorkspaceSurface.ComposerHint>
-    </ComposerSurface.Root>
-  );
-}
-
 /** Navigation failures retain the known created note for a safe retry. */
 
 function CreationStatus({ view }: { view: StartView }) {
   const { t } = useI18n();
   const { flow, select, navigationError, create } = view;
 
-  if (flow.data.pending)
-    return (
-      <NoteStarter.Feedback>
-        <Loading label={t('NoteStarting')} />
-      </NoteStarter.Feedback>
-    );
+  if (flow.data.pending || view.submission.blocked) return null;
 
   const id = flow.data.id;
 
@@ -290,7 +281,7 @@ function CreationStatus({ view }: { view: StartView }) {
     return (
       <NoteStarter.Feedback>
         {!!navigationError && <NoteError error={navigationError} />}
-        <Button variant="outline" onClick={() => void select(id)}>
+        <Button variant="outline" onClick={() => void select(id, flow.data.scope)}>
           {t('NoteOpenCreated')}
         </Button>
       </NoteStarter.Feedback>
@@ -301,6 +292,11 @@ function CreationStatus({ view }: { view: StartView }) {
   return (
     <NoteStarter.Feedback>
       <NoteError error={create.error} />
+      {!flow.data.uncertain && (
+        <Button variant="outline" onClick={() => create.reset()}>
+          {t('NoteRetrySave')}
+        </Button>
+      )}
     </NoteStarter.Feedback>
   );
 }

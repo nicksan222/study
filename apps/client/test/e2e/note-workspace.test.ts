@@ -15,35 +15,28 @@ const revised =
 
 test.browser.stable(
   'Knowledge dump section titles and study document middle states',
-  async ({ page, study, expectScreenshot, expect }) => {
+  async ({ page, rpc, study, expectScreenshot, expect }) => {
     const fixture = await study.notes.seed();
     const url = `/notes/${fixture.note.id}`;
 
     await page.goto(url);
-    const notebook = page.getByRole('region', { name: copy.NoteNotebook });
-    const outline = page.getByRole('navigation', { name: copy.NoteOutline });
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
-    const add = page.getByRole('button', { name: copy.NoteAddCapture, exact: true });
+    const body = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
     await expectScreenshot('empty-named-dump', {
       target: 'viewport',
-      ready: () => expect(add).toBeVisible()
+      ready: () => expect(body).toHaveText('')
     });
-    await add.click();
-    await composer.fill(first);
-    await expectScreenshot('first-capture-draft', {
-      target: 'viewport',
-      ready: () => expect(composer).toHaveValue(first)
-    });
+    await openHistory(page, copy);
+    const notebook = page.getByRole('region', { name: copy.NoteNotebook });
+    const outline = page.getByRole('navigation', { name: copy.NoteOutline });
     const initial = study.notes.capture(first, 'Mitosis and daughter cells');
 
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
+    await rpc.runPromise(rpc.client['notes.postMessage']({ noteId: fixture.note.id, text: first }));
     await Promise.all([initial.classification.called, initial.naming.called]);
     await expectScreenshot('first-title-pending-fallback', {
       target: 'viewport',
       ready: async () => {
         await expect(notebook.locator('.chat-message-text')).toHaveText(first);
-        await expect(composer).toBeHidden();
         await expect(outline.getByRole('button')).toContainText('Mitosis preserves');
         await expect(
           notebook.getByRole('heading', { name: 'Mitosis and daughter cells' })
@@ -62,11 +55,11 @@ test.browser.stable(
         ).toBeVisible();
       }
     });
-    await add.click();
-    await composer.fill(second);
     const following = study.notes.capture(second, 'DNA before division');
 
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
+    await rpc.runPromise(
+      rpc.client['notes.postMessage']({ noteId: fixture.note.id, text: second })
+    );
     await Promise.all([following.classification.called, following.naming.called]);
     await expectScreenshot('second-title-pending', {
       target: 'viewport',
@@ -123,6 +116,7 @@ test.browser.stable(
       notebook.getByRole('heading', { name: 'DNA copying and inheritance' })
     ).toBeVisible();
     await page.reload();
+    await openHistory(page, copy);
     await expectScreenshot('reopened-generated-titles', {
       target: 'viewport',
       ready: async () => {
@@ -274,6 +268,7 @@ test.browser.stable(
     await page.goto(url);
     await study.settings({ language: Language.ITALIAN });
     await page.reload();
+    await openHistory(page, catalogs.italian);
     await expectScreenshot('italian-dump-with-generated-titles', {
       target: 'viewport',
       ready: async () => {
@@ -294,15 +289,12 @@ test.browser.stable(
   'Knowledge dump transformation cancellation preserves captures',
   async ({ page, study, expectScreenshot, expect }) => {
     const fixture = await study.notes.seed();
-    const capture = study.notes.capture(first, 'Mitosis and daughter cells');
 
     await page.goto(`/notes/${fixture.note.id}`);
-    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    await page.getByRole('textbox', { name: copy.NoteCompose }).fill(first);
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await Promise.all([capture.classification.called, capture.naming.called]);
-    capture.naming.release();
-    await expect(page.getByRole('heading', { name: 'Mitosis and daughter cells' })).toBeVisible();
+    const body = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+
+    await body.fill(first);
+    await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible();
     const practice = `/practice?project=${fixture.project.id}`;
 
     await page.goto(practice);
@@ -342,15 +334,21 @@ test.browser.stable(
     await page.goto(`/notes/${fixture.note.id}`);
     await expectScreenshot('cancelled-transform-reopened', {
       target: 'viewport',
-      ready: async () => {
-        await expect(page.locator('.chat-message-text')).toHaveText(first);
-        await expect(
-          page.getByRole('heading', { name: 'Mitosis and daughter cells' })
-        ).toBeVisible();
-      }
+      ready: () => expect(body).toHaveText(first)
     });
   }
 );
+
+async function openHistory(
+  page: test.browser.Context['page'],
+  language: Record<'NoteActions' | 'NoteHistory', string>
+) {
+  const context = page.getByRole('button', { name: language.NoteActions, exact: true });
+
+  await context.click();
+  await page.getByRole('button', { name: language.NoteHistory, exact: true }).click();
+  await context.click();
+}
 
 async function openStudyNotes(page: test.browser.Context['page']) {
   await page.getByRole('button', { name: copy.PracticeGenerate, exact: true }).click();

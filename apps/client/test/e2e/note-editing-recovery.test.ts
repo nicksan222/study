@@ -1,7 +1,13 @@
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
+import type { Page } from 'playwright';
 
 const copy = catalogs.english;
+
+async function openHistory(page: Page) {
+  await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
+  await page.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
+}
 
 test.browser.stable(
   'Long notes remain editable without content field sizing',
@@ -17,6 +23,7 @@ test.browser.stable(
     );
 
     await page.goto('/notes/' + String(note.id));
+    await openHistory(page);
     await page.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
@@ -46,14 +53,11 @@ test.browser.stable(
     await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(dialog).toBeHidden();
     await page.reload();
+    await openHistory(page);
     await expect(page.locator('.chat-message-text')).toHaveText(original + ' x');
     await expectScreenshot('saved-fallback-edit', {
       target: 'viewport',
-      ready: () =>
-        expect(page.getByRole('button', { name: copy.NoteAddCapture })).toHaveAttribute(
-          'aria-expanded',
-          'false'
-        )
+      ready: () => expect(page.getByRole('button', { name: copy.NoteBackToEditor })).toBeVisible()
     });
   }
 );
@@ -73,6 +77,7 @@ test.browser.stable(
       })
     );
     await page.goto('/notes/' + String(note.id));
+    await openHistory(page);
     const card = page.locator('.workspace-desk-page').filter({ hasText: 'River garden' });
 
     await card.click();
@@ -96,6 +101,7 @@ test.browser.stable(
     await page.getByRole('link', { name: copy.Projects, exact: true }).click();
     await expect(page).toHaveURL(/\/projects$/);
     await page.goBack();
+    await openHistory(page);
     await card.click();
     await page.getByRole('button', { name: copy.VersionHistory, exact: true }).click();
     await expect(history.locator(':scope:focus-within')).toHaveCount(1);
@@ -111,6 +117,7 @@ test.browser.stable(
     await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(dialog).toBeHidden();
     await page.reload();
+    await openHistory(page);
     await expect(card).toContainText('Keep the complete survey records');
   }
 );

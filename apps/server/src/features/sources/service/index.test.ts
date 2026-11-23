@@ -22,13 +22,68 @@ import { ServerContext, Database, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 
+import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
+import { Projects } from '#server/features/projects/index';
 import { SourceStore } from '#server/features/sources/store/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { createUnregisteredSource } from '#testing/source';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import { Sources } from './index.ts';
+
+test.server.stable(
+  'Materials keeps a shared file in its subjects after its note moves',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Layer.mergeAll(Sources.layer, Notes.layer, Projects.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const sources = yield* Sources;
+          const projects = yield* Projects;
+          const notes = yield* Notes;
+          const biology = yield* projects.createProject({ name: 'Biology' });
+          const history = yield* projects.createProject({ name: 'History' });
+          const math = yield* projects.createProject({ name: 'Math' });
+          const note = yield* notes.createNote({ title: 'Shared notes', project: biology.id });
+
+          yield* projects.addNote({ projectId: history.id, noteId: note.id });
+          const file = yield* sources.createSource({
+            name: 'notes.txt',
+            bytes: new TextEncoder().encode('Keep the original in Materials.'),
+            projectId: null
+          });
+
+          yield* sources.attachSource({ noteId: note.id, sourceId: file.id });
+          yield* projects.removeNote({ projectId: biology.id, noteId: note.id });
+          yield* projects.removeNote({ projectId: history.id, noteId: note.id });
+          yield* projects.addNote({ projectId: math.id, noteId: note.id });
+
+          for (const project of [biology, history]) {
+            const uploads = yield* sources.sources({ uploadedFor: project.id, limit: 10 });
+
+            expect(uploads.items.map((source) => source.id)).toEqual([file.id]);
+          }
+
+          expect((yield* sources.sources({ uploadedFor: math.id, limit: 10 })).items).toEqual([]);
+          yield* sources.addLink({ url: 'https://example.test/', projectId: null });
+          const originals = yield* sources.sources({ uploadedFor: null, limit: 10 });
+
+          expect(originals.items.map((source) => source.id)).toEqual([file.id]);
+          expect((yield* sources.source(file.id)).projectId).toBeNull();
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
 
 test.server.stable(
   'sources service persists requests and pages, and rolls back invalid requests',

@@ -58,15 +58,17 @@ test.browser.stable(
     await match.press('Enter');
     await expect(page).toHaveURL('/notes/' + String(note.id));
     await expect(search).toHaveValue('');
-    const body = page.locator('[data-role="user"] .chat-message-text');
+    const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const paragraphs = editor.locator('p');
+    const expected = original.split('\n\n');
 
-    await expect(body).toHaveText(original);
+    await expect(paragraphs).toHaveText(expected);
     await expectScreenshot('result-opened', {
       target: 'viewport',
-      ready: () => expect(body).toHaveText(original)
+      ready: () => expect(paragraphs).toHaveText(expected)
     });
     await page.reload();
-    await expect(body).toHaveText(original);
+    await expect(paragraphs).toHaveText(expected);
     await expect(search).toHaveValue('');
     await expect(result).toHaveCount(1);
   }

@@ -35,7 +35,7 @@ function materialViews(reader: ReturnType<test.browser.Context['page']['locator'
     docx: reader.getByRole('heading', { name: 'Domanda di laboratorio', exact: true }),
     pptx: reader.getByText('I cromatidi fratelli si separano.', { exact: true }),
     xlsx: reader.getByRole('heading', { name: 'Conteggio', exact: true }),
-    pdf: pdf.getByText('Prima della divisione', { exact: true }),
+    pdf: pdf.locator('canvas'),
     md: reader.getByRole('heading', { name: 'La divisione cellulare', exact: true }),
     txt: reader.getByText('Cell Biology — Organelles and protein trafficking', { exact: true }),
     png: reader.getByRole('img', { name: materialFormats.png.name, exact: true }),
@@ -87,7 +87,10 @@ test.browser.stable(
     const pressed = reader.locator('button[aria-pressed="true"]');
 
     await page.goto(`/projects/${subject.id}/uploads`);
-    await page.locator('input[type="file"]').setInputFiles(
+    const picker = page.locator('input[type="file"]');
+    const upload = page.getByRole('button', { name: copy.UploadedMaterialsAdd, exact: true });
+
+    await picker.setInputFiles(
       await Promise.all(
         Object.values(materialFormats).map(async ({ name, mimeType, path }) => ({
           name,
@@ -96,6 +99,10 @@ test.browser.stable(
         }))
       )
     );
+
+    for (const format of formats) await expect(links.get(format)!).toBeVisible();
+
+    await expect(upload).toBeEnabled();
     await expect(sidebar.getByRole('link')).toHaveCount(formats.length);
 
     const hrefs = new Map(

@@ -1,12 +1,12 @@
 /** @file Owns library within this feature. */
 
+import { StudyError } from '@study/contracts';
 import type {
   createNoteInputSchema,
   createUntitledNoteInputSchema,
   notePageInputSchema,
   noteWorkInputSchema,
-  renameNoteInputSchema,
-  setNoteSettledInputSchema
+  renameNoteInputSchema
 } from '@study/contracts';
 import { text } from '@study/localization';
 import { transaction, useStore } from '@study/server';
@@ -20,6 +20,7 @@ import { Settings } from '#server/features/settings/index';
 import { Workflows } from '#server/features/workflows/index';
 
 import { requireAvailableNote } from './availability.ts';
+import { saveBodyInTransaction } from './body.ts';
 import { ensureNote, notebookNote } from './ensure-note.ts';
 import { scheduleAutomaticTitle } from './generation-events.ts';
 import { mergeNotes } from './merge.ts';
@@ -31,7 +32,6 @@ export function* noteLibraryOperations() {
   const store = yield* useStore(NoteStore);
 
   const modes = yield* useStore(NoteModeStore);
-
   const summaries = yield* useStore(NoteSummaryStore);
 
   return {
@@ -52,14 +52,24 @@ export function* noteLibraryOperations() {
         });
 
         if (input.initialMessage) {
-          const message = postMessage(tx, {
-            ...input.initialMessage,
-            noteId: note.id,
-            requestReply: false
-          });
+          const { notebookBody, sourceIds, text } = input.initialMessage;
 
-          if (preferences.textConversionMode === 'automatic')
-            scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
+          if (notebookBody) {
+            if (!text.trim() || sourceIds?.length)
+              throw new StudyError('invalid_input', 'An initial notebook body requires text only');
+
+            saveBodyInTransaction(tx, { noteId: note.id, text, expectedVersionId: null });
+          } else {
+            const message = postMessage(tx, {
+              noteId: note.id,
+              text,
+              sourceIds,
+              requestReply: false
+            });
+
+            if (preferences.textConversionMode === 'automatic')
+              scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
+          }
 
           if (preferences.autoTitleNotes) scheduleAutomaticTitle(tx, note.id);
         }
@@ -90,8 +100,6 @@ export function* noteLibraryOperations() {
         return { items, next: more.length ? cursor : null };
       }),
     noteSummaries: summaries.noteSummary,
-    setNoteSettled: (input: typeof setNoteSettledInputSchema.Type) =>
-      transaction((tx) => tx.store(NoteSummaryStore).setNoteSettled(input)),
     count: store.count,
     note: store.note,
     findNote: store.findNote,

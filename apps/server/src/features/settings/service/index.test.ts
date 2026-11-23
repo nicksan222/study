@@ -79,15 +79,6 @@ test.server.stable(
             zoomPercent: 100,
             onboarded: false
           });
-          expect(yield* settings.sidebarSettings()).toStrictEqual({ settledPageThreshold: 1 });
-          yield* settings.saveSidebarSettings({ settledPageThreshold: 3 });
-          expect(yield* settings.sidebarSettings()).toStrictEqual({ settledPageThreshold: 3 });
-          const invalidSidebar = yield* Effect.flip(
-            settings.saveSidebarSettings({ settledPageThreshold: 0 })
-          );
-
-          assert.ok(invalidSidebar.kind === 'invalid_input');
-          expect(yield* settings.sidebarSettings()).toStrictEqual({ settledPageThreshold: 3 });
           expect(yield* settings.materialSettings()).toStrictEqual({ sift: true });
           expect(yield* settings.reviewSettings()).toStrictEqual({ newCardsPerDay: 20 });
           assert.strictEqual(yield* settings.language(), 'english');
@@ -187,7 +178,6 @@ test.server.stable(
             glassOpacity: 80,
             animationDurationMs: 150,
             noteWidth: 'full',
-            showNoteComposer: true,
             noteEditorDock: 'side'
           });
           const appearance = {
@@ -195,7 +185,6 @@ test.server.stable(
             glassOpacity: 90,
             animationDurationMs: 0,
             noteWidth: 'wide' as const,
-            showNoteComposer: false,
             noteEditorDock: 'bottom' as const
           };
 
@@ -213,11 +202,9 @@ test.server.stable(
           assert.strictEqual((yield* settings.appSettings()).zoomPercent, 100);
 
           yield* settings.saveAppearancePreferences({ noteWidth: 'comfortable' });
-          yield* settings.saveAppearancePreferences({ showNoteComposer: true });
           expect(yield* settings.appearancePreferences()).toStrictEqual({
             ...appearance,
-            noteWidth: 'comfortable',
-            showNoteComposer: true
+            noteWidth: 'comfortable'
           });
         }).pipe(Effect.provide(layer))
       );

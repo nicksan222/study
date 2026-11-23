@@ -70,7 +70,6 @@ const snapshotSchema = Schema.Struct({
   review: schemas.reviewSettingsSchema,
   materials: schemas.materialSettingsSchema,
   concurrency: schemas.concurrencySettingsSchema,
-  sidebar: schemas.sidebarSettingsSchema,
   instructions: schemas.agentRulesSchema
 });
 
@@ -100,7 +99,6 @@ export const settingsTools = {
           review: settings.reviewSettings(),
           materials: settings.materialSettings(),
           concurrency: settings.concurrencySettings(),
-          sidebar: settings.sidebarSettings(),
           instructions: settings.agentRules()
         });
       }).pipe(Effect.provide(Settings.layer))
@@ -203,17 +201,6 @@ export const settingsTools = {
 
         if (Option.isSome(admission)) yield* admission.value.configure(input);
       }).pipe(Effect.uninterruptible)
-  ),
-  update_sidebar_settings: updateTool(
-    schemas.sidebarSettingsSchema,
-    'Change the page threshold used to settle notes in the sidebar.',
-    {
-      when: 'Tune which notes look settled.',
-      examples: ['Set the settled page threshold to two.'],
-      limits: 'Does not delete or archive any note.'
-    },
-    (settings) => settings.sidebarSettings(),
-    (settings, input) => settings.saveSidebarSettings(input)
   ),
   update_custom_instructions: updateTool(
     schemas.agentRulesSchema,

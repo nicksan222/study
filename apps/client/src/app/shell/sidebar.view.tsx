@@ -3,6 +3,7 @@ import {
   PageIcon,
   QuizIcon,
   NoteIcon,
+  SourcesIcon,
   LibraryIcon,
   ProjectIcon,
   HelpIcon,
@@ -252,6 +253,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
     replay
   } = model;
   const { t, date } = useI18n();
+  const materials = model.section === 'uploads';
 
   return (
     <SidebarUI.Picker
@@ -266,7 +268,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
       open={pickerOpen}
       onOpenChange={pickerOpenChange(setPickerOpen, reloadSubjects)}
       collapsed={collapsed}
-      label={t('ChooseProject')}
+      label={t(materials && !requestedProject ? 'UploadedMaterialsAll' : 'ChooseProject')}
       fallbackIcon={<ProjectIcon aria-hidden="true" />}
       searchLabel={t('FindSubject')}
       empty={projectPickerEmpty(subjectState, subjects.length, t)}
@@ -279,6 +281,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
         loadMoreProjects={loadMoreProjects}
       />
       <SidebarPickerActions
+        materials={materials}
         subject={subject}
         requestedProject={requestedProject}
         setPickerOpen={setPickerOpen}
@@ -295,6 +298,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
 /** Closes the picker before opening subject creation, management, or global navigation. */
 
 function SidebarPickerActions({
+  materials,
   subject,
   requestedProject,
   setPickerOpen,
@@ -313,12 +317,32 @@ function SidebarPickerActions({
   | 'clearSearch'
   | 'replay'
 > & {
+  materials: boolean;
   onEditSubject: () => void;
 }) {
   const { t } = useI18n();
 
   return (
     <>
+      {materials && requestedProject && (
+        <Button
+          variant="ghost-muted"
+          layout="navigation"
+          render={
+            <Link
+              to="/uploads"
+              search={{}}
+              onClick={() => {
+                setPickerOpen(false);
+                clearSearch();
+              }}
+            />
+          }
+        >
+          <SourcesIcon aria-hidden="true" />
+          {t('UploadedMaterialsAll')}
+        </Button>
+      )}
       <Button
         variant="ghost-muted"
         layout="navigation"

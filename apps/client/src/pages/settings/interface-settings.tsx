@@ -59,13 +59,6 @@ export function NoteAppearanceSettings({ model }: { model: AppearanceModel }) {
             if (width) model.setPreferences({ noteWidth: width.value });
           }}
         />
-        <Settings.ToggleRow
-          title={t('AppearanceNoteComposer')}
-          description={t('AppearanceNoteComposerDescription')}
-          checked={preferences.showNoteComposer}
-          disabled={model.pending}
-          onCheckedChange={(showNoteComposer) => model.setPreferences({ showNoteComposer })}
-        />
         <Settings.SelectRow
           title={t('AppearanceNoteEditorDock')}
           description={t('AppearanceNoteEditorDockDescription')}

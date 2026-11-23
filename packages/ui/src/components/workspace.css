@@ -370,7 +370,7 @@
 }
 
 /* Empty sections stay quiet while retaining the rhythm of populated rows. */
-.note-attachments-card .note-page-index-empty {
+.note-workspace-context .note-page-index-empty {
   margin: 0.25rem 0.625rem;
   padding: 0;
   color: var(--contrast-muted-foreground);
@@ -534,7 +534,7 @@
   font-size: 0.75rem;
 }
 
-.ui-workspace-card.note-attachments-card:has(.note-outline) {
+.ui-workspace-card.note-workspace-context:has(.note-outline) {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--app-scrollbar-thumb) transparent;

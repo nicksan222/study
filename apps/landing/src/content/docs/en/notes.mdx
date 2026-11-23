@@ -1,7 +1,7 @@
 ---
 title: Notes
 headline: A notebook for everything you learn.
-description: Capture notes and sources, ask questions, then turn a study note into a page.
+description: Write and edit notes, ask about them, and build study material in Practice.
 section: capture
 order: 1
 stage:
@@ -10,20 +10,20 @@ stage:
 
 import DocStep from '../../../components/DocStep.astro';
 
-A note is the place to collect what you are learning before you shape it into something to revise. Keep your notes, questions and attachments together in the subject you are studying.
+A note is the place to collect what you are learning before you shape it into something to revise. Keep your notes in the subject you are studying and use Materials for original files.
 
 <DocStep number={1} example="note">
 <header slot="intro">
 
 ## Capture first
 
-Write an idea and save it in your subject’s notebook.
+Write an idea in your subject’s notebook.
 
 </header>
 
-Open **Notes** and start a note. Write in the composer, then choose **Save note**. Ctrl Enter (Cmd Enter on macOS) saves the note. Save drafts before transforming a note: an unsent note is not part of the saved material.
+Open **Notes** and start typing on the page. Study creates the note when you pause and saves subsequent edits automatically. Click the title to rename the note. The status at the bottom of the page shows when your writing has been saved.
 
-Attach the files that belong with your notes. Reading status and failures stay beside the affected work, so you can see whether a source is ready. See [sources](../sources/) for the difference between an original file and its readable content.
+Open **Materials** to upload files and review their reading status. See [sources](../sources/) for how to inspect the original file and its readable content.
 
 </DocStep>
 
@@ -32,11 +32,11 @@ Attach the files that belong with your notes. Reading status and failures stay b
 
 ## Ask when you need help
 
-Ask about what you are learning, and keep the answer with your notes.
+Ask about what you are learning from the note.
 
 </header>
 
-Use **Ask Study** to ask explicitly. A saved question also has an **Answer** action. You can mark an entry as a question or as a note, and enable automatic answers to questions in workspace settings.
+Choose **Ask about this note** from the notebook toolbar. Type your question in the Assistant panel.
 
 Answers use your ChatGPT connection. If access is missing or work fails, the note shows the problem and the available recovery action. See [answers and citations](../answers/).
 
@@ -51,11 +51,7 @@ Choose saved material and shape it into a page you can revise.
 
 </header>
 
-Choose **Transform note**. Select the saved material to include, give the page a title, and add instructions if you have a particular goal.
-
-The available changes include clarity, grammar, structure, removing repetition, summarizing, explaining, expanding and translating. Factual corrections are proposals for you to check. You can also combine several notes into one page.
-
-The transformation uses saved notebook entries and selected sources within its context limit; it is not a promise to include every word of an arbitrarily long note. Save important drafts and review your selection before starting.
+Open **Practice**, choose **Generate practice**, then select **Generate study notes**. Include the saved note and any other material you want to use. Add a focus if you want Study to emphasize a particular topic.
 
 </DocStep>
 
@@ -68,7 +64,7 @@ Review your page, then turn it into practice.
 
 </header>
 
-Open the result in [Pages](../pages/). Review it, edit it and keep the versions you need. Then choose the pages you want to use to [generate practice](../practice/).
+Open the resulting [study notes](../pages/) from **Practice**. Review it, edit it and keep the versions you need. Then choose the pages you want to use to [generate practice](../practice/).
 
 The note remains your original working notebook. The page gives its ideas a shape you can read and revise.
 

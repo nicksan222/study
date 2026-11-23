@@ -21,10 +21,10 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
   workspace: null,
   assistant: null,
   uploads: ({ model, ready }) =>
-    ready && model.project ? (
+    ready ? (
       <UploadedMaterialsSidebar
         key={String(model.project)}
-        project={model.project}
+        project={model.project ?? null}
         query={model.query}
         onReselect={model.onToggle}
       />
@@ -48,8 +48,6 @@ export function Sidebar({
 
   const counts = useSidebarCounts({
     project: model.project,
-    subjects: model.subjects,
-    notes: model.notes,
     notesReady: model.noteState === 'ready',
     ready
   });
