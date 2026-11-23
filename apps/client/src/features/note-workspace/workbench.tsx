@@ -64,36 +64,10 @@ export function NoteWorkbench({
 }) {
   const { t } = useI18n();
   const { noteWidth } = model.appearance;
-  const [historyView, setHistoryView] = useState<{ open: boolean }>();
-  const history = historyView?.open ?? false;
-  const focusedView = useRef<typeof historyView>(undefined);
-  const backToEditor = useRef<HTMLButtonElement>(null);
-  const editor = useRef<RichNoteEditorHandle>(null);
-
-  useLayoutEffect(() => {
-    if (!historyView || focusedView.current === historyView) return;
-
-    // On a phone, the notebook stays hidden until the disclosure has closed.
-    if (historyView.open && !model.wide && model.cardVisible) return;
-
-    const focus = () => {
-      focusedView.current = historyView;
-
-      if (historyView.open) backToEditor.current?.focus();
-      else if (editor.current) editor.current.restoreSelection(editor.current.selection());
-    };
-
-    if (historyView.open && !model.wide) {
-      // Chromium can keep the notebook's old inherited visibility through the next paint.
-      let frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(focus);
-      });
-
-      return () => cancelAnimationFrame(frame);
-    }
-
-    focus();
-  }, [historyView, model.cardVisible, model.wide]);
+  const { history, openHistory, closeHistory, backToEditor, editor } = useNotebookHistory(
+    model.wide,
+    model.cardVisible
+  );
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
@@ -119,7 +93,7 @@ export function NoteWorkbench({
                       ref={backToEditor}
                       size="sm"
                       variant="ghost-muted"
-                      onClick={() => setHistoryView({ open: false })}
+                      onClick={closeHistory}
                     >
                       {t('NoteBackToEditor')}
                     </Button>
@@ -167,7 +141,7 @@ export function NoteWorkbench({
                   id={id}
                   project={project}
                   onHistory={() => {
-                    setHistoryView({ open: true });
+                    openHistory();
                     model.dismissNarrowCard();
                   }}
                   onDelete={onDelete}
@@ -182,6 +156,48 @@ export function NoteWorkbench({
       <EditorPanel id={id} model={model} active={active} />
     </Desk.Root>
   );
+}
+
+/** Transfers focus after the writing or history surface becomes available. */
+function useNotebookHistory(wide: boolean, cardVisible: boolean) {
+  const [historyView, setHistoryView] = useState<{ open: boolean }>();
+  const history = historyView?.open ?? false;
+  const focusedView = useRef<typeof historyView>(undefined);
+  const backToEditor = useRef<HTMLButtonElement>(null);
+  const editor = useRef<RichNoteEditorHandle>(null);
+
+  useLayoutEffect(() => {
+    if (!historyView || focusedView.current === historyView) return;
+
+    // On a phone, the notebook stays hidden until the disclosure has closed.
+    if (historyView.open && !wide && cardVisible) return;
+
+    const focus = () => {
+      focusedView.current = historyView;
+
+      if (historyView.open) backToEditor.current?.focus();
+      else if (editor.current) editor.current.restoreSelection(editor.current.selection());
+    };
+
+    if (historyView.open && !wide) {
+      // Chromium can keep the notebook's old inherited visibility through the next paint.
+      let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(focus);
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }
+
+    focus();
+  }, [historyView, cardVisible, wide]);
+
+  return {
+    history,
+    backToEditor,
+    editor,
+    openHistory: () => setHistoryView({ open: true }),
+    closeHistory: () => setHistoryView({ open: false })
+  };
 }
 
 function EditorPanel({
