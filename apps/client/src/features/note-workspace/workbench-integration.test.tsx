@@ -7,6 +7,13 @@ import {
 } from '@study/contracts';
 import { test } from '@study/testing';
 import { WorkspaceCard } from '@study/ui';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider
+} from '@tanstack/react-router';
 import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -95,10 +102,19 @@ function mount(
 ) {
   const Provider = testFixture({ rpcHandlersTransport }).wrapper;
 
+  const root = createRootRoute({ component: () => children });
+  const practice = createRoute({ getParentRoute: () => root, path: '/practice' });
+  const router = createRouter({
+    routeTree: root.addChildren([practice]),
+    history: createMemoryHistory({ initialEntries: ['/'] })
+  });
+
   return render(
     <Provider>
       <AssistantProvider>
-        <WorkspaceCard.Provider>{children}</WorkspaceCard.Provider>
+        <WorkspaceCard.Provider>
+          <RouterProvider router={router} />
+        </WorkspaceCard.Provider>
       </AssistantProvider>
     </Provider>
   );
@@ -240,8 +256,10 @@ test.unit.stable(
       </>
     );
 
+    const actions = await screen.findByRole('button', { name: 'NoteActions' });
+
     expect(screen.queryByRole('complementary', { name: 'NoteContextPanel' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
+    fireEvent.click(actions);
     const card = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
     const notebook = await screen.findByRole('textbox', { name: 'NotePageEditor' });
     const scrollHost = notebook.closest('[data-notebook-scroll-host]');
@@ -290,7 +308,7 @@ test.unit.stable(
         <NoteWorkbench id={noteId} title="Notebook" onDelete={() => {}} />
       </>
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteAssistantOpen' }));
     expect(await screen.findByRole('tab', { name: 'NoteAssistant' })).toHaveAttribute(
       'aria-selected',
       'true'

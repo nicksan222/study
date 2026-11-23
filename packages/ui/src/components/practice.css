@@ -24,6 +24,7 @@
   flex: 1;
   flex-direction: column;
   width: 100%;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -620,21 +621,6 @@
   }
 }
 
-.study-content:has(.ui-workspace[data-variant='practice']) {
-  display: flex;
-  flex-direction: column;
-}
-.ui-workspace[data-variant='practice'] .study-practice-content {
-  min-height: 0;
-  margin: 0;
-}
-.ui-workspace[data-variant='practice'] .study-practice-library {
-  padding-top: 0;
-}
-.ui-workspace[data-variant='practice'] .study-practice-intro {
-  flex: 1;
-}
-
 .study-practice-stage,
 .study-practice-question,
 .study-practice-active,
@@ -654,8 +640,8 @@
   scrollbar-gutter: stable;
   padding-bottom: 1.5rem;
 }
-.study-practice-stage-body > .study-practice-intro {
-  flex: none;
+.study-practice-content .study-practice-stage-body > .study-practice-intro {
+  flex: 1;
 }
 .study-practice-stage-body .study-practice-prompt {
   max-width: 65ch;

@@ -185,8 +185,9 @@ function mount(
   });
   const notes = createRoute({ getParentRoute: () => root, path: '/notes' });
   const saved = createRoute({ getParentRoute: () => notes, path: '$noteId' });
+  const practice = createRoute({ getParentRoute: () => root, path: '/practice' });
   const router = createRouter({
-    routeTree: root.addChildren([notes.addChildren([saved])]),
+    routeTree: root.addChildren([notes.addChildren([saved]), practice]),
     parseSearch: (value) => Object.fromEntries(new URLSearchParams(value)),
     stringifySearch: stringifySearchWith(String),
     history: createMemoryHistory({ initialEntries: [`${path}${search}`] })
@@ -1021,7 +1022,7 @@ test.unit.stable(
 
 test.unit.stable.for(['', '?project=9007199254740997'])(
   'uses the active note authoritative owner in the direct path breadcrumb %s',
-  async (search, { screen, expect, within, fireEvent, render, rpcHandlersTransport }) => {
+  async (search, { screen, expect, waitFor, within, fireEvent, render, rpcHandlersTransport }) => {
     const owner = Schema.decodeUnknownSync(projectSchema)({
       id: 9007199254740995n,
       name: 'Biology',
@@ -1064,6 +1065,12 @@ test.unit.stable.for(['', '?project=9007199254740997'])(
 
     expect(within(context).queryByRole('combobox')).toBeNull();
     expect(within(context).queryByRole('link', { name: 'SidebarLibrary' })).toBeNull();
+    const practice = within(context).getByRole('link', { name: 'PracticeStudyNotes' });
+    const destination = `/practice?project=${owner.id}`;
+
+    expect(practice).toHaveAttribute('href', destination);
+    fireEvent.click(practice);
+    await waitFor(() => expect(view.router.state.location.href).toBe(destination));
   }
 );
 
@@ -1083,6 +1090,11 @@ test.unit.stable(
     fireEvent.click(await screen.findByRole('button', { name: 'NoteActions' }));
     const panel = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
 
+    expect(within(panel).getByRole('link', { name: 'PracticeStudyNotes' })).toHaveAttribute(
+      'href',
+      '/practice'
+    );
+    expect(within(panel).getByRole('button', { name: 'NoteHistory' })).toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'NoteArchived' })).toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'NoteDelete' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'NoteSelection' })).toBeNull();

@@ -144,6 +144,7 @@ function NoteBody({ id }: { id: NoteId }) {
             <NoteWorkbench
               id={id}
               title={state.data.title}
+              project={project}
               onDelete={() => setDeleteDialogOpen(true)}
             />
           )}

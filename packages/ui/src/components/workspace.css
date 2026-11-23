@@ -416,61 +416,66 @@
   line-height: 1.5;
 }
 
-/* Practice shares the notebook header, context card and dialog controls. */
-.groam-shell-page-body:has(> .ui-workspace[data-variant='practice']) {
-  container-type: inline-size;
-  container-name: practice-workspace;
-}
-
-.ui-workspace[data-variant='practice'] {
-  display: grid;
+/* Measure the full page width, before applying content gutters. */
+.ui-workspace[data-variant='page'] {
+  container-name: workspace-page;
+  gap: 1.5rem;
   height: 100%;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) 18rem;
-  grid-template-rows: 3rem minmax(0, 1fr);
+  padding: 0;
+}
+.ui-workspace[data-variant='page'] > .study-workspace-header {
+  margin-inline: 0;
+}
+.ui-workspace-content {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  padding: 0 1.5rem 1.5rem;
+}
+.ui-workspace-content:has(> .ui-workspace-card:not([hidden])) {
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 1.5rem;
+}
+.ui-workspace-content > .ui-workspace-body {
+  grid-column: 1;
+  min-width: 0;
+  min-height: 0;
   --workspace-content-width: 100%;
 }
-.ui-workspace[data-variant='practice'] > .study-workspace-header {
-  grid-column: 1 / -1;
-  height: 3rem;
-}
-.ui-workspace[data-variant='practice'] > .ui-workspace-body {
-  min-height: 0;
-  grid-column: 1;
-  grid-row: 2;
-}
-.ui-workspace[data-variant='practice'] > .ui-workspace-card {
+.ui-workspace-content > .ui-workspace-card {
   position: static;
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 1;
   align-self: start;
-  width: 100%;
+  justify-self: end;
+  width: min(100%, 18rem);
   max-width: none;
+  max-height: 40dvh;
   margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
-.ui-workspace[data-variant='practice']:has(> .ui-workspace-card[hidden]) {
-  grid-template-columns: minmax(0, 1fr);
+@container workspace-page (min-width: 960px) {
+  .ui-workspace-content:has(> .ui-workspace-card:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .ui-workspace-content > .ui-workspace-body {
+    grid-row: 1;
+  }
+  .ui-workspace-content > .ui-workspace-card {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    max-height: 100%;
+  }
 }
-@container practice-workspace (max-width: 959px) {
-  .ui-workspace[data-variant='practice'] {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 3rem auto minmax(0, 1fr);
-  }
-  .ui-workspace[data-variant='practice'] > .ui-workspace-card {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: end;
-    width: min(100%, 18rem);
-  }
-  .ui-workspace[data-variant='practice'] > .ui-workspace-body {
-    grid-row: 3;
-  }
-  .ui-workspace[data-variant='practice']:has(> .ui-workspace-card[hidden]) {
-    grid-template-rows: 3rem minmax(0, 1fr);
-  }
-  .ui-workspace[data-variant='practice']:has(> .ui-workspace-card[hidden]) > .ui-workspace-body {
-    grid-row: 2;
+@media (max-width: 959px), (max-height: 700px) {
+  .ui-workspace-content {
+    padding: 0 1rem 1rem;
   }
 }
 

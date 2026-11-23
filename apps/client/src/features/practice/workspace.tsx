@@ -61,14 +61,16 @@ export function PracticeWorkspace({
         setOpen(nextOpen);
       }}
     >
-      <WorkspaceSurface.Root ref={workspace} variant="practice">
+      <WorkspaceSurface.Root ref={workspace} variant="page">
         <Sidebar.Topbar parent={parent ?? t('AppName')} title={title}>
           <WorkspaceCard.Toggle label={t('PracticeActions')} />
         </Sidebar.Topbar>
-        <WorkspaceSurface.Body>{children}</WorkspaceSurface.Body>
-        <WorkspaceCard.Root ref={contextPanel} aria-label={t('PracticeActions')}>
-          {actions}
-        </WorkspaceCard.Root>
+        <WorkspaceSurface.Content>
+          <WorkspaceCard.Root ref={contextPanel} aria-label={t('PracticeActions')}>
+            {actions}
+          </WorkspaceCard.Root>
+          <WorkspaceSurface.Body>{children}</WorkspaceSurface.Body>
+        </WorkspaceSurface.Content>
       </WorkspaceSurface.Root>
     </WorkspaceCard.Provider>
   );

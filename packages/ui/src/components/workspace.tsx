@@ -87,13 +87,13 @@ function Toggle({
   );
 }
 
-/** Applies the welcome or note canvas layout through the shared workspace surface. */
+/** Frames a page or notebook within the shared workspace surface. */
 
 function Root({
   className,
   variant,
   ...props
-}: ComponentProps<'div'> & { variant: 'welcome' | 'note' | 'desk' | 'practice' }) {
+}: ComponentProps<'div'> & { variant: 'welcome' | 'note' | 'desk' | 'page' }) {
   return (
     <div
       className={cn('ui-workspace', variant !== 'welcome' && 'note-canvas', className)}
@@ -101,6 +101,10 @@ function Root({
       {...props}
     />
   );
+}
+
+function Content({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn('ui-workspace-content', className)} {...props} />;
 }
 
 function Body({ className, ...props }: ComponentProps<'div'>) {
@@ -192,6 +196,7 @@ function ComposerSubmit(props: Omit<ComponentProps<typeof Button>, 'className' |
 
 export const WorkspaceSurface = {
   Root,
+  Content,
   Body,
   Heading,
   Dock,

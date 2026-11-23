@@ -1,7 +1,6 @@
-import type { NoteId, PageId } from '@study/contracts';
+import type { NoteId, PageId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { HistoryIcon } from '@study/icons';
-import { Button, WorkspaceCard, WorkspaceDeskSurface as Desk } from '@study/ui';
+import { Button, WorkspaceDeskSurface as Desk } from '@study/ui';
 import { useState } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
@@ -48,10 +47,12 @@ function PageTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'page' }
 export function NoteWorkbench({
   id,
   title,
+  project,
   onDelete
 }: {
   id: NoteId;
   title: string;
+  project?: ProjectId;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
@@ -122,18 +123,15 @@ export function NoteWorkbench({
               hidden={!model.cardVisible}
               onDismiss={model.hideCard}
               actions={
-                <>
-                  <WorkspaceCard.Item
-                    onClick={() => {
-                      setHistory(true);
-                      model.hideCard();
-                    }}
-                  >
-                    <HistoryIcon aria-hidden="true" />
-                    <span>{t('NoteHistory')}</span>
-                  </WorkspaceCard.Item>
-                  <NoteContextActions id={id} onDelete={onDelete} />
-                </>
+                <NoteContextActions
+                  id={id}
+                  project={project}
+                  onHistory={() => {
+                    setHistory(true);
+                    model.hideCard();
+                  }}
+                  onDelete={onDelete}
+                />
               }
             />
           </Desk.NotebookLayout>
