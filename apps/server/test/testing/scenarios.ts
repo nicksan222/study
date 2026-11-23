@@ -60,7 +60,7 @@ const runner = baseTest.unit.stable
 
     onCleanup(() => owner.close());
 
-    return () => owner.acquire(() => createRpcFixture());
+    return () => owner.acquire(createRpcFixture);
   })
   .extend('server', async ({ resources }) => {
     let app = await resources.openApp();

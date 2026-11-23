@@ -36,9 +36,6 @@ Thank you for helping with Study.
 
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-CI dependency installation sets `ONNXRUNTIME_NODE_INSTALL=skip` to avoid optional CUDA
-downloads. The package’s bundled CPU runtime remains available for the checks.
-
 ## Set up
 
 ### In the devcontainer
@@ -272,10 +269,10 @@ then restarts against that database without depending on a system Bun installati
 Before publishing, a macOS 27 runner installs Study from the built disk image into a
 temporary directory and requires the WebView to receive a healthy live RPC snapshot
 with an isolated database.
-On macOS, even read-only startup validation selects the bundled SQLite library before
-opening a connection. Release size reports use the same Cargo output directory. Run
-`bun run desktop:runtime` to stage it independently. macOS development also requires
-`brew install sqlite`, since Bun’s system SQLite cannot load the vector extension.
+On macOS, startup validation selects the bundled SQLite library before opening a
+connection. Local development and runtime staging resolve SQLite through Homebrew, so
+install it with `brew install sqlite`. Use `bun run desktop:runtime` to stage the private
+server runtime independently. Release size reports use the same Cargo output directory.
 Linux CI and the devcontainer use the pinned Patchelf 0.19.3 from
 `tooling/scripts/devcontainer/install-patchelf.sh`; older ELF rewriters corrupt Bun’s ARM64 symbol-version pointers.
 
@@ -296,7 +293,7 @@ not part of the current release target set.
 `bun run package linux-x86_64` (or `linux-aarch64`, `macos-aarch64`, `windows-x86_64`) invokes
 Tauri on a matching native runner; signed builds require the same updater key environment as CI. Output lives beneath the Cargo target directory's
 platform `release/bundle` directory. CI uses the same Tauri config at
-`apps/desktop/src-tauri/tauri.conf.json`, with no cargo-packager dependency.
+`apps/desktop/src-tauri/tauri.conf.json`.
 
 ## License
 
@@ -307,8 +304,8 @@ conditions.
 
 The TypeScript server uses Drizzle with schema modules in `packages/db/src/schema`.
 Run `bun gen` after changing the schema and `bun gen:check` to check drift.
-`apps/server` owns the tRPC router and inferred client contract; it needs no code generation.
-Desktop, CLI, and web clients use the same typed procedures.
+`packages/contracts` owns the typed Effect RPC groups and schemas. The shared desktop
+and browser client calls the feature handlers in `apps/server` through those contracts.
 
 `@study/db` exports `Db` and the schema; it contains no business rules. Procedures live in
 `apps/server`, grouped by domain with input validation and a sibling `.test.ts` for each
