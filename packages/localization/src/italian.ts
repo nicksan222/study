@@ -1311,7 +1311,7 @@ export const italian = Object.freeze({
     'L’appunto potrebbe essere già salvato. Controlla il quaderno prima di inviarlo di nuovo. Non è stato ritentato automaticamente.',
   NoteReviewedHistory: 'Ho controllato il quaderno; conserva la bozza',
   NoteAuthError:
-    'Controlla la connessione a ChatGPT nelle Impostazioni, poi riprova. La bozza è conservata.',
+    'Controlla la connessione o la chiave API del provider selezionato nelle Impostazioni, poi riprova. La bozza è conservata.',
   NoteConflict:
     'La richiesta non corrisponde più allo stato salvato. Le modifiche sono conservate; controlla la selezione prima di inviare di nuovo.',
   NoteRequestError:

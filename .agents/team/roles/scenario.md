@@ -40,10 +40,11 @@ assignment, with its own `data/`. Resolve an absolute path. Never seed `target/d
 synthetic, small and clearly identifiable as sample data. Fix inputs and random seeds;
 record the clock/timezone when dates matter. Rebuild from the recipe when it goes stale.
 
-For bundled sample coursework, run `STUDY_DATABASE="$scenario_database" bun seed` with
-`scenario_database` set to an unused absolute SQLite path inside the scenario’s `data/`.
-The seed command replaces its target, so use a disposable path. Prepare custom cases through
-the owning feature’s Store APIs and record the exact setup and verification in the handoff.
+For every scenario, set `scenario_data` to the absolute path to its disposable `data/`
+directory and set `scenario_database="$scenario_data/study.sqlite"`. For bundled coursework,
+run `STUDY_DATABASE="$scenario_database" bun seed` to populate that path. The seed command
+replaces its target. For custom cases, prepare the same database through the owning
+feature’s Store APIs and record the exact setup and verification in the handoff.
 
 For desktop use, obtain exclusive control from the lead, close the existing app normally,
 then connect to the existing desktop and launch the scenario instance:

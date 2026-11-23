@@ -1282,7 +1282,8 @@ export const english = Object.freeze({
   NoteNoteUncertain:
     'This note may already be saved. Review the notebook before sending it again. No automatic retry was made.',
   NoteReviewedHistory: 'I reviewed the notebook; keep my draft',
-  NoteAuthError: 'Check your ChatGPT connection in Settings, then retry. Your draft is kept.',
+  NoteAuthError:
+    'Check the selected provider’s connection or API key in Settings, then retry. Your draft is kept.',
   NoteConflict:
     'The request no longer matches the saved state. Your changes are kept; review the selection before submitting again.',
   NoteRequestError:
