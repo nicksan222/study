@@ -11,7 +11,7 @@ import {
 import { and, desc, eq, lt, notes, recording_chunks, recordings, sql } from '@study/db';
 import { storeMutation, storeQuery, unixSeconds } from '@study/server';
 import type { StoreResources } from '@study/server';
-import { Option, Schema } from 'effect';
+import { Schema } from 'effect';
 
 import { MAX_RECORDING_SAMPLES } from '#server/features/recordings/codecs/audio';
 
@@ -27,12 +27,6 @@ export function makeRecordingStore({ db, clock, timestampClock }: StoreResources
         input: recordingIdSchema,
         output: recordingViewSchema,
         run: (id) => required(recording(id))
-      }),
-      findRecording: storeQuery({
-        role: 'optional',
-        input: recordingIdSchema,
-        output: Schema.Option(recordingViewSchema),
-        run: (id) => Option.fromNullishOr(recording(id))
       }),
       recordings: storeQuery({
         role: 'collection',

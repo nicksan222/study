@@ -25,7 +25,6 @@ export function* recordingOperations() {
 
   return {
     recording: recordings.recording,
-    findRecording: recordings.findRecording,
     recordingPost: posts.recordingPost,
     recordingPostSnapshot: snapshots.recordingPostSnapshot,
     recordings: (input: typeof recordingPageInputSchema.Type) =>
