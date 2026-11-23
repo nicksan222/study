@@ -37,9 +37,9 @@ function mount({
   return {
     client,
     notify: fixture.notify,
-    ...renderHook(({ noteId }) => useWorkbench(noteId), {
+    ...renderHook(({ noteId, wide }) => useWorkbench(noteId, wide), {
       wrapper,
-      initialProps: { noteId: id }
+      initialProps: { noteId: id, wide: false }
     })
   };
 }
@@ -193,7 +193,7 @@ test.unit.stable(
     await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
     const firstIdentity = view.result.current.active;
 
-    view.rerender({ noteId: otherId });
+    view.rerender({ noteId: otherId, wide: false });
     expect(view.result.current.tabs).toHaveLength(0);
     expect(view.result.current.visible).toBe(false);
     act(() =>
@@ -205,7 +205,7 @@ test.unit.stable(
     );
     await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
     expect(view.result.current.active).not.toBe(firstIdentity);
-    view.rerender({ noteId: id });
+    view.rerender({ noteId: id, wide: false });
     expect(view.result.current.active).toBe(firstIdentity);
     expect(view.result.current.tabs).toHaveLength(1);
     expect(view.result.current.visible).toBe(true);
@@ -222,9 +222,9 @@ test.unit.stable(
     act(() => view.result.current.expand());
     await waitFor(() => expect(view.result.current.expanded).toBe(false));
     preferences.expandPages = false;
-    view.rerender({ noteId: id });
+    view.rerender({ noteId: id, wide: false });
     preferences.expandPages = true;
-    view.rerender({ noteId: id });
+    view.rerender({ noteId: id, wide: false });
     expect(view.result.current.expanded).toBe(false);
     preferences.expandPages = false;
   }
@@ -294,9 +294,9 @@ test.unit.stable(
     act(() => view.result.current.hide());
     act(() => view.result.current.showEditor('side'));
     await waitFor(() => expect(view.result.current.visible).toBe(true));
-    view.rerender({ noteId: otherId });
+    view.rerender({ noteId: otherId, wide: false });
     await waitFor(() => expect(view.result.current.tabs).toEqual([]));
-    view.rerender({ noteId: id });
+    view.rerender({ noteId: id, wide: false });
     await waitFor(() => expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }]));
     act(() => view.result.current.close('assistant'));
     await waitFor(() => expect(view.result.current.tabs).toEqual([]));
@@ -304,17 +304,38 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'starts phone notes with reading visible and opens the context card on request',
-  async ({ vi, act, waitFor, expect, rpcTestTransport, renderHook }) => {
-    const media = window.matchMedia('(max-width: 600px)');
-
-    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true });
+  'defaults the action card to available width and retains manual choices by notebook',
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
 
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    expect(view.result.current.cardVisible).toBe(false);
+    view.rerender({ noteId: id, wide: true });
+    expect(view.result.current.cardVisible).toBe(true);
+    view.rerender({ noteId: id, wide: false });
+    expect(view.result.current.cardVisible).toBe(false);
+
     act(() => view.result.current.toggleCard());
     await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    view.rerender({ noteId: id, wide: true });
+    expect(view.result.current.cardVisible).toBe(true);
     act(() => view.result.current.toggleCard());
     await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    view.rerender({ noteId: id, wide: false });
+    view.rerender({ noteId: id, wide: true });
+    expect(view.result.current.cardVisible).toBe(false);
+
+    view.rerender({ noteId: otherId, wide: true });
+    expect(view.result.current.cardVisible).toBe(true);
+    act(() => view.result.current.open({ kind: 'assistant' }));
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    view.rerender({ noteId: otherId, wide: false });
+    view.rerender({ noteId: otherId, wide: true });
+    expect(view.result.current.cardVisible).toBe(false);
+    expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }]);
+    act(() => view.result.current.hide());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+
+    view.rerender({ noteId: id, wide: true });
+    expect(view.result.current.cardVisible).toBe(false);
   }
 );

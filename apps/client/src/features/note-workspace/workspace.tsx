@@ -1,10 +1,16 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import type { ProjectId, NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Loading, toastManager, WorkspaceCard, WorkspaceSurface } from '@study/ui';
+import {
+  Loading,
+  toastManager,
+  WorkspaceCard,
+  WorkspaceSurface,
+  useWorkspaceWide
+} from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import type { DragEvent, ClipboardEvent, ReactNode } from 'react';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -14,20 +20,16 @@ import { NoteStart } from './start';
 import { creationFlow } from './start.queries';
 import { NoteReadError } from './status';
 import { NoteWorkbench } from './workbench';
+import { useWorkbench } from './workbench.queries';
 import { WorkspaceHeader } from './workspace-header';
 
-/** Keeps the starter and active notebook under the same context-panel owner. */
 export function NoteWorkspace({ id }: { id?: NoteId } = {}) {
-  return (
-    <WorkspaceCard.Provider>
-      {id ? (
-        <NoteBody key={String(id)} id={id} />
-      ) : (
-        <NoteUploadRedirect>
-          <NoteStart />
-        </NoteUploadRedirect>
-      )}
-    </WorkspaceCard.Provider>
+  return id ? (
+    <NoteBody key={String(id)} id={id} />
+  ) : (
+    <NoteUploadRedirect>
+      <NoteStart />
+    </NoteUploadRedirect>
   );
 }
 
@@ -133,24 +135,72 @@ function NoteBody({ id }: { id: NoteId }) {
       <NoteDeleteDialog id={id} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
       {completed ? (
         <NoteStart />
+      ) : editable && state.data ? (
+        <EditableNote
+          id={id}
+          owner={owner}
+          title={state.data.title}
+          project={project}
+          onDelete={() => setDeleteDialogOpen(true)}
+        />
       ) : (
         <WorkspaceSurface.Root variant="desk">
-          <WorkspaceHeader owner={owner} title={state.data?.title}>
-            {editable && <NoteLayoutControls id={id} />}
-          </WorkspaceHeader>
+          <WorkspaceHeader owner={owner} title={state.data?.title} />
           {deletion.data && <NoteDeletion id={id} />}
           <NoteFeedback state={state} deletion={deletion} />
-          {editable && state.data && (
-            <NoteWorkbench
-              id={id}
-              title={state.data.title}
-              project={project}
-              onDelete={() => setDeleteDialogOpen(true)}
-            />
-          )}
         </WorkspaceSurface.Root>
       )}
     </NoteUploadRedirect>
+  );
+}
+
+function EditableNote({
+  id,
+  owner,
+  title,
+  project,
+  onDelete
+}: {
+  id: NoteId;
+  owner: ReturnType<typeof useNoteWorkspace>['owner'];
+  title: string;
+  project?: ProjectId;
+  onDelete: () => void;
+}) {
+  const workspace = useRef<HTMLDivElement>(null);
+  const contextPanel = useRef<HTMLElement>(null);
+  const contextToggle = useRef<HTMLButtonElement>(null);
+  const cardFollowsWidth = useRef(true);
+  const wide = useWorkspaceWide(workspace, () => {
+    if (cardFollowsWidth.current && contextPanel.current?.contains(document.activeElement))
+      contextToggle.current?.focus();
+  });
+  const model = useWorkbench(id, wide);
+
+  useLayoutEffect(() => {
+    cardFollowsWidth.current = model.cardHidden === undefined;
+  }, [model.cardHidden]);
+
+  return (
+    <WorkspaceCard.Provider
+      open={model.cardVisible}
+      onOpenChange={model.toggleCard}
+      triggerRef={contextToggle}
+    >
+      <WorkspaceSurface.Root variant="desk" ref={workspace}>
+        <WorkspaceHeader owner={owner} title={title}>
+          <NoteLayoutControls model={model} />
+        </WorkspaceHeader>
+        <NoteWorkbench
+          id={id}
+          title={title}
+          project={project}
+          model={model}
+          contextPanel={contextPanel}
+          onDelete={onDelete}
+        />
+      </WorkspaceSurface.Root>
+    </WorkspaceCard.Provider>
   );
 }
 

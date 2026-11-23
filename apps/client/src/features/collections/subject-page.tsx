@@ -9,7 +9,15 @@ import {
   GeneralSettingsIcon,
   GenerateIcon
 } from '@study/icons';
-import { RetryButton, Button, ErrorState, List, Loading, SubjectWorkspace } from '@study/ui';
+import {
+  RetryButton,
+  Button,
+  ErrorState,
+  List,
+  Loading,
+  SubjectWorkspace,
+  WorkspaceSurface
+} from '@study/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -27,7 +35,15 @@ import { SubjectManagement } from './project-settings';
 
 /** Reads only the explicitly selected subject; a failed identity never exposes global content. */
 export function SubjectPage({ project }: { project: ProjectId }) {
-  return <SubjectSelection project={project} />;
+  return (
+    <WorkspaceSurface.Root variant="flow">
+      <WorkspaceSurface.Content>
+        <WorkspaceSurface.Body>
+          <SubjectSelection project={project} />
+        </WorkspaceSurface.Body>
+      </WorkspaceSurface.Content>
+    </WorkspaceSurface.Root>
+  );
 }
 
 /** The selected live identity owns pending and failed snapshots within the page. */

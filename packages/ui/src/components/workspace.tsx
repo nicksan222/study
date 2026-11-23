@@ -3,8 +3,10 @@ import {
   createContext,
   useContext,
   useEffect,
+  useEffectEvent,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState
 } from 'react';
@@ -15,6 +17,51 @@ import { Button } from './button.tsx';
 import { ComposerSurface } from './composer.tsx';
 import { semanticPart as part } from './semantic-part';
 import { AttachmentIcon } from './workspace-desk';
+
+/** Follows the inline size of an unpadded page workspace at the split-layout breakpoint. */
+export function useWorkspaceWide(
+  workspace: RefObject<HTMLElement | null>,
+  onBeforeNarrow?: () => void
+): boolean {
+  const [wide, setWide] = useState(false);
+  const beforeNarrow = useEffectEvent(() => onBeforeNarrow?.());
+
+  useLayoutEffect(() => {
+    const element = workspace.current;
+
+    if (!element) return;
+
+    let wasWide = false;
+    const measure = () => {
+      const width = getComputedStyle(element).width;
+      const pixels = width.endsWith('px') ? Number.parseFloat(width) : element.clientWidth;
+      const isWide = pixels >= 960;
+
+      if (isWide === wasWide) return;
+
+      if (!isWide) beforeNarrow();
+
+      wasWide = isWide;
+      setWide(isWide);
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+
+      return () => window.removeEventListener('resize', measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [workspace]);
+
+  return wide;
+}
 
 const CardContext = createContext<{
   id: string;
@@ -93,7 +140,7 @@ function Root({
   className,
   variant,
   ...props
-}: ComponentProps<'div'> & { variant: 'welcome' | 'note' | 'desk' | 'page' }) {
+}: ComponentProps<'div'> & { variant: 'welcome' | 'note' | 'desk' | 'page' | 'flow' }) {
   return (
     <div
       className={cn('ui-workspace', variant !== 'welcome' && 'note-canvas', className)}

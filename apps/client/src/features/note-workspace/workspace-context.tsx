@@ -1,6 +1,6 @@
 import type { NoteId } from '@study/contracts';
 import { WorkspaceCard } from '@study/ui';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -11,24 +11,17 @@ export function WorkspaceContext({
   id,
   actions,
   outline,
-  hidden,
-  onDismiss
+  ref
 }: {
   id: NoteId;
   actions?: ReactNode;
   outline?: ReactNode;
-  hidden?: boolean;
-  onDismiss?: () => void;
+  ref?: Ref<HTMLElement>;
 }) {
   const { t } = useI18n();
 
   return (
-    <WorkspaceCard.Root
-      aria-label={t('NoteContextPanel')}
-      variant="context"
-      hidden={hidden}
-      onDismiss={onDismiss}
-    >
+    <WorkspaceCard.Root aria-label={t('NoteContextPanel')} variant="context" ref={ref}>
       {actions}
       {outline}
       <NotePendingWork key={String(id)} id={id} />

@@ -24,6 +24,7 @@ import type * as __MockType2 from '../source-library/source-panel';
 import type * as __MockType3 from './note-layout-controls';
 import type * as __MockType4 from './note-page-panel';
 import type * as __MockType5 from './workbench';
+import type * as WorkbenchQueries from './workbench.queries';
 
 let AssistantProvider: typeof __MockType0.AssistantProvider;
 
@@ -36,6 +37,8 @@ let NoteLayoutControls: typeof __MockType3.NoteLayoutControls;
 let NotePagePanel: typeof __MockType4.NotePagePanel;
 
 let NoteWorkbench: typeof __MockType5.NoteWorkbench;
+
+let useWorkbench: typeof WorkbenchQueries.useWorkbench;
 
 let rpc: ReturnType<typeof createMockState>['rpc'];
 
@@ -94,6 +97,17 @@ function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandl
 
 const noteId = noteIdSchema.make(12n);
 
+function Notebook() {
+  const model = useWorkbench(noteId, false);
+
+  return (
+    <WorkspaceCard.Provider open={model.cardVisible} onOpenChange={model.toggleCard}>
+      <NoteLayoutControls model={model} />
+      <NoteWorkbench id={noteId} title="Notebook" model={model} onDelete={() => {}} />
+    </WorkspaceCard.Provider>
+  );
+}
+
 let created: ReturnType<typeof material> | undefined;
 
 function mount(
@@ -112,9 +126,7 @@ function mount(
   return render(
     <Provider>
       <AssistantProvider>
-        <WorkspaceCard.Provider>
-          <RouterProvider router={router} />
-        </WorkspaceCard.Provider>
+        <RouterProvider router={router} />
       </AssistantProvider>
     </Provider>
   );
@@ -161,6 +173,7 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule5 = await import('./workbench');
 
   NoteWorkbench = __mockModule5.NoteWorkbench;
+  ({ useWorkbench } = await import('./workbench.queries'));
 });
 
 test.unit.beforeEach(({ vi }) => {
@@ -248,13 +261,7 @@ test.unit.stable(
 test.unit.stable(
   'keeps vertical note actions in the context card and changes editor docking without creating another document',
   async ({ screen, expect, waitFor, within, fireEvent, render, rpcHandlersTransport }) => {
-    const view = mount(
-      { render, rpcHandlersTransport },
-      <>
-        <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => undefined} />
-      </>
-    );
+    const view = mount({ render, rpcHandlersTransport }, <Notebook />);
 
     const actions = await screen.findByRole('button', { name: 'NoteActions' });
 
@@ -301,13 +308,7 @@ test.unit.stable(
 test.unit.stable(
   'opens the scoped assistant beside pages and preserves its unsent draft after closing the tab',
   async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
-    mount(
-      { render, rpcHandlersTransport },
-      <>
-        <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => {}} />
-      </>
-    );
+    mount({ render, rpcHandlersTransport }, <Notebook />);
     fireEvent.click(await screen.findByRole('button', { name: 'NoteAssistantOpen' }));
     expect(await screen.findByRole('tab', { name: 'NoteAssistant' })).toHaveAttribute(
       'aria-selected',

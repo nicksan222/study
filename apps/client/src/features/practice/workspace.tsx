@@ -1,6 +1,6 @@
 import type { Project } from '@study/contracts';
-import { Sidebar, WorkspaceCard, WorkspaceSurface } from '@study/ui';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { Sidebar, WorkspaceCard, WorkspaceSurface, useWorkspaceWide } from '@study/ui';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { SubjectIdentity } from '#client/features/subjects/index.ts';
@@ -22,44 +22,17 @@ export function PracticeWorkspace({
   const workspace = useRef<HTMLDivElement>(null);
   const contextPanel = useRef<HTMLElement>(null);
   const contextToggle = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-  const manuallyToggled = useRef(false);
-
-  useLayoutEffect(() => {
-    const container = workspace.current?.parentElement;
-
-    if (!container) return;
-
-    const measure = () => {
-      if (manuallyToggled.current) return;
-
-      const nextOpen = container.clientWidth >= 960;
-
-      if (!nextOpen && contextPanel.current?.contains(document.activeElement))
-        contextToggle.current?.focus();
-
-      setOpen(nextOpen);
-    };
-
-    measure();
-
-    if (typeof ResizeObserver === 'undefined') return;
-
-    const observer = new ResizeObserver(measure);
-
-    observer.observe(container);
-
-    return () => observer.disconnect();
-  }, []);
+  const [openOverride, setOpenOverride] = useState<boolean>();
+  const wide = useWorkspaceWide(workspace, () => {
+    if (openOverride === undefined && contextPanel.current?.contains(document.activeElement))
+      contextToggle.current?.focus();
+  });
 
   return (
     <WorkspaceCard.Provider
-      open={open}
+      open={openOverride ?? wide}
       triggerRef={contextToggle}
-      onOpenChange={(nextOpen) => {
-        manuallyToggled.current = true;
-        setOpen(nextOpen);
-      }}
+      onOpenChange={setOpenOverride}
     >
       <WorkspaceSurface.Root ref={workspace} variant="page">
         <Sidebar.Topbar parent={parent ?? t('AppName')} title={title}>

@@ -1,6 +1,6 @@
 import type { ProjectId, PageSummary } from '@study/contracts';
 import { OpenIcon, PageIcon, RefreshIcon } from '@study/icons';
-import { IconButton, PageOverview } from '@study/ui';
+import { IconButton, PageOverview, WorkspaceSurface } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
@@ -14,6 +14,18 @@ import { usePageBrowse } from './use-page-browse';
 
 /** Shows generated and saved study notes within the Practice workspace. */
 export function PracticeStudyNotes({ project }: { project?: ProjectId }) {
+  return (
+    <WorkspaceSurface.Root variant="flow">
+      <WorkspaceSurface.Content>
+        <WorkspaceSurface.Body>
+          <StudyNotesOverview project={project} />
+        </WorkspaceSurface.Body>
+      </WorkspaceSurface.Content>
+    </WorkspaceSurface.Root>
+  );
+}
+
+function StudyNotesOverview({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
   const { query: state, navigation: window } = usePageBrowse(project);
 

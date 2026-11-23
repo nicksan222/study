@@ -1,14 +1,12 @@
-import type { NoteId } from '@study/contracts';
 import { DockBelowIcon, DockBesideIcon, GenerateIcon } from '@study/icons';
 import { IconButton, WorkspaceCard, WorkspaceDeskSurface as Desk } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { useWorkbench } from './workbench.queries';
+import type { useWorkbench } from './workbench.queries';
 
-export function NoteLayoutControls({ id }: { id: NoteId }) {
+export function NoteLayoutControls({ model }: { model: ReturnType<typeof useWorkbench> }) {
   const { t } = useI18n();
-  const model = useWorkbench(id);
   const unavailable = model.tabs.length === 0;
 
   return (
@@ -21,11 +19,7 @@ export function NoteLayoutControls({ id }: { id: NoteId }) {
       >
         <GenerateIcon aria-hidden="true" />
       </IconButton>
-      <WorkspaceCard.Toggle
-        label={t('NoteActions')}
-        open={model.cardVisible}
-        onOpenChange={model.toggleCard}
-      />
+      <WorkspaceCard.Toggle label={t('NoteActions')} />
       <Desk.DesktopControls>
         <IconButton
           size="icon-sm"

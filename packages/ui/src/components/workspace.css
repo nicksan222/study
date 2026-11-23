@@ -479,6 +479,25 @@
   }
 }
 
+/* Long lists flow with the shell header inside its scroll area. */
+.ui-workspace[data-variant='flow'] {
+  display: block;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  container-type: normal;
+}
+.ui-workspace[data-variant='flow'] > .ui-workspace-content {
+  display: block;
+  padding: 0;
+}
+.ui-workspace[data-variant='flow'] > .ui-workspace-content > .ui-workspace-body {
+  display: block;
+  min-height: 0;
+  overflow: visible;
+}
+
 .ui-workspace-card-caption {
   margin: 0;
   padding: 0.5rem 0.75rem;

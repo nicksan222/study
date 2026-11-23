@@ -194,7 +194,8 @@ export {
   WorkspaceCard,
   WorkspaceChanges,
   WorkspaceSurface,
-  WorkspaceWork
+  WorkspaceWork,
+  useWorkspaceWide
 } from './components/workspace.tsx';
 export { downloadFile } from './download.ts';
 export type {

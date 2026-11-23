@@ -2,6 +2,7 @@ import type { NoteId, PageId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Button, WorkspaceDeskSurface as Desk } from '@study/ui';
 import { useState } from 'react';
+import type { RefObject } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -17,8 +18,8 @@ import { NotebookBody } from './notebook-body';
 import { NotebookOutline } from './notebook-outline';
 import { PagePanel } from './page-panel';
 import { NoteReadError } from './status';
-import { useWorkbench, workbenchIdentity } from './workbench.queries';
-import type { WorkbenchTarget } from './workbench.queries';
+import { workbenchIdentity } from './workbench.queries';
+import type { useWorkbench, WorkbenchTarget } from './workbench.queries';
 import { WorkspaceContext } from './workspace-context';
 
 function TabLabel({ target }: { target: WorkbenchTarget }) {
@@ -48,15 +49,18 @@ export function NoteWorkbench({
   id,
   title,
   project,
+  model,
+  contextPanel,
   onDelete
 }: {
   id: NoteId;
   title: string;
   project?: ProjectId;
+  model: ReturnType<typeof useWorkbench>;
+  contextPanel?: RefObject<HTMLElement | null>;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
-  const model = useWorkbench(id);
   const { noteWidth } = model.appearance;
   const [history, setHistory] = useState(false);
   const pages = useLinkedPages(id);
@@ -120,8 +124,7 @@ export function NoteWorkbench({
                   />
                 ) : undefined
               }
-              hidden={!model.cardVisible}
-              onDismiss={model.hideCard}
+              ref={contextPanel}
               actions={
                 <NoteContextActions
                   id={id}

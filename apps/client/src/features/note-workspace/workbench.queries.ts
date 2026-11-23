@@ -37,7 +37,7 @@ const workbenchState = Atom.family((_id: NoteId) =>
 
 /** Retains page tabs and unsent pages across note navigation without mixing them with chat drafts. */
 
-export function useWorkbench(id: NoteId) {
+export function useWorkbench(id: NoteId, wide: boolean) {
   const cache = useContext(RegistryContext);
   const preferences = useWorkspacePreferences();
   const appearance =
@@ -96,12 +96,12 @@ export function useWorkbench(id: NoteId) {
     expanded: model.expanded ?? preferences.expandPages,
     tabs,
     dock: model.dock ?? appearance.noteEditorDock,
-    cardVisible: !model.visible && !(model.cardHidden ?? true),
+    cardVisible: !model.visible && !(model.cardHidden ?? !wide),
     toggleCard: () =>
       update((value) => ({
         ...value,
         visible: false,
-        cardHidden: value.visible ? false : !(value.cardHidden ?? true)
+        cardHidden: value.visible ? false : !(value.cardHidden ?? !wide)
       })),
     hideCard: () => update((value) => ({ ...value, cardHidden: true })),
     showEditor: (dock: 'side' | 'bottom') =>

@@ -1104,6 +1104,68 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'returns focus from default notebook actions when the workspace narrows',
+  async ({ screen, expect, userEvent, act, vi, render, rpcHandlersTransport }) => {
+    rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
+    let width = 960;
+    let resizeWorkspace = () => {};
+
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      return this.dataset.variant === 'desk' ? width : 0;
+    });
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly callback: () => void) {}
+
+        observe(target: HTMLElement) {
+          if (target.dataset.variant === 'desk') resizeWorkspace = this.callback;
+        }
+
+        disconnect() {}
+      }
+    );
+
+    try {
+      mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
+      const toggle = await screen.findByRole('button', { name: 'NoteActions' });
+      const editor = await screen.findByRole('textbox', { name: 'NotePageEditor' });
+      const primary = screen.getByRole('link', { name: 'PracticeStudyNotes' });
+      const user = userEvent.setup();
+
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(editor).toBeVisible();
+      primary.focus();
+      act(() => {
+        width = 959;
+        resizeWorkspace();
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveFocus();
+      expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(editor);
+
+      await user.keyboard('{Enter}');
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      primary.focus();
+      await user.keyboard('{Escape}');
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveFocus();
+
+      act(() => {
+        width = 960;
+        resizeWorkspace();
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(editor);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+);
+
+test.unit.stable(
   'retains the notebook edit fence after an uncertain deletion request and remount',
   async ({ waitFor, expect, screen, fireEvent, within, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
