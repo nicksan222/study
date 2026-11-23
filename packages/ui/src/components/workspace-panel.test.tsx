@@ -10,6 +10,7 @@ test.unit.stable(
 
     function Panel() {
       const [active, setActive] = useState('draft');
+      const [sourceOpen, setSourceOpen] = useState(true);
 
       return (
         <WorkspacePanel
@@ -22,11 +23,22 @@ test.unit.stable(
               label: 'Draft',
               close: { label: 'Close page', onClick: () => close('draft') }
             },
-            {
-              id: 'source',
-              label: 'Source',
-              close: { label: 'Close page', onClick: () => close('source') }
-            }
+            ...(sourceOpen
+              ? [
+                  {
+                    id: 'source',
+                    label: 'Source',
+                    close: {
+                      label: 'Close page',
+                      onClick: () => {
+                        close('source');
+                        setSourceOpen(false);
+                        setActive('draft');
+                      }
+                    }
+                  }
+                ]
+              : [])
           ]}
           beforeTabs={<button>Back to notebook</button>}
           afterTabs={<button>Expand editor</button>}
@@ -56,5 +68,7 @@ test.unit.stable(
     closeSource.focus();
     await user.keyboard('{Enter}');
     expect(close).toHaveBeenCalledExactlyOnceWith('source');
+    expect(screen.queryByRole('tab', { name: 'Source' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Draft', selected: true })).toHaveFocus();
   }
 );

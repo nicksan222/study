@@ -1,6 +1,6 @@
 import { Tabs } from '@base-ui/react/tabs';
 import { CloseIcon } from '@study/icons';
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 type WorkspaceTab = {
@@ -30,6 +30,17 @@ export function WorkspacePanel({
 }) {
   const panelId = useId();
   const activeTab = useRef<HTMLDivElement>(null);
+  const activeTabButton = useRef<HTMLButtonElement>(null);
+  const keyboardClosedTab = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const closed = keyboardClosedTab.current;
+
+    if (closed === null || tabs.some((tab) => tab.id === closed)) return;
+
+    keyboardClosedTab.current = null;
+    activeTabButton.current?.focus();
+  }, [tabs]);
 
   useEffect(() => {
     activeTab.current?.scrollIntoView?.({
@@ -52,6 +63,7 @@ export function WorkspacePanel({
         <Tabs.List className="workspace-panel-tabs" aria-label={label}>
           {tabs.map((tab, index) => {
             const labelId = `${panelId}-${index}`;
+            const close = tab.close;
 
             return (
               <div
@@ -59,18 +71,21 @@ export function WorkspacePanel({
                 key={tab.id}
                 ref={tab.id === active ? activeTab : undefined}
               >
-                <Tabs.Tab value={tab.id}>
+                <Tabs.Tab value={tab.id} ref={tab.id === active ? activeTabButton : undefined}>
                   {tab.icon}
                   <span id={labelId}>{tab.label}</span>
                 </Tabs.Tab>
-                {tab.close && (
+                {close && (
                   <button
                     className="workspace-panel-tab-close"
                     type="button"
-                    aria-label={tab.close.label}
+                    aria-label={close.label}
                     aria-describedby={labelId}
-                    title={tab.close.label}
-                    onClick={tab.close.onClick}
+                    title={close.label}
+                    onClick={(event) => {
+                      keyboardClosedTab.current = event.detail === 0 ? tab.id : null;
+                      close.onClick();
+                    }}
                   >
                     <CloseIcon size={13} aria-hidden="true" />
                   </button>
