@@ -718,6 +718,7 @@ export {
   sourceKinds,
   sourceKindSchema,
   sourceOriginSchema,
+  uploadedSourceOrigins,
   viewerExtension
 } from './sources/sniff.ts';
 export type { BackupId, BackupManifest, RestorePreview } from './system/backups.ts';

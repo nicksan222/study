@@ -22,6 +22,7 @@ import {
   useCursorWindow
 } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { sourceLocation } from '#client/lib/navigation/source-location.ts';
 import { sourceIcons } from '#client/lib/source-icons.ts';
 import { useNarrowLayout } from '#client/lib/viewport.ts';
 
@@ -216,9 +217,7 @@ function UploadedFile({
       render={
         <Link
           ref={link}
-          to="/sources/$sourceId"
-          params={{ sourceId: String(source.id) }}
-          search={{ project: project ? String(project) : undefined, fromUploads: '1' }}
+          {...sourceLocation(source.id, source.origin, project?.toString())}
           onClick={active ? onReselect : undefined}
         />
       }

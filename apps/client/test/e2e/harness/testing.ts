@@ -44,6 +44,7 @@ type Fixtures = {
   desktopPage: Page;
   captureWorkflow: string;
   sourcePeer: ReturnType<typeof openSourcePeer>;
+  firstRun: boolean;
   useDefaultNoteAppearance: boolean;
 };
 
@@ -77,9 +78,18 @@ const testHarness = testBrowser.extend<Fixtures>({
 
     await provide(peer);
   },
+  firstRun: [false, { option: true }],
   useDefaultNoteAppearance: [false, { option: true }],
   webStack: async (
-    { ai, aiEnabled, chatGpt, microphoneEnabled, modelUpdateNotices, useDefaultNoteAppearance },
+    {
+      ai,
+      aiEnabled,
+      chatGpt,
+      firstRun,
+      microphoneEnabled,
+      modelUpdateNotices,
+      useDefaultNoteAppearance
+    },
     provide
   ) => {
     assertCapturePlatform();
@@ -87,6 +97,7 @@ const testHarness = testBrowser.extend<Fixtures>({
 
     await using stack = await openWebStack({
       ai: aiEnabled ? ai.runtime : undefined,
+      firstRun,
       modelUpdateNotices,
       voice: voice?.runtime,
       useDefaultNoteAppearance,
