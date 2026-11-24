@@ -8,27 +8,18 @@ import type { useAssistant } from './use-assistant';
 
 export function AssistantHistory({
   model,
-  visible,
-  onDismiss,
   panelRef
 }: {
   model: Pick<
     ReturnType<typeof useAssistant>,
     'chats' | 'createChat' | 'newChat' | 'note' | 'selectChat'
   >;
-  visible: boolean;
-  onDismiss: () => void;
   panelRef?: Ref<HTMLElement>;
 }) {
   const { t } = useI18n();
 
   return (
-    <WorkspaceCard.Root
-      ref={panelRef}
-      hidden={!visible}
-      onDismiss={onDismiss}
-      aria-label={t('AssistantHistory')}
-    >
+    <WorkspaceCard.Root ref={panelRef} aria-label={t('AssistantHistory')}>
       <WorkspaceCard.Group>
         <WorkspaceCard.Primary disabled={model.createChat.isPending} onClick={model.newChat}>
           <AddIcon size={16} />
