@@ -1358,7 +1358,8 @@
 }
 
 /* Feedback decorates the existing controls; only color and opacity animate. */
-.study-practice-choice > span:nth-of-type(2) {
+.study-practice-choice > span:nth-of-type(2),
+.study-practice-choice > .study-practice-muted:has(+ svg) {
   padding-right: 1.875rem;
 }
 .study-practice-choice > svg {
