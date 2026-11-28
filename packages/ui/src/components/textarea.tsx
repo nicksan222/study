@@ -20,7 +20,7 @@ export function Textarea({
     <Surface
       className={cn(
         CONTROL_SURFACE_CLASS,
-        'has-[>textarea:disabled]:opacity-64',
+        'has-[>textarea:disabled]:bg-(--ui-neutral-fill) has-[>textarea:disabled]:opacity-64 has-[>textarea:disabled]:shadow-[inset_0_0_0_1px_var(--ui-field-border)]',
         header && 'flex-col',
         font === 'mono' && 'font-mono tabular-nums'
       )}

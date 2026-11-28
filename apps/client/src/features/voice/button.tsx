@@ -220,7 +220,7 @@ function DictationAction({
         tooltip={error ? t(errorLabels[error]) : undefined}
         aria-haspopup={retry ? 'dialog' : undefined}
         aria-expanded={retry ? open : undefined}
-        size={active ? 'icon-sm' : 'icon-xs'}
+        size="icon-sm"
         variant={error ? 'warning-outline' : 'ghost'}
         disabled={disabled}
         onMouseDown={(event) => event.preventDefault()}

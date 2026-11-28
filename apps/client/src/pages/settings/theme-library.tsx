@@ -77,7 +77,7 @@ export function ThemeLibrary({ model, search = '' }: { model: AppearanceModel; s
     name: theme ? `${theme.name} (${t('ThemeCopy')})` : t('UntitledTheme')
   });
   const action = (label: string, icon: React.ReactNode, onClick: () => void) => (
-    <IconButton label={label} disabled={model.pending} onClick={onClick}>
+    <IconButton label={label} size="icon-sm" disabled={model.pending} onClick={onClick}>
       {icon}
     </IconButton>
   );

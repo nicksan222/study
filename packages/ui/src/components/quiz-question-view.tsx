@@ -1,9 +1,10 @@
+import { NextIcon } from '@study/icons';
 import { useState, useEffect, useRef, useId } from 'react';
 import type { ReactNode, KeyboardEvent, RefObject } from 'react';
 
 import { Button } from '#ui/components/button.tsx';
 import { Input } from '#ui/components/input.tsx';
-import { NextButton, PreviousButton } from '#ui/components/navigation-button.tsx';
+import { PreviousButton } from '#ui/components/navigation-button.tsx';
 import { Practice } from '#ui/components/practice.tsx';
 import { SelectControl } from '#ui/components/select-control.tsx';
 import { Textarea } from '#ui/components/textarea.tsx';
@@ -297,6 +298,7 @@ function QuestionFooter({
   next?: () => void;
 }) {
   const { t } = usePracticePresentation();
+  const disabled = !valid || pending;
 
   return (
     <Practice.StageFooter>
@@ -319,15 +321,24 @@ function QuestionFooter({
           {t(last ? 'PracticeLastQuestion' : 'PracticeAnswerSaved')}
         </Practice.MutedText>
       </Practice.FooterContext>
-      <NextButton
+      <Button
         ref={action}
         type={next ? 'button' : 'submit'}
+        variant={next ? 'outline' : 'default'}
         onClick={next}
-        disabled={!valid || pending}
-        label={t(pending ? 'PracticeSaving' : next ? 'PracticeNextQuestion' : 'SubmitAnswer')}
-      ></NextButton>
+        disabled={disabled}
+      >
+        {t(actionLabel(pending, next))}
+        {next && <NextIcon aria-hidden="true" />}
+      </Button>
     </Practice.StageFooter>
   );
+}
+
+function actionLabel(pending: boolean, next?: () => void) {
+  if (pending) return 'PracticeSaving';
+
+  return next ? 'PracticeNextQuestion' : 'SubmitAnswer';
 }
 
 /** Require a full matching permutation or a nonempty response for text and choice questions. */
@@ -529,7 +540,7 @@ function ChoiceAnswers({
             result &&
             'choices' in result &&
             result.choices.find((item) => item.id === choice.id)?.isCorrect
-              ? t('ReaderCorrectAnswer')
+              ? t('RightAnswer')
               : result && selected.includes(choice.id)
                 ? t('YourAnswer')
                 : undefined

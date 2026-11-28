@@ -180,6 +180,7 @@ function RevisionForm({
     <SourceReader.Editor>
       <Textarea
         ref={input}
+        font="mono"
         aria-label={t('MaterialFileContents')}
         value={text}
         readOnly={draft.pending}
@@ -194,6 +195,7 @@ function RevisionForm({
         }
       />
       <SourceReader.Actions>
+        {text !== normalized && <p>{t('MaterialUnsavedRevision')}</p>}
         {cancel}
         <Button
           disabled={draft.pending || text === normalized || !text.length}

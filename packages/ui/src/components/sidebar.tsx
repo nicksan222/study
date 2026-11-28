@@ -358,7 +358,7 @@ function Toggle({
         placement === 'reveal' && 'study-entry-navigation-toggle',
         props.className
       )}
-      size="icon"
+      size="icon-sm"
       variant="ghost-muted"
       title={label}
       aria-expanded={expanded}
