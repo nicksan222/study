@@ -69,18 +69,26 @@ function Toggle({
 
   if (!context) return null;
 
+  const expanded = open ?? context.open;
+  const setOpen = onOpenChange ?? context.setOpen;
+
   return (
     <Button
       ref={context.trigger}
       size="icon-sm"
-      variant={(open ?? context.open) ? 'secondary' : 'ghost-muted'}
+      variant={expanded ? 'secondary' : 'ghost-muted'}
       className="ui-workspace-context-toggle"
       aria-label={label}
       title={label}
-      aria-expanded={open ?? context.open}
-      aria-pressed={open ?? context.open}
+      aria-expanded={expanded}
       aria-controls={context.id}
-      onClick={() => (onOpenChange ?? context.setOpen)(!(open ?? context.open))}
+      onClick={() => setOpen(!expanded)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !expanded) return;
+
+        event.preventDefault();
+        setOpen(false);
+      }}
     >
       <DescriptionIcon aria-hidden="true" />
     </Button>

@@ -42,7 +42,9 @@ test.browser.stable(
     await page.reload();
     await expect(conversation.getByText(firstQuestion, { exact: true })).toBeVisible();
     await expect(firstReply).toBeVisible();
-    await main.getByRole('button', { name: copy.AssistantHistory, exact: true }).click();
+    const historyToggle = main.getByRole('button', { name: copy.AssistantHistory, exact: true });
+
+    await historyToggle.click();
     const history = main.getByRole('navigation', { name: copy.AssistantHistory, exact: true });
     const firstChat = history.getByRole('button', { name: firstQuestion, exact: true });
 
@@ -60,7 +62,9 @@ test.browser.stable(
 
     await expect(secondReply).toBeVisible();
     await expect(firstReply).toBeHidden();
-    await firstChat.click();
+    await firstChat.press('Enter');
+    await expect(history).toBeHidden();
+    await expect(historyToggle).toBeFocused();
     await expect(firstReply).toBeVisible();
     await expect(secondReply).toBeHidden();
   }
