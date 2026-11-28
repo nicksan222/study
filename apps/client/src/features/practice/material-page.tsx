@@ -16,7 +16,7 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { MaterialActions } from './context-actions';
 import { FlashcardReview } from './flashcard-review';
 import { Quiz } from './quiz';
-import { PracticeWorkspace, PracticeSubject } from './workspace';
+import { PracticeWorkspace } from './workspace';
 
 type Kind = 'quiz' | 'flashcards';
 
@@ -46,7 +46,7 @@ function MaterialPage({ kind }: { kind: Kind }) {
       title={state.data.title}
       parent={
         <Link to="/practice" search={project ? { project: String(project) } : {}}>
-          {owner ? <PracticeSubject project={owner} /> : t('Practice')}
+          {owner ? owner.name : t('Practice')}
         </Link>
       }
       actions={<MaterialActions key={String(id)} material={state.data} />}

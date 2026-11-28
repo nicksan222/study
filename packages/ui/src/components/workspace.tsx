@@ -200,7 +200,6 @@ export const WorkspaceSurface = {
   Section: part('div', 'note-section'),
   Deletion: part('section', 'note-delete'),
   ContextDialogBody: part('div', 'note-context-dialog-body'),
-  SubjectIdentity: part('span', 'note-subject-identity'),
   Footer: part('div', 'note-workspace-meta'),
   ComposerHint,
   ComposerSubmit
