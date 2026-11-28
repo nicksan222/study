@@ -19,7 +19,11 @@ export function PageView({ model }: { model: ReturnType<typeof usePage> }) {
   const { t } = useI18n();
 
   return (
-    <WorkspaceCard.Provider open={model.cardVisible} onOpenChange={model.setCardVisible}>
+    <WorkspaceCard.Provider
+      open={model.cardVisible}
+      onOpenChange={model.setCardVisible}
+      triggerRef={model.historyToggle}
+    >
       <WorkspaceSurface.Root variant="desk" data-note="assistant">
         <Sidebar.Topbar parent={t('AppName')} title={t('Assistant')}>
           <Desk.LayoutControls aria-label={t('AssistantHistory')}>

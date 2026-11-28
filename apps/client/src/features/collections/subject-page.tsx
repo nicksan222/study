@@ -1,4 +1,12 @@
-import type { PageId, MaterialId, SourceId, NoteId, ProjectId, Project } from '@study/contracts';
+import type {
+  PageId,
+  MaterialId,
+  SourceId,
+  NoteId,
+  ProjectId,
+  Project,
+  SourceOrigin
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { PageIcon, SourcesIcon, NoteIcon, AddIcon, OptionsIcon, GenerateIcon } from '@study/icons';
 import {
@@ -20,6 +28,7 @@ import {
   CursorWindowActions
 } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { sourceLocation } from '#client/lib/navigation/source-location.ts';
 
 import { usePageBrowse } from '../pages';
 import { SubjectIdentity } from '../subjects';
@@ -159,7 +168,7 @@ type SubjectRow = {
   location:
     | { kind: 'note'; id: NoteId }
     | { kind: 'page'; id: PageId }
-    | { kind: 'source'; id: SourceId }
+    | { kind: 'source'; id: SourceId; origin: SourceOrigin }
     | { kind: 'material'; id: MaterialId };
 };
 
@@ -178,9 +187,7 @@ function subjectItemLink(location: SubjectRow['location'], project: ProjectId) {
         />
       );
     case 'source':
-      return (
-        <Link to="/sources/$sourceId" params={{ sourceId: String(location.id) }} search={search} />
-      );
+      return <Link {...sourceLocation(location.id, location.origin, search.project)} />;
     case 'material':
       return (
         <Link
@@ -298,7 +305,7 @@ function SubjectSources({ project }: { project: ProjectId }) {
         rows={items.map((item): SubjectRow => ({
           title: item.name,
           updatedAt: item.createdAt,
-          location: { kind: 'source', id: item.id }
+          location: { kind: 'source', id: item.id, origin: item.origin }
         }))}
       />
     </ContentSection>

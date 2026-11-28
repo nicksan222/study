@@ -110,9 +110,14 @@ function Toggle({ label }: { label: string }) {
       aria-label={label}
       title={label}
       aria-expanded={context.open}
-      aria-pressed={context.open}
       aria-controls={context.id}
       onClick={() => context.setOpen(!context.open)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !context.open) return;
+
+        event.preventDefault();
+        context.setOpen(false);
+      }}
     >
       <DescriptionIcon aria-hidden="true" />
     </Button>

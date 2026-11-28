@@ -93,3 +93,42 @@ test.browser.stable(
     await expect(editor).toHaveText(text);
   }
 );
+
+test.browser.stable(
+  'Open notebook actions while reading a long note on a phone',
+  async ({ page, rpc, expect, expectScreenshot }) => {
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 100 }));
+    const text = Array.from(
+      { length: 32 },
+      (_, index) =>
+        `Field observation ${index + 1}. Record water depth and conditions below the bridge.`
+    ).join('\n\n');
+    const note = await rpc.runPromise(
+      rpc.client['notes.createUntitledNote']({ initialMessage: { text } })
+    );
+
+    await page.setViewportSize({ width: 390, height: 600 });
+    await page.goto(`/notes/${note.id}`);
+    const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const toggle = page.getByRole('button', { name: copy.NoteActions, exact: true });
+    const panel = page.getByRole('complementary', { name: copy.NoteContextPanel, exact: true });
+    const history = panel.getByRole('button', { name: copy.NoteHistory, exact: true });
+    const lastObservation = editor.getByText(/Field observation 32/);
+
+    await lastObservation.scrollIntoViewIfNeeded();
+    await expect(lastObservation).toBeInViewport();
+    await expect(editor.getByText(/Field observation 1\./)).not.toBeInViewport();
+    await toggle.tap();
+    await expect(history).toBeInViewport({ ratio: 1 });
+    await toggle.press('Escape');
+    await expect(panel).toBeHidden();
+    await expectScreenshot('focus-after-dismissal', {
+      target: 'viewport',
+      focus: 'preserve',
+      zoomPercent: 100,
+      ready: () => expect(toggle).toBeFocused()
+    });
+  }
+);

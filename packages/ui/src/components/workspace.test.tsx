@@ -47,5 +47,10 @@ test.unit.stable(
     await user.keyboard('{Escape}');
     expect(panel.hidden).toBe(true);
     expect(document.activeElement).toBe(toggle);
+    await user.keyboard('{Enter}');
+    expect(panel.hidden).toBe(false);
+    await user.keyboard('{Escape}');
+    expect(panel.hidden).toBe(true);
+    expect(document.activeElement).toBe(toggle);
   }
 );
