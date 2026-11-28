@@ -1,4 +1,4 @@
-import { AssistantHistoryIcon, AddIcon } from '@study/icons';
+import { AssistantIcon, AddIcon } from '@study/icons';
 import { Button, ErrorState, Loading, WorkspaceCard } from '@study/ui';
 import type { Ref } from 'react';
 
@@ -42,7 +42,7 @@ export function AssistantHistory({
                 aria-current={model.note.data?.id === chat.id ? 'page' : undefined}
                 onClick={() => model.selectChat(chat.id)}
               >
-                <AssistantHistoryIcon size={16} />
+                <AssistantIcon size={16} />
                 <span>{chat.title || t('Assistant')}</span>
               </WorkspaceCard.Item>
             ))}

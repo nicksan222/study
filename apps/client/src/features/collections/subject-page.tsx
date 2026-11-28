@@ -8,15 +8,7 @@ import type {
   SourceOrigin
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import {
-  OpenIcon,
-  PageIcon,
-  SourcesIcon,
-  NoteIcon,
-  AddIcon,
-  GeneralSettingsIcon,
-  GenerateIcon
-} from '@study/icons';
+import { PageIcon, SourcesIcon, NoteIcon, AddIcon, OptionsIcon, GenerateIcon } from '@study/icons';
 import { RetryButton, Button, ErrorState, List, Loading, SubjectWorkspace } from '@study/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -77,7 +69,7 @@ function SubjectContents({ project }: { project: Project }) {
         </SubjectWorkspace.Identity>
         <SubjectWorkspace.Actions>
           <Button variant="outline" aria-pressed={managing} onClick={() => setManaging(!managing)}>
-            <GeneralSettingsIcon aria-hidden="true" />
+            <OptionsIcon aria-hidden="true" />
             {t(managing ? 'SubjectWorkspaceContents' : 'SubjectWorkspaceManage')}
           </Button>
           <Button render={<Link to="/notes" search={search} />}>
@@ -210,11 +202,8 @@ function SubjectRows({
       <List.Icon>{icon}</List.Icon>
       <List.Main>
         <List.Title>{row.title}</List.Title>
-        <List.Description>{date(row.updatedAt, { dateStyle: 'medium' })}</List.Description>
       </List.Main>
-      <List.Meta>
-        <OpenIcon size={16} aria-hidden="true" />
-      </List.Meta>
+      <List.Meta>{date(row.updatedAt, { month: 'short', day: 'numeric' })}</List.Meta>
     </List.Row>
   ));
 }
@@ -288,7 +277,7 @@ function SubjectSources({ project }: { project: ProjectId }) {
 
   return (
     <ContentSection
-      title={t('MediaList')}
+      title={t('UploadedMaterials')}
       state={state}
       navigation={window}
       next={state.data?.next}
@@ -323,7 +312,7 @@ function SubjectMaterials({ project }: { project: ProjectId }) {
 
   return (
     <ContentSection
-      title={t('SubjectWorkspaceMaterial')}
+      title={t('Practice')}
       state={state}
       navigation={window}
       next={state.data?.nextCursor}

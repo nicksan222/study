@@ -490,7 +490,7 @@ function SidebarToolbar({
         materials={metadata.section === 'uploads'}
       />
       <IconButton
-        size="icon"
+        size="icon-sm"
         variant="ghost-muted"
         label={t('NewProject')}
 
@@ -570,7 +570,10 @@ function NewProjectDialog({
             void createSubject();
           }}
         >
-          <DialogHeading title={<> {t('NewProject')} </>} />
+          <DialogHeading
+            title={<> {t('NewProject')} </>}
+            description={t('NewProjectDescription')}
+          />
           <SidebarUI.FormFields>
             <label htmlFor="study-subject-name">{t('ProjectName')}</label>
             <Input
@@ -585,7 +588,7 @@ function NewProjectDialog({
             )}
           </SidebarUI.FormFields>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setNewSubjectOpen(false)}>
+            <Button variant="outline" onClick={() => setNewSubjectOpen(false)}>
               {t('Cancel')}
             </Button>
             <Button type="submit" disabled={!name.trim() || creating}>
@@ -761,7 +764,7 @@ function SidebarCreationControl({
       )}
       {metadata.title === 'Notes' && (
         <IconButton
-          size="icon"
+          size="icon-sm"
           variant="ghost-muted"
           label={t('NewNote')}
 

@@ -37,7 +37,13 @@ export function RecordingFeedback({
   onFinish: (transferFocus: boolean) => void;
   subscribeLevel: SubscribeLevel;
 }) {
-  if (progress) return <Spinner size="xs" label={progress} />;
+  if (progress)
+    return (
+      <span className="voice-capture-progress">
+        <Spinner size="sm" label={progress} />
+        <span aria-hidden="true">{progress}</span>
+      </span>
+    );
 
   return (
     <>
@@ -46,7 +52,7 @@ export function RecordingFeedback({
       <IconButton
         label={finishLabel}
         className="voice-capture-finish"
-        size="icon"
+        size="icon-sm"
         variant="default"
         disabled={disabled}
         onMouseDown={(event) => event.preventDefault()}
@@ -84,7 +90,7 @@ function RecordingTime({ label }: { label: string }) {
   );
 }
 
-const bars = Array.from({ length: 17 }, (_, index) => index);
+const bars = Array.from({ length: 22 }, (_, index) => index);
 
 function VoiceWaveform({ subscribe }: { subscribe: SubscribeLevel }) {
   const waveform = useRef<HTMLSpanElement>(null);

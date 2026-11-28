@@ -88,7 +88,7 @@ test.browser.stable(
     const url = page.url();
 
     await page.goto(subject);
-    const sources = page.getByRole('region', { name: copy.MediaList, exact: true });
+    const sources = page.getByRole('region', { name: copy.UploadedMaterials, exact: true });
 
     await sources.getByRole('link', { name: new RegExp(fileName) }).click();
     await expect(edit).toBeVisible();

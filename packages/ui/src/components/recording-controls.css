@@ -5,24 +5,30 @@
 }
 
 .voice-capture-controls[data-active] {
-  gap: 0.5rem;
-  padding: 0.125rem;
-  border: 1px solid var(--ui-control-border);
+  gap: 0.625rem;
+  height: 2.75rem;
+  padding-inline: 0.25rem 0.375rem;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--background);
+  background: var(--card);
   color: var(--foreground);
 }
 
-.voice-capture-controls > svg {
-  margin-inline: 0.125rem 0.75rem;
+.voice-capture-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline: -0.125rem 0.5rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.8125rem;
 }
 
 .voice-capture-time {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  color: var(--contrast-muted-foreground);
+  gap: 0.625rem;
   font-size: 0.8125rem;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -40,15 +46,14 @@
 
 .voice-capture-waveform {
   display: inline-flex;
-  height: 0.875rem;
+  height: 1.5rem;
   align-items: center;
   gap: 0.125rem;
-  margin-inline: 0.125rem 0.25rem;
-  color: var(--contrast-muted-foreground);
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
 }
 
 .voice-capture-waveform > span {
-  width: 0.125rem;
+  width: 0.1875rem;
   height: 100%;
   border-radius: 999px;
   background: currentColor;
@@ -68,7 +73,7 @@
     gap: 0.375rem;
   }
 
-  .voice-capture-waveform > span:nth-child(-n + 7) {
+  .voice-capture-waveform > span:nth-child(-n + 12) {
     display: none;
   }
 }
