@@ -15,9 +15,11 @@ export function DialogHeading({
 }) {
   return (
     <DialogHeader className={cn(density === 'compact' && 'gap-1 py-4 pr-12')}>
-      <DialogTitle className={cn(density === 'compact' && 'text-base')}>{title}</DialogTitle>
+      <DialogTitle className={cn(density === 'compact' && 'text-base leading-6')}>
+        {title}
+      </DialogTitle>
       {description && (
-        <DialogDescription className={cn(density === 'compact' && 'text-xs')}>
+        <DialogDescription className={cn(density === 'compact' && 'text-xs leading-4')}>
           {description}
         </DialogDescription>
       )}
