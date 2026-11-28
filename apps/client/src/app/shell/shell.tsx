@@ -239,7 +239,7 @@ function ShellContent() {
           data-phone-navigation={navigation.phone}
           data-phone-library={navigation.phone && navigation.library}
           collapsed={navigation.collapsed}
-          defaultWidth={288}
+          defaultWidth={280}
           minWidth={224}
           minContentWidth={360}
           storageKey="study-sidebar-width"

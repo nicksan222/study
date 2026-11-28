@@ -490,7 +490,7 @@ function SidebarToolbar({
         materials={metadata.section === 'uploads'}
       />
       <IconButton
-        size="icon"
+        size="icon-sm"
         variant="ghost-muted"
         label={t('NewProject')}
 
@@ -761,7 +761,7 @@ function SidebarCreationControl({
       )}
       {metadata.title === 'Notes' && (
         <IconButton
-          size="icon"
+          size="icon-sm"
           variant="ghost-muted"
           label={t('NewNote')}
 

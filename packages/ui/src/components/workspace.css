@@ -17,10 +17,7 @@
 .ui-workspace > .study-workspace-header {
   order: -1;
   flex: none;
-  height: 3rem;
   margin-inline: -1.5rem;
-  padding-inline-end: 1.25rem;
-  font-size: 0.8125rem;
 }
 .ui-workspace > .study-workspace-header > span:first-child {
   max-width: 35%;
@@ -155,9 +152,6 @@
   .ui-workspace-card {
     width: 15rem;
   }
-  .ui-workspace > .study-workspace-header {
-    padding-inline-end: 1.25rem;
-  }
 }
 
 @container (max-width: 959px) {
@@ -170,9 +164,6 @@
     flex: none;
     max-width: calc(100% - 3rem);
     margin-block: 1rem;
-  }
-  .ui-workspace > .study-workspace-header {
-    padding-inline-end: 1.25rem;
   }
   .ui-workspace-body {
     min-height: 12rem;
@@ -200,7 +191,6 @@
   }
   .ui-workspace > .study-workspace-header {
     margin-inline: -1rem;
-    padding-inline-end: 1.25rem;
   }
   .ui-workspace-heading {
     padding-block: 1.5rem 2rem;
