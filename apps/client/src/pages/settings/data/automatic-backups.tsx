@@ -413,12 +413,7 @@ function BackupReceipt({
         description={status.path ? `${result} · ${status.path}` : result}
       >
         <Settings.Actions>
-          <Button
-            variant="outline"
-            disabled={disabled}
-            onClick={onEdit}
-            aria-expanded={editing}
-          >
+          <Button variant="outline" disabled={disabled} onClick={onEdit} aria-expanded={editing}>
             {t(editing ? 'Cancel' : 'DataAutoBackupChange')}
           </Button>
           {!editing && (
