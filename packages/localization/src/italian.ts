@@ -928,7 +928,6 @@ export const italian = Object.freeze({
   SubjectWorkspaceManage: 'Gestisci materia',
   SubjectWorkspaceContents: 'Torna ai contenuti',
   SubjectWorkspaceEmpty: 'Ancora nessun contenuto.',
-  SubjectWorkspaceMaterial: 'Materiale di studio',
   'collections.name': 'Nome della raccolta',
   'collections.create': 'Crea raccolta',
   'collections.uncertain':
@@ -1614,7 +1613,6 @@ export const italian = Object.freeze({
   ToggleSidebar: 'Mostra o nascondi la barra laterale',
   ToggleFullscreen: 'Attiva/disattiva schermo intero',
   Home: 'Panoramica',
-  MediaList: 'Fonti',
   Projects: 'Tutte le materie',
   Notes: 'Note',
   Flashcards: 'Flashcard',

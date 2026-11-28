@@ -908,7 +908,6 @@ export const english = Object.freeze({
   SubjectWorkspaceManage: 'Manage subject',
   SubjectWorkspaceContents: 'Back to contents',
   SubjectWorkspaceEmpty: 'Nothing here yet.',
-  SubjectWorkspaceMaterial: 'Study material',
   'collections.name': 'Collection name',
   'collections.create': 'Create collection',
   'collections.uncertain':
@@ -1575,7 +1574,6 @@ export const english = Object.freeze({
   ToggleSidebar: 'Toggle sidebar',
   ToggleFullscreen: 'Toggle fullscreen',
   Home: 'Overview',
-  MediaList: 'Sources',
   Projects: 'All subjects',
   Notes: 'Notes',
   Flashcards: 'Flashcards',
