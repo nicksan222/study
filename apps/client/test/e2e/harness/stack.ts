@@ -18,6 +18,7 @@ export async function openWebStack(
     'ai' | 'voice' | 'modelUpdateNotices'
   > & {
     chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0];
+    firstRun?: boolean;
     useDefaultNoteAppearance?: boolean;
   } = {}
 ) {
@@ -57,6 +58,8 @@ export async function openWebStack(
 
   await rpc.runPromise(
     Effect.gen(function* () {
+      if (options.firstRun) return;
+
       const settings = yield* client['settings.appSettings']({});
 
       yield* client['settings.saveAppSettings']({

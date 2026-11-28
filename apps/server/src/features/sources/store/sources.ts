@@ -13,7 +13,8 @@ import {
   sourceIdSchema,
   sourcePageInputSchema,
   sourceProcessingSchema,
-  sourceSchema
+  sourceSchema,
+  uploadedSourceOrigins
 } from '@study/contracts';
 import * as tables from '@study/db';
 import { and, desc, eq, inArray, lt, or, sql } from '@study/db';
@@ -29,7 +30,7 @@ import { changeSchema, inputSchema, replacementSchema, request } from './schemas
 function uploadedFor(project: ProjectId | null | undefined) {
   if (project === undefined) return undefined;
 
-  const originals = inArray(tables.sources.origin, ['attachment', 'import', 'recording']);
+  const originals = inArray(tables.sources.origin, uploadedSourceOrigins);
 
   return project === null ? originals : and(originals, inProject(project));
 }

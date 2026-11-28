@@ -61,3 +61,69 @@ test.browser.stable(
     await expect(uploaded).toBeVisible();
   }
 );
+
+test.browser.stable(
+  'Reopen an uploaded file from the subject overview and Materials search',
+  async ({ page, expect, rpc, expectScreenshot }) => {
+    const project = await rpc.runPromise(
+      rpc.client['projects.createProject']({ name: 'Fieldwork' })
+    );
+    const subject = `/projects/${project.id}`;
+    const fileName = 'river-survey.md';
+    const fileText = 'Measure the flow under the footbridge.';
+    const edit = page.getByRole('button', { name: copy.MaterialEditFile, exact: true });
+    const reader = page.locator('[data-materials-reader]');
+
+    await page.goto(`${subject}/uploads`);
+    await page.locator('input[type="file"]').setInputFiles({
+      name: fileName,
+      mimeType: 'text/markdown',
+      buffer: Buffer.from(fileText)
+    });
+    const library = page.getByRole('navigation', { name: copy.UploadedMaterials });
+    const material = library.getByRole('link', { name: fileName, exact: true });
+
+    await material.click();
+    await expect(reader.getByText(fileText, { exact: true })).toBeVisible();
+    const url = page.url();
+
+    await page.goto(subject);
+    const sources = page.getByRole('region', { name: copy.UploadedMaterials, exact: true });
+
+    await sources.getByRole('link', { name: new RegExp(fileName) }).click();
+    await expect(edit).toBeVisible();
+    await expect(page).toHaveURL(url);
+
+    await expectScreenshot('material-reopened', {
+      target: 'viewport',
+      ready: () => expect(reader.getByText(fileText, { exact: true })).toBeVisible()
+    });
+
+    await page.goto(`${subject}/uploads`);
+    const search = page.getByRole('searchbox', { name: copy.UploadedMaterialsSearch });
+    const empty = library.getByText(copy.SearchNoResults, { exact: true });
+
+    await search.fill('no-such-material');
+    await expect(empty).toBeVisible();
+    await expect(material).toHaveCount(0);
+    await search.fill('river-survey');
+    await expect(material).toBeVisible();
+    await material.press('Enter');
+    await expect(edit).toBeVisible();
+    await expect(page).toHaveURL(url);
+
+    await page.getByRole('button', { name: copy.MediaActions, exact: true }).click();
+    await page.getByRole('menuitem', { name: copy.SourceDeleteTitle, exact: true }).click();
+    const deletion = page.getByRole('alertdialog', { name: copy.SourceDeleteTitle, exact: true });
+    const confirm = deletion.getByRole('button', { name: copy.SourceDeleteConfirm, exact: true });
+
+    await expect(confirm).toBeDisabled();
+    await deletion.getByRole('textbox', { name: copy.SourceDeleteName }).fill(fileName);
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(page).toHaveURL(`${subject}/uploads`);
+    await expect(material).toHaveCount(0);
+    await page.reload();
+    await expect(library.getByText(copy.UploadedMaterialsEmpty, { exact: true })).toBeVisible();
+  }
+);
