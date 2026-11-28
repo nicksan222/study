@@ -159,11 +159,15 @@ function ChoiceOption({
       <span>{text}</span>
       {status &&
         (tone ? (
-          <ResultVerdict tone={tone}>{status}</ResultVerdict>
+          <span className="sr-only">{status}</span>
         ) : (
           <Practice.MutedText>{status}</Practice.MutedText>
         ))}
-      {selected && !tone && <CorrectIcon aria-hidden="true" />}
+      {tone === 'incorrect' ? (
+        <IncorrectIcon aria-hidden="true" />
+      ) : (
+        (selected || tone) && <CorrectIcon aria-hidden="true" />
+      )}
     </Practice.Choice>
   );
 }

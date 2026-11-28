@@ -696,9 +696,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  height: 4.0625rem;
+  height: 4.3125rem;
   margin-top: auto;
-  padding-block: 1.25rem 0;
+  padding-block: 1.5rem 0;
   border-top: 1px solid var(--border);
   background: var(--background);
 }
@@ -709,11 +709,6 @@
   min-width: 0;
   max-width: 55%;
   min-height: 2.75rem;
-}
-.study-practice-question .study-practice-stage-footer,
-.study-practice-results .study-practice-stage-footer {
-  height: 4.3125rem;
-  padding-block-start: 1.5rem;
 }
 .study-practice-footer-context {
   display: flex;
@@ -1370,13 +1365,11 @@
   position: absolute;
   right: 1rem;
 }
-.study-practice-choice > .study-practice-result-verdict {
-  flex-direction: row-reverse;
-  font-size: 0.8125rem;
+.study-practice-choice[data-tone='correct'] > svg {
+  color: var(--success-foreground);
 }
-.study-practice-choice > .study-practice-result-verdict svg {
-  width: 1.125rem;
-  height: 1.125rem;
+.study-practice-choice[data-tone='incorrect'] > svg {
+  color: var(--destructive);
 }
 .study-practice-question[data-reviewed='true']
   .study-practice-answers:disabled
