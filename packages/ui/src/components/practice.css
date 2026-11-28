@@ -1375,6 +1375,21 @@
     background-color min(120ms, var(--ui-animation-duration)) ease-out,
     border-color min(120ms, var(--ui-animation-duration)) ease-out;
 }
+.study-practice-question .study-practice-answers [data-slot='textarea-control'] {
+  border-radius: 0.75rem;
+}
+.study-practice-question .study-practice-answers [data-slot='textarea-control'] > div {
+  padding: 0.875rem 1.125rem;
+}
+.study-practice-question .study-practice-answers [data-slot='textarea-control'] .note-actions {
+  margin-block: 0;
+}
+.study-practice-question .study-practice-answers [data-slot='textarea-control'] > textarea {
+  min-height: 13.375rem;
+  padding: 1rem 1.125rem;
+  font-size: 1rem;
+  line-height: 1.625rem;
+}
 .study-practice-matching-row[data-tone='correct'] .study-select-trigger,
 .study-practice-answers [data-tone='correct'] input,
 .study-practice-answers [data-tone='correct'] textarea {
