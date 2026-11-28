@@ -1,8 +1,10 @@
-import type { NoteId, PageId } from '@study/contracts';
+import type { NoteId, PageId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { HistoryIcon } from '@study/icons';
-import { Button, WorkspaceCard, WorkspaceDeskSurface as Desk } from '@study/ui';
-import { useState } from 'react';
+import { BackIcon, ClosePanelIcon, MaximizeIcon, MinimizeIcon, PageIcon } from '@study/icons';
+import { Button, IconButton, WorkspaceDeskSurface as Desk, WorkspacePanel } from '@study/ui';
+import type { RichNoteEditorHandle } from '@study/ui';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -18,8 +20,9 @@ import { NotebookBody } from './notebook-body';
 import { NotebookOutline } from './notebook-outline';
 import { PagePanel } from './page-panel';
 import { NoteReadError } from './status';
-import { useWorkbench, workbenchIdentity } from './workbench.queries';
-import type { WorkbenchTarget } from './workbench.queries';
+import { usePhoneLayout } from './use-phone-layout';
+import { workbenchIdentity } from './workbench.queries';
+import type { useWorkbench, WorkbenchTarget } from './workbench.queries';
 import { WorkspaceContext } from './workspace-context';
 
 function TabLabel({ target }: { target: WorkbenchTarget }) {
@@ -48,16 +51,22 @@ function PageTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'page' }
 export function NoteWorkbench({
   id,
   title,
+  project,
+  model,
+  contextPanel,
   onDelete
 }: {
   id: NoteId;
   title: string;
+  project?: ProjectId;
+  model: ReturnType<typeof useWorkbench>;
+  contextPanel?: RefObject<HTMLElement | null>;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
-  const model = useWorkbench(id);
   const { noteWidth } = model.appearance;
-  const [history, setHistory] = useState(false);
+  const { history, openHistory, closeHistory, backToEditor, editor, cardCoversNotebook, phone } =
+    useNotebookHistory(model.cardVisible);
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
@@ -75,17 +84,23 @@ export function NoteWorkbench({
       <Desk.Notebook>
         <Desk.ScrollArea>
           <Desk.NotebookLayout>
-            <Desk.Board>
+            <Desk.Board inert={cardCoversNotebook}>
               <Desk.BoardBody>
                 {history ? (
                   <>
-                    <Button size="sm" variant="ghost-muted" onClick={() => setHistory(false)}>
+                    <Button
+                      ref={backToEditor}
+                      size="sm"
+                      variant="ghost-muted"
+                      onClick={closeHistory}
+                    >
                       {t('NoteBackToEditor')}
                     </Button>
                     <BoardFeedback listError={pages.error} reload={() => void pages.refetch()} />
                     <History
                       id={id}
                       state={thread}
+                      keepFocusedControlVisible={phone}
                       pages={pages.data?.items}
                       onOpenPage={openPage}
                       activeAuthoredPage={
@@ -102,9 +117,10 @@ export function NoteWorkbench({
                       pending={pages.isFetching}
                     />
                   </>
-                ) : (
-                  <NotebookBody id={id} title={title} />
-                )}
+                ) : null}
+                <div hidden={history}>
+                  <NotebookBody id={id} title={title} editorRef={editor} />
+                </div>
               </Desk.BoardBody>
             </Desk.Board>
             <WorkspaceContext
@@ -115,25 +131,21 @@ export function NoteWorkbench({
                     id={id}
                     thread={thread}
                     pages={pages}
-                    onNavigate={model.hideCard}
+                    onNavigate={model.dismissNarrowCard}
                   />
                 ) : undefined
               }
-              hidden={!model.cardVisible}
-              onDismiss={model.hideCard}
+              ref={contextPanel}
               actions={
-                <>
-                  <WorkspaceCard.Item
-                    onClick={() => {
-                      setHistory(true);
-                      model.hideCard();
-                    }}
-                  >
-                    <HistoryIcon aria-hidden="true" />
-                    <span>{t('NoteHistory')}</span>
-                  </WorkspaceCard.Item>
-                  <NoteContextActions id={id} onDelete={onDelete} />
-                </>
+                <NoteContextActions
+                  id={id}
+                  project={project}
+                  onHistory={() => {
+                    openHistory();
+                    model.dismissNarrowCard();
+                  }}
+                  onDelete={onDelete}
+                />
               }
             />
           </Desk.NotebookLayout>
@@ -144,6 +156,42 @@ export function NoteWorkbench({
       <EditorPanel id={id} model={model} active={active} />
     </Desk.Root>
   );
+}
+
+/** Transfers focus after the writing or history surface becomes available. */
+function useNotebookHistory(cardVisible: boolean) {
+  const phone = usePhoneLayout();
+  const cardCoversNotebook = phone && cardVisible;
+  const [historyView, setHistoryView] = useState<{ open: boolean }>();
+  const history = historyView?.open ?? false;
+  const focusedView = useRef<typeof historyView>(undefined);
+  const backToEditor = useRef<HTMLButtonElement>(null);
+  const editor = useCallback(
+    (handle: RichNoteEditorHandle | null) => {
+      if (!handle || historyView?.open !== false || focusedView.current === historyView) return;
+
+      focusedView.current = historyView;
+      handle.restoreSelection(handle.selection());
+    },
+    [historyView]
+  );
+
+  useLayoutEffect(() => {
+    if (cardCoversNotebook || !historyView?.open || focusedView.current === historyView) return;
+
+    focusedView.current = historyView;
+    backToEditor.current?.focus();
+  }, [historyView, cardCoversNotebook]);
+
+  return {
+    history,
+    cardCoversNotebook,
+    phone,
+    backToEditor,
+    editor,
+    openHistory: () => setHistoryView({ open: true }),
+    closeHistory: () => setHistoryView({ open: false })
+  };
 }
 
 function EditorPanel({
@@ -159,22 +207,48 @@ function EditorPanel({
 
   if (!model.visible || !active) return null;
 
+  const hideLabel = t('NoteBackToBoard');
+  const expandLabel = t(model.expanded ? 'NoteRestoreEditor' : 'NoteExpandEditor');
+
   return (
-    <Desk.Panel
+    <WorkspacePanel
+      label={t('NotePageTabs')}
       active={workbenchIdentity(active)}
-      tabs={model.tabs.map((target) => ({
-        id: workbenchIdentity(target),
-        label: <TabLabel target={target} />,
-        closeLabel: t('NoteClosePage')
-      }))}
+      tabs={model.tabs.map((target) => {
+        const id = workbenchIdentity(target);
+
+        return {
+          id,
+          label: <TabLabel target={target} />,
+          icon: <PageIcon size={14} aria-hidden="true" />,
+          close: { label: t('NoteClosePage'), onClick: () => model.close(id) }
+        };
+      })}
       onSelect={model.select}
-      onClose={model.close}
-      onHide={model.hide}
-      onExpand={model.expand}
-      expanded={model.expanded}
-      expandLabel={t(model.expanded ? 'NoteRestoreEditor' : 'NoteExpandEditor')}
-      closeLabel={t('NotePageTabs')}
-      hideLabel={t('NoteBackToBoard')}
+      beforeTabs={
+        <IconButton variant="ghost-muted" size="icon-sm" label={hideLabel} onClick={model.hide}>
+          <BackIcon size={16} aria-hidden="true" />
+        </IconButton>
+      }
+      afterTabs={
+        <>
+          <IconButton
+            variant="ghost-muted"
+            size="icon-sm"
+            label={expandLabel}
+            onClick={model.expand}
+          >
+            {model.expanded ? (
+              <MinimizeIcon size={15} aria-hidden="true" />
+            ) : (
+              <MaximizeIcon size={15} aria-hidden="true" />
+            )}
+          </IconButton>
+          <IconButton variant="ghost-muted" size="icon-sm" label={hideLabel} onClick={model.hide}>
+            <ClosePanelIcon size={15} aria-hidden="true" />
+          </IconButton>
+        </>
+      }
     >
       {active.kind === 'assistant' ? (
         <NoteAssistantPanel key={String(id)} noteId={id} />
@@ -183,7 +257,7 @@ function EditorPanel({
       ) : (
         <PagePanel key={workbenchIdentity(active)} id={id} target={active} />
       )}
-    </Desk.Panel>
+    </WorkspacePanel>
   );
 }
 

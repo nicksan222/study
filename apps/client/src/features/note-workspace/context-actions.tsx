@@ -1,5 +1,5 @@
-import type { NoteId } from '@study/contracts';
-import { OpenIcon, ArchiveIcon, DeleteIcon } from '@study/icons';
+import type { NoteId, ProjectId } from '@study/contracts';
+import { OpenIcon, ArchiveIcon, DeleteIcon, HistoryIcon, PageIcon } from '@study/icons';
 import {
   Dialog,
   DialogTrigger,
@@ -7,6 +7,7 @@ import {
   WorkspaceCard,
   WorkspaceChanges
 } from '@study/ui';
+import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -41,18 +42,44 @@ function ContextAction({
   );
 }
 
-export function NoteContextActions({ id, onDelete }: { id: NoteId; onDelete: () => void }) {
+export function NoteContextActions({
+  id,
+  project,
+  onHistory,
+  onDelete
+}: {
+  id: NoteId;
+  project?: ProjectId;
+  onHistory: () => void;
+  onDelete: () => void;
+}) {
   const { t } = useI18n();
 
   return (
     <WorkspaceChanges.Actions>
-      <ContextAction title={t('NoteArchived')} icon={<ArchiveIcon aria-hidden="true" />}>
-        <ArchivePanel id={id} />
-      </ContextAction>
-      <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
-        <DeleteIcon aria-hidden="true" />
-        <span>{t('NoteDelete')}</span>
-      </WorkspaceCard.Item>
+      <WorkspaceCard.Group>
+        <WorkspaceCard.Primary
+          render={<Link to="/practice" search={project ? { project: String(project) } : {}} />}
+        >
+          <PageIcon aria-hidden="true" />
+          {t('PracticeStudyNotes')}
+        </WorkspaceCard.Primary>
+      </WorkspaceCard.Group>
+      <WorkspaceCard.Group>
+        <WorkspaceCard.Item onClick={onHistory}>
+          <HistoryIcon aria-hidden="true" />
+          <span>{t('NoteHistory')}</span>
+        </WorkspaceCard.Item>
+        <ContextAction title={t('NoteArchived')} icon={<ArchiveIcon aria-hidden="true" />}>
+          <ArchivePanel id={id} />
+        </ContextAction>
+      </WorkspaceCard.Group>
+      <WorkspaceCard.Group>
+        <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
+          <DeleteIcon aria-hidden="true" />
+          <span>{t('NoteDelete')}</span>
+        </WorkspaceCard.Item>
+      </WorkspaceCard.Group>
     </WorkspaceChanges.Actions>
   );
 }

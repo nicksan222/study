@@ -1,5 +1,6 @@
 :root {
   --workspace-supporting: var(--contrast-muted-foreground);
+  --workspace-card-width: 18rem;
 }
 
 .ui-workspace {
@@ -74,7 +75,7 @@
   z-index: 3;
   top: 1rem;
   right: 1rem;
-  width: 18rem;
+  width: var(--workspace-card-width);
   max-width: calc(100% - 5rem);
   border: 1px solid var(--border);
   border-radius: 1.125rem;
@@ -85,8 +86,44 @@
   font-size: 0.8125rem;
   line-height: 1.5;
 }
-.ui-workspace[data-variant='note'] > .ui-workspace-card {
-  top: 4rem;
+.ui-workspace-card-heading {
+  margin: 0;
+  padding: 0.875rem 1.125rem 0.125rem;
+  color: var(--foreground);
+  font-size: inherit;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ui-workspace-card-primary {
+  gap: var(--workspace-card-action-gap);
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 2.125rem;
+  height: auto;
+  padding-block: 0.3125rem;
+  text-align: start;
+  white-space: normal;
+}
+.ui-workspace-card:has(> .ui-workspace-card-heading) {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
+  scroll-padding-block: 0.5rem;
+}
+@media (pointer: coarse), (max-width: 600px) {
+  .ui-workspace-card:has(> .ui-workspace-card-heading)
+    :is(.ui-workspace-card-item, .ui-workspace-card-primary),
+  .ui-workspace[data-variant='page'] > .study-workspace-header .ui-workspace-context-toggle {
+    min-height: 2.75rem;
+  }
+  .ui-workspace[data-variant='page'] > .study-workspace-header .ui-workspace-context-toggle {
+    min-width: 2.75rem;
+  }
+}
+@media (max-width: 600px) {
+  .ui-workspace[data-variant='page'] > .study-workspace-header:has(> .ui-workspace-context-toggle) {
+    gap: 0.5rem;
+  }
 }
 .ui-workspace-card-group {
   padding: 0.5rem;
@@ -155,8 +192,7 @@
 }
 
 @container (max-width: 959px) {
-  .ui-workspace-card,
-  .ui-workspace[data-variant='note'] > .ui-workspace-card {
+  .ui-workspace-card {
     position: relative;
     top: auto;
     right: auto;
@@ -179,8 +215,7 @@
   .ui-workspace:has(> .study-workspace-header) {
     padding-top: 0;
   }
-  .ui-workspace-card,
-  .ui-workspace[data-variant='note'] > .ui-workspace-card {
+  .ui-workspace-card {
     position: relative;
     top: auto;
     right: auto;
@@ -215,36 +250,6 @@
 .ui-workspace-card[hidden] {
   display: none;
 }
-@container (min-width: 960px) and (max-width: 1408px) {
-  .ui-workspace:has(> .ui-workspace-card[hidden]) {
-    --workspace-content-width: 48rem;
-  }
-  .ui-workspace:has(> .ui-workspace-card[hidden]) .ui-workspace-body,
-  .ui-workspace:has(> .ui-workspace-card[hidden]) .ui-workspace-dock {
-    --workspace-content-width: 48rem;
-  }
-}
-
-.ui-workspace-controls {
-  display: flex;
-  align-items: center;
-  flex: none;
-  height: 3rem;
-}
-.ui-workspace:has(> .ui-workspace-controls) > .ui-workspace-card {
-  top: 4rem;
-}
-@container (max-width: 959px) {
-  .ui-workspace:has(> .ui-workspace-controls) > .ui-workspace-card {
-    top: auto;
-  }
-}
-@media (max-width: 959px), (max-height: 700px) {
-  .ui-workspace:has(> .ui-workspace-controls) > .ui-workspace-card {
-    top: auto;
-  }
-}
-
 .ui-workspace-work {
   border-top: 1px solid var(--ui-divider-border);
   padding: 0 0.625rem 0.875rem;
@@ -406,88 +411,135 @@
   line-height: 1.5;
 }
 
-/* Practice shares the notebook header, context card and dialog controls. */
-.groam-shell-page-body:has(> .ui-workspace[data-variant='practice']) {
-  container-type: inline-size;
-  container-name: practice-workspace;
-}
-
-.ui-workspace[data-variant='practice'] {
-  display: grid;
+/* Measure the full page width, before applying content gutters. */
+.ui-workspace[data-variant='page'] {
+  container-name: workspace-page;
+  gap: 1.5rem;
   height: 100%;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) 16.875rem;
-  grid-template-rows: 3rem minmax(0, 1fr);
+  padding: 0;
+}
+.ui-workspace[data-variant='page'] > .study-workspace-header {
+  margin-inline: 0;
+}
+:is(.ui-workspace-content, .workspace-desk-notebook-layout) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.ui-workspace-content {
+  flex: 1;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+}
+.ui-workspace-content:not([data-inset='none']) {
+  padding: 0 1.5rem 1.5rem;
+}
+.ui-workspace-content:has(> .ui-workspace-card:not([hidden])) {
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 1.5rem;
+}
+.ui-workspace-content > .ui-workspace-body {
+  grid-column: 1;
+  min-width: 0;
+  min-height: 0;
   --workspace-content-width: 100%;
 }
-.ui-workspace[data-variant='practice'] > .study-workspace-header {
-  grid-column: 1 / -1;
-  height: 3rem;
-}
-.ui-workspace[data-variant='practice'] > .ui-workspace-body {
-  min-height: 0;
-  grid-column: 1;
-  grid-row: 2;
-}
-.ui-workspace[data-variant='practice'] > .ui-workspace-card {
+.ui-workspace-content > .ui-workspace-card {
   position: static;
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 1;
   align-self: start;
-  width: 100%;
+  justify-self: end;
+  width: min(100%, var(--workspace-card-width));
   max-width: none;
+  max-height: 40dvh;
   margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@container workspace-page (min-width: 960px) {
+  :is(.ui-workspace-content, .workspace-desk-notebook-layout):has(
+    > .ui-workspace-card:not([hidden])
+  ) {
+    grid-template-columns: minmax(0, 1fr) var(
+        --workspace-card-track-width,
+        var(--workspace-card-width)
+      );
+  }
+  :is(.ui-workspace-content, .workspace-desk-notebook-layout) > .ui-workspace-card {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .ui-workspace-content:has(> .ui-workspace-card:not([hidden])) {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .ui-workspace-content > .ui-workspace-body {
+    grid-row: 1;
+  }
+  .ui-workspace-content > .ui-workspace-card {
+    width: 100%;
+    max-height: 100%;
+  }
+}
+@media (max-width: 959px), (max-height: 700px) {
+  .ui-workspace-content:not([data-inset='none']) {
+    padding: 0 1rem 1rem;
+  }
+}
+
+/* Practice pages use the compact design card. Touch sizing above still applies. */
+.ui-workspace[data-note='practice'] {
+  --workspace-card-width: 16.875rem;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card {
   padding-block: 0.375rem;
   border-radius: 0.75rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
-.ui-workspace[data-variant='practice'] .ui-workspace-card-group {
+.ui-workspace[data-note='practice'] .ui-workspace-card-heading {
+  padding: 0.375rem 1rem;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card-group {
   padding: 0;
 }
-.ui-workspace[data-variant='practice'] .ui-workspace-card-group + .ui-workspace-card-group {
+.ui-workspace[data-note='practice'] .ui-workspace-card-group + .ui-workspace-card-group {
   margin-top: 0.375rem;
   padding-top: 0.375rem;
   border-top-color: var(--border);
 }
-.ui-workspace[data-variant='practice'] .ui-workspace-card-item {
+.ui-workspace[data-note='practice'] :where(.ui-workspace-card .ui-workspace-card-item) {
   min-height: 2.375rem;
   padding: 0.5625rem 1rem;
   border-radius: 0;
   font-weight: 500;
 }
-.ui-workspace[data-variant='practice'] .ui-workspace-card-item > svg:first-child {
+.ui-workspace[data-note='practice'] .ui-workspace-card-item > svg:first-child {
   width: 1rem;
   height: 1rem;
 }
-.ui-workspace[data-variant='practice'] .ui-workspace-card-caption {
+.ui-workspace[data-note='practice'] .ui-workspace-card-caption {
   padding: 0.375rem 1rem;
   line-height: 1.25rem;
 }
-.ui-workspace[data-variant='practice']:has(> .ui-workspace-card[hidden]) {
-  grid-template-columns: minmax(0, 1fr);
+
+/* Long lists flow with the shell header inside its scroll area. */
+.ui-workspace[data-variant='flow'] {
+  display: block;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  container-type: normal;
 }
-@container practice-workspace (max-width: 959px) {
-  .ui-workspace[data-variant='practice'] {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 3rem auto minmax(0, 1fr);
-  }
-  .ui-workspace[data-variant='practice'] > .ui-workspace-card {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: end;
-    width: min(100%, 16.875rem);
-  }
-  .ui-workspace[data-variant='practice'] > .ui-workspace-body {
-    grid-row: 3;
-  }
-  .ui-workspace[data-variant='practice']:has(> .ui-workspace-card[hidden]) {
-    grid-template-rows: 3rem minmax(0, 1fr);
-  }
-  .ui-workspace[data-variant='practice']:has(> .ui-workspace-card[hidden]) > .ui-workspace-body {
-    grid-row: 2;
-  }
+.ui-workspace[data-variant='flow'] > .ui-workspace-content {
+  display: block;
+  padding: 0;
+}
+.ui-workspace[data-variant='flow'] > .ui-workspace-content > .ui-workspace-body {
+  display: block;
+  min-height: 0;
+  overflow: visible;
 }
 
 .ui-workspace-card-caption {
@@ -518,10 +570,6 @@
   padding: 0;
   margin: 0;
   list-style: none;
-  max-height: 18rem;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--app-scrollbar-thumb) transparent;
 }
 .ui-workspace-card .note-outline-item {
   align-items: flex-start;
@@ -548,16 +596,4 @@
   gap: 0.5rem;
   margin-block-start: 0.5rem;
   font-size: 0.75rem;
-}
-
-.ui-workspace-card.note-workspace-context:has(.note-outline) {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--app-scrollbar-thumb) transparent;
-}
-@container (max-width: 900px) {
-  .note-outline-list {
-    max-height: none;
-    overflow: visible;
-  }
 }

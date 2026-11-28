@@ -50,7 +50,7 @@ test.unit.stable(
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
       this: HTMLElement
     ) {
-      return this.hasAttribute('data-practice-container') ? width : 540;
+      return this.dataset.variant === 'page' ? width : 540;
     });
     vi.stubGlobal(
       'ResizeObserver',
@@ -74,15 +74,13 @@ test.unit.stable(
 
     try {
       const view = render(
-        <div data-practice-container>
-          <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
-            <button>Core question</button>
-          </PracticeWorkspace>
-        </div>
+        <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
+          <button>Core question</button>
+        </PracticeWorkspace>
       );
 
       unmount = view.unmount;
-      const container = view.container.querySelector('[data-practice-container]')!;
+      const container = view.container.querySelector('[data-variant="page"]')!;
       const toggle = screen.getByRole('button', { name: catalogs.english.PracticeActions });
       const question = screen.getByRole('button', { name: 'Core question' });
 
@@ -120,17 +118,53 @@ test.unit.stable(
       });
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       await userEvent.click(toggle);
+      const source = screen.getByRole('button', { name: 'Source action' });
+
+      source.focus();
       act(() => {
         width = 736;
         resize(container);
       });
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(source).toHaveFocus();
     } finally {
       try {
         unmount?.();
       } finally {
         vi.unstubAllGlobals();
       }
+    }
+  }
+);
+
+test.unit.stable(
+  'measures the workspace again on window resize without ResizeObserver',
+  ({ vi, render, screen, act, expect }) => {
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(992);
+
+    vi.stubGlobal('ResizeObserver', undefined);
+
+    try {
+      const view = render(
+        <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
+          <button>Core question</button>
+        </PracticeWorkspace>
+      );
+
+      try {
+        const toggle = screen.getByRole('button', { name: catalogs.english.PracticeActions });
+
+        expect(toggle).toHaveAttribute('aria-expanded', 'true');
+        act(() => {
+          width.mockReturnValue(736);
+          window.dispatchEvent(new Event('resize'));
+        });
+        expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      } finally {
+        view.unmount();
+      }
+    } finally {
+      vi.unstubAllGlobals();
     }
   }
 );

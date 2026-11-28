@@ -276,11 +276,10 @@ test.browser.stable(
       })
     );
     const openHistoricalPage = async () => {
-      await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
-      await page
-        .getByRole('complementary', { name: copy.NoteContextPanel })
-        .getByRole('button', { name: copy.NoteHistory, exact: true })
-        .click();
+      const actions = page.getByRole('complementary', { name: copy.NoteContextPanel });
+
+      await expect(actions).toBeVisible();
+      await actions.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
       await page.locator('.workspace-desk-page').filter({ hasText: pageText }).click();
       await expect(editor).toBeVisible();
     };
@@ -328,10 +327,22 @@ test.browser.stable(
     await expect(
       page.getByRole('button', { name: copy.NoteExpandEditor, exact: true })
     ).toBeVisible();
+    await page.locator('.study-workspace-header').getByRole('heading', { level: 1 }).hover();
     await expectScreenshot('unexpanded-page-after-reload', {
       target: 'viewport',
       ready: () => expect(editor).toBeVisible()
     });
+    await page.getByRole('button', { name: copy.NoteDockBelow, exact: true }).click();
+    await page.getByRole('button', { name: copy.NoteExpandEditor, exact: true }).click();
+    const desk = page.locator('.workspace-desk[data-expanded]');
+    const panel = desk.locator('.workspace-panel');
+
+    await expect(panel).toBeVisible();
+    const expandedBounds = await panel.boundingBox();
+    const deskBounds = await desk.boundingBox();
+
+    expect(expandedBounds).toEqual(deskBounds);
+    await page.getByRole('button', { name: copy.NoteRestoreEditor, exact: true }).click();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await writing.click();
     await expect(autosave).toHaveValue('8');

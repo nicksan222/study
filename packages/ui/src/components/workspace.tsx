@@ -3,8 +3,10 @@ import {
   createContext,
   useContext,
   useEffect,
+  useEffectEvent,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState
 } from 'react';
@@ -16,6 +18,51 @@ import { ComposerSurface } from './composer.tsx';
 import { semanticPart as part } from './semantic-part';
 import { AttachmentIcon } from './workspace-desk';
 
+/** Follows the inline size of an unpadded page workspace at the split-layout breakpoint. */
+export function useWorkspaceWide(
+  workspace: RefObject<HTMLElement | null>,
+  onBeforeNarrow?: () => void
+): boolean {
+  const [wide, setWide] = useState(false);
+  const beforeNarrow = useEffectEvent(() => onBeforeNarrow?.());
+
+  useLayoutEffect(() => {
+    const element = workspace.current;
+
+    if (!element) return;
+
+    let wasWide = false;
+    const measure = () => {
+      const width = getComputedStyle(element).width;
+      const pixels = width.endsWith('px') ? Number.parseFloat(width) : element.clientWidth;
+      const isWide = pixels >= 960;
+
+      if (isWide === wasWide) return;
+
+      if (!isWide) beforeNarrow();
+
+      wasWide = isWide;
+      setWide(isWide);
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+
+      return () => window.removeEventListener('resize', measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [workspace]);
+
+  return wide;
+}
+
 const CardContext = createContext<{
   id: string;
   open: boolean;
@@ -23,32 +70,25 @@ const CardContext = createContext<{
   trigger: RefObject<HTMLButtonElement | null>;
 } | null>(null);
 
-/** Shares panel visibility and its focus-return target, supporting controlled workspaces. */
+/** Shares the workspace's panel visibility and focus-return target. */
 function Provider({
   children,
-  defaultOpen = true,
-  open: controlledOpen,
+  open,
   onOpenChange,
   triggerRef
 }: {
   children: ReactNode;
-  defaultOpen?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   triggerRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const id = useId();
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const open = controlledOpen ?? uncontrolledOpen;
-  const setOpen = (nextOpen: boolean) => {
-    if (controlledOpen === undefined) setUncontrolledOpen(nextOpen);
-
-    onOpenChange?.(nextOpen);
-  };
   const trigger = useRef<HTMLButtonElement>(null);
 
   return (
-    <CardContext.Provider value={{ id, open, setOpen, trigger: triggerRef ?? trigger }}>
+    <CardContext.Provider
+      value={{ id, open, setOpen: onOpenChange, trigger: triggerRef ?? trigger }}
+    >
       {children}
     </CardContext.Provider>
   );
@@ -56,38 +96,27 @@ function Provider({
 
 /** Toggles the workspace context panel using its shared visibility state. */
 
-function Toggle({
-  label,
-  open,
-  onOpenChange
-}: {
-  label: string;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}) {
+function Toggle({ label }: { label: string }) {
   const context = useContext(CardContext);
 
   if (!context) return null;
-
-  const expanded = open ?? context.open;
-  const setOpen = onOpenChange ?? context.setOpen;
 
   return (
     <Button
       ref={context.trigger}
       size="icon-sm"
-      variant={expanded ? 'secondary' : 'ghost-muted'}
+      variant={context.open ? 'secondary' : 'ghost-muted'}
       className="ui-workspace-context-toggle"
       aria-label={label}
       title={label}
-      aria-expanded={expanded}
+      aria-expanded={context.open}
       aria-controls={context.id}
-      onClick={() => setOpen(!expanded)}
+      onClick={() => context.setOpen(!context.open)}
       onKeyDown={(event) => {
-        if (event.key !== 'Escape' || !expanded) return;
+        if (event.key !== 'Escape' || !context.open) return;
 
         event.preventDefault();
-        setOpen(false);
+        context.setOpen(false);
       }}
     >
       <DescriptionIcon aria-hidden="true" />
@@ -95,13 +124,13 @@ function Toggle({
   );
 }
 
-/** Applies the welcome or note canvas layout through the shared workspace surface. */
+/** Frames a page or notebook within the shared workspace surface. */
 
 function Root({
   className,
   variant,
   ...props
-}: ComponentProps<'div'> & { variant: 'welcome' | 'note' | 'desk' | 'practice' }) {
+}: ComponentProps<'div'> & { variant: 'welcome' | 'desk' | 'page' | 'flow' }) {
   return (
     <div
       className={cn('ui-workspace', variant !== 'welcome' && 'note-canvas', className)}
@@ -111,16 +140,16 @@ function Root({
   );
 }
 
+function Content({ className, inset, ...props }: ComponentProps<'div'> & { inset?: 'none' }) {
+  return <div className={cn('ui-workspace-content', className)} data-inset={inset} {...props} />;
+}
+
 function Body({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('ui-workspace-body', className)} {...props} />;
 }
 
 function Heading({ className, ...props }: ComponentProps<'header'>) {
   return <header className={cn('ui-workspace-heading', className)} {...props} />;
-}
-
-function Controls({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('ui-workspace-controls', className)} {...props} />;
 }
 
 function Dock({ className, ...props }: ComponentProps<'div'>) {
@@ -132,45 +161,41 @@ function Dock({ className, ...props }: ComponentProps<'div'>) {
 function Card({
   className,
   variant,
-  onDismiss,
+  ref,
   ...props
-}: ComponentProps<'aside'> & { variant?: 'context'; onDismiss?: () => void }) {
+}: Omit<ComponentProps<'aside'>, 'hidden' | 'id'> & { variant?: 'context' }) {
   const context = useContext(CardContext);
-
   const element = useRef<HTMLElement>(null);
-  const hidden = props.hidden ?? (context ? !context.open : undefined);
 
-  useImperativeHandle(props.ref, () => element.current!);
+  useImperativeHandle(ref, () => element.current!);
 
-  // Escape is scoped to descendants so another workspace's panel keeps its state.
   useEffect(() => {
     const panel = element.current;
 
-    if (!panel || (!context && !onDismiss)) return;
+    if (!panel || !context?.open) return;
 
     const close = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || !panel.contains(event.target as Node))
         return;
 
       event.preventDefault();
-
-      if (onDismiss) onDismiss();
-      else context?.setOpen(false);
-
-      context?.trigger.current?.focus();
+      context.setOpen(false);
+      context.trigger.current?.focus();
     };
 
     document.addEventListener('keydown', close);
 
     return () => document.removeEventListener('keydown', close);
-  }, [context, onDismiss]);
+  }, [context]);
+
+  if (!context) return null;
 
   return (
     <aside
       {...props}
       ref={element}
-      id={context?.id ?? props.id}
-      hidden={hidden}
+      id={context.id}
+      hidden={!context.open}
       className={cn(
         'ui-workspace-card',
         variant === 'context' && 'note-workspace-context',
@@ -200,10 +225,10 @@ function ComposerSubmit(props: Omit<ComponentProps<typeof Button>, 'className' |
 
 export const WorkspaceSurface = {
   Root,
+  Content,
   Body,
   Heading,
   Dock,
-  Controls,
   Container: part('section', 'note-workspace'),
   Section: part('div', 'note-section'),
   Deletion: part('section', 'note-delete'),
@@ -279,6 +304,7 @@ export const WorkspaceCard = {
   Provider,
   Toggle,
   Root: Card,
+  Heading: part('h2', 'ui-workspace-card-heading'),
   Group,
   Item,
   Primary,

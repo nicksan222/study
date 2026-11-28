@@ -101,7 +101,7 @@ test.browser.stable(
     const noteContext = page.getByRole('complementary', { name: copy.NoteContextPanel });
 
     await expect(notebook).toBeVisible();
-    await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
+    await expect(noteContext).toBeVisible();
     await expectScreenshot('notes-work-running', {
       target: 'viewport',
       ready: async () => {

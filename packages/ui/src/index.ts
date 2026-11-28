@@ -189,12 +189,14 @@ export { Usage, UsageChart } from './components/usage.tsx';
 export type { DeletionVersion } from './components/version-deletion-list.tsx';
 export { VersionDeletionList } from './components/version-deletion-list.tsx';
 export { AttachmentIcon, WorkspaceDeskSurface } from './components/workspace-desk.tsx';
+export { WorkspacePanel } from './components/workspace-panel.tsx';
 export {
   WorkspaceAttachments,
   WorkspaceCard,
   WorkspaceChanges,
   WorkspaceSurface,
-  WorkspaceWork
+  WorkspaceWork,
+  useWorkspaceWide
 } from './components/workspace.tsx';
 export { downloadFile } from './download.ts';
 export type {

@@ -7,6 +7,13 @@ import {
 } from '@study/contracts';
 import { test } from '@study/testing';
 import { WorkspaceCard } from '@study/ui';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider
+} from '@tanstack/react-router';
 import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -17,6 +24,7 @@ import type * as __MockType2 from '../source-library/source-panel';
 import type * as __MockType3 from './note-layout-controls';
 import type * as __MockType4 from './note-page-panel';
 import type * as __MockType5 from './workbench';
+import type * as WorkbenchQueries from './workbench.queries';
 
 let AssistantProvider: typeof __MockType0.AssistantProvider;
 
@@ -29,6 +37,8 @@ let NoteLayoutControls: typeof __MockType3.NoteLayoutControls;
 let NotePagePanel: typeof __MockType4.NotePagePanel;
 
 let NoteWorkbench: typeof __MockType5.NoteWorkbench;
+
+let useWorkbench: typeof WorkbenchQueries.useWorkbench;
 
 let rpc: ReturnType<typeof createMockState>['rpc'];
 
@@ -61,7 +71,7 @@ function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandl
     'pages.page': rpc.material,
     'pages.pages': rpc.materials,
     'notes.thread': rpc.thread,
-    'notes.body': async () => ({ text: 'Notebook body', versionId: null }),
+    'notes.body': rpc.body,
     'notes.noteAssistant': rpc.assistant,
     'notes.assistantAsk': rpc.ask,
     'notes.assistantContext': async () => ({
@@ -87,6 +97,17 @@ function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandl
 
 const noteId = noteIdSchema.make(12n);
 
+function Notebook({ wide = false }: { wide?: boolean }) {
+  const model = useWorkbench(noteId, wide);
+
+  return (
+    <WorkspaceCard.Provider open={model.cardVisible} onOpenChange={model.toggleCard}>
+      <NoteLayoutControls model={model} />
+      <NoteWorkbench id={noteId} title="Notebook" model={model} onDelete={() => {}} />
+    </WorkspaceCard.Provider>
+  );
+}
+
 let created: ReturnType<typeof material> | undefined;
 
 function mount(
@@ -95,10 +116,17 @@ function mount(
 ) {
   const Provider = testFixture({ rpcHandlersTransport }).wrapper;
 
+  const root = createRootRoute({ component: () => children });
+  const practice = createRoute({ getParentRoute: () => root, path: '/practice' });
+  const router = createRouter({
+    routeTree: root.addChildren([practice]),
+    history: createMemoryHistory({ initialEntries: ['/'] })
+  });
+
   return render(
     <Provider>
       <AssistantProvider>
-        <WorkspaceCard.Provider>{children}</WorkspaceCard.Provider>
+        <RouterProvider router={router} />
       </AssistantProvider>
     </Provider>
   );
@@ -112,6 +140,7 @@ function createMockState(mock: test.Mock) {
       material: mock.fn(),
       materials: mock.fn(),
       thread: mock.fn(),
+      body: mock.fn(),
       post: mock.fn(),
       assistant: mock.fn(),
       ask: mock.fn()
@@ -145,6 +174,7 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockModule5 = await import('./workbench');
 
   NoteWorkbench = __mockModule5.NoteWorkbench;
+  ({ useWorkbench } = await import('./workbench.queries'));
 });
 
 test.unit.beforeEach(({ vi }) => {
@@ -160,6 +190,7 @@ test.unit.beforeEach(({ vi }) => {
     updatedAt: 1n
   }));
   rpc.thread.mockResolvedValue({ items: [], next: null });
+  rpc.body.mockResolvedValue({ text: 'Notebook body', versionId: null });
   rpc.materials.mockImplementation(async () => ({
     items: created ? [created] : [],
     nextCursor: null
@@ -232,16 +263,12 @@ test.unit.stable(
 test.unit.stable(
   'keeps vertical note actions in the context card and changes editor docking without creating another document',
   async ({ screen, expect, waitFor, within, fireEvent, render, rpcHandlersTransport }) => {
-    const view = mount(
-      { render, rpcHandlersTransport },
-      <>
-        <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => undefined} />
-      </>
-    );
+    const view = mount({ render, rpcHandlersTransport }, <Notebook />);
+
+    const actions = await screen.findByRole('button', { name: 'NoteActions' });
 
     expect(screen.queryByRole('complementary', { name: 'NoteContextPanel' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
+    fireEvent.click(actions);
     const card = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
     const notebook = await screen.findByRole('textbox', { name: 'NotePageEditor' });
     const scrollHost = notebook.closest('[data-notebook-scroll-host]');
@@ -280,17 +307,62 @@ test.unit.stable(
   }
 );
 
+test.unit.stable.for([false, true])(
+  'keeps the editor mounted and focuses history after opening it with wide=%s',
+  async (wide, { screen, expect, within, waitFor, userEvent, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <Notebook wide={wide} />);
+    const user = userEvent.setup();
+    const toggle = await screen.findByRole('button', { name: 'NoteActions' });
+    const editor = await screen.findByRole('textbox', { name: 'NotePageEditor' });
+
+    if (!wide) await user.click(toggle);
+
+    await user.click(screen.getByRole('button', { name: 'NoteHistory' }));
+    const back = screen.getByRole('button', { name: 'NoteBackToEditor' });
+
+    expect(toggle).toHaveAttribute('aria-expanded', String(wide));
+    await waitFor(() => expect(back).toHaveFocus());
+    expect(editor).toBeInTheDocument();
+    expect(editor).not.toBeVisible();
+
+    if (wide) {
+      const panel = screen.getByRole('complementary', { name: 'NoteContextPanel' });
+
+      expect(within(panel).getByRole('navigation', { name: 'NoteOutline' })).toBeVisible();
+    }
+
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(editor);
+    expect(editor).toBeVisible();
+    await waitFor(() => expect(editor).toHaveFocus());
+  }
+);
+
+test.unit.stable(
+  'focuses the writing editor when the notebook body loads after returning from history',
+  async ({ act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
+    const body = Promise.withResolvers<{ text: string; versionId: null }>();
+
+    rpc.body.mockReturnValue(body.promise);
+    mount({ render, rpcHandlersTransport }, <Notebook wide />);
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteHistory' }));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteBackToEditor' }));
+    expect(screen.queryByRole('textbox', { name: 'NotePageEditor' })).toBeNull();
+
+    await act(async () => {
+      body.resolve({ text: 'Notebook body', versionId: null });
+    });
+    const editor = await screen.findByRole('textbox', { name: 'NotePageEditor' });
+
+    expect(editor).toHaveFocus();
+  }
+);
+
 test.unit.stable(
   'opens the scoped assistant beside pages and preserves its unsent draft after closing the tab',
   async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
-    mount(
-      { render, rpcHandlersTransport },
-      <>
-        <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => {}} />
-      </>
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));
+    mount({ render, rpcHandlersTransport }, <Notebook />);
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteAssistantOpen' }));
     expect(await screen.findByRole('tab', { name: 'NoteAssistant' })).toHaveAttribute(
       'aria-selected',
       'true'

@@ -5,8 +5,10 @@ import type { Page } from 'playwright';
 const copy = catalogs.english;
 
 async function openHistory(page: Page) {
-  await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
-  await page.getByRole('button', { name: copy.NoteHistory, exact: true }).click();
+  await page
+    .getByRole('complementary', { name: copy.NoteContextPanel })
+    .getByRole('button', { name: copy.NoteHistory, exact: true })
+    .click();
 }
 
 test.browser.stable(

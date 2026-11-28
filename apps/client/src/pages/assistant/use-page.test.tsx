@@ -9,6 +9,27 @@ test.unit.beforeEach(({ assistant }) => {
 });
 
 test.unit.stable(
+  'dismisses Assistant history from inside the panel and returns focus to its toggle',
+  async ({ screen, userEvent, expect }) => {
+    await mount();
+    const user = userEvent.setup();
+    const toggle = screen.getByRole('button', { name: 'Chat history' });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    const history = screen.getByRole('complementary', { name: 'Chat history' });
+
+    expect(toggle).toHaveAttribute('aria-controls', history.id);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    screen.getByRole('button', { name: 'New chat' }).focus();
+    await user.keyboard('{Escape}');
+    expect(history).not.toBeVisible();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveFocus();
+  }
+);
+
+test.unit.stable(
   'does not send during input-method composition or dismiss on Escape',
   async ({ screen, waitFor, expect, fireEvent }) => {
     await mount();

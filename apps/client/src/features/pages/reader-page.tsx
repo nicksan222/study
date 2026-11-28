@@ -1,5 +1,5 @@
 import { pageIdSchema } from '@study/contracts';
-import { WorkspaceDeskSurface as Desk } from '@study/ui';
+import { WorkspaceDeskSurface as Desk, WorkspaceSurface } from '@study/ui';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
@@ -11,8 +11,14 @@ export function PageReaderPage() {
   const id = Schema.decodeUnknownSync(pageIdSchema)(BigInt(pageId));
 
   return (
-    <Desk.PageReaderPage>
-      <AuthoredPageReader key={String(id)} id={id} initialVersion={search.pageVersion} />
-    </Desk.PageReaderPage>
+    <WorkspaceSurface.Root variant="flow">
+      <WorkspaceSurface.Content>
+        <WorkspaceSurface.Body>
+          <Desk.PageReaderPage>
+            <AuthoredPageReader key={String(id)} id={id} initialVersion={search.pageVersion} />
+          </Desk.PageReaderPage>
+        </WorkspaceSurface.Body>
+      </WorkspaceSurface.Content>
+    </WorkspaceSurface.Root>
   );
 }

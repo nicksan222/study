@@ -1,20 +1,9 @@
 import { mergeProps } from '@base-ui/react/merge-props';
-import { Tabs } from '@base-ui/react/tabs';
 import { useRender } from '@base-ui/react/use-render';
-import {
-  PageIcon,
-  CloseIcon,
-  ClosePanelIcon,
-  MaximizeIcon,
-  MinimizeIcon,
-  BackIcon,
-  DisclosureIcon,
-  OpenIcon
-} from '@study/icons';
+import { PageIcon, DisclosureIcon, OpenIcon } from '@study/icons';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
-import { Button } from './button';
 import { semanticPart as part } from './semantic-part';
 
 function Root({
@@ -106,112 +95,6 @@ function ScrollArea({ children }: { children: ReactNode }) {
 
 function NavigationHost() {
   return <div className="workspace-desk-navigation-host" data-notebook-navigation-host />;
-}
-
-/** Uses native tab semantics and keyboard navigation while keeping close controls separate from tab buttons. */
-
-function Panel({
-  tabs,
-  active,
-  onSelect,
-  onClose,
-  closeLabel,
-  hideLabel,
-  expandLabel,
-  expanded,
-  onExpand,
-  onHide,
-  children
-}: {
-  tabs: { id: string; label: ReactNode; closeLabel: string }[];
-  active: string;
-  onSelect: (id: string) => void;
-  onClose: (id: string) => void;
-  onHide: () => void;
-  closeLabel: string;
-  hideLabel: string;
-  expandLabel: string;
-  expanded: boolean;
-  onExpand: () => void;
-  children: ReactNode;
-}) {
-  const activeTab = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    activeTab.current?.scrollIntoView?.({
-      block: 'nearest',
-      inline: 'nearest',
-      behavior: 'instant'
-    });
-  }, [active]);
-
-  return (
-    <Tabs.Root
-      className="workspace-desk-panel"
-      value={active}
-      onValueChange={(value) => {
-        if (typeof value === 'string') onSelect(value);
-      }}
-    >
-      <div className="workspace-desk-tab-header">
-        <Button
-          className="workspace-desk-back"
-          variant="ghost-muted"
-          size="icon-sm"
-          aria-label={hideLabel}
-          title={hideLabel}
-          onClick={onHide}
-        >
-          <BackIcon size={16} aria-hidden="true" />
-        </Button>
-        <Tabs.List className="workspace-desk-tabs" aria-label={closeLabel}>
-          {tabs.map((tab) => (
-            <div
-              className="workspace-desk-tab"
-              key={tab.id}
-              ref={tab.id === active ? activeTab : undefined}
-            >
-              <Tabs.Tab value={tab.id}>
-                <PageIcon size={14} aria-hidden="true" />
-                <span>{tab.label}</span>
-              </Tabs.Tab>
-              <button
-                type="button"
-                aria-label={tab.closeLabel}
-                title={tab.closeLabel}
-                onClick={() => onClose(tab.id)}
-              >
-                <CloseIcon size={13} aria-hidden="true" />
-              </button>
-            </div>
-          ))}
-        </Tabs.List>
-        <div className="workspace-desk-panel-controls">
-          <Button
-            variant="ghost-muted"
-            size="icon-sm"
-            aria-label={expandLabel}
-            title={expandLabel}
-            onClick={onExpand}
-          >
-            {expanded ? <MinimizeIcon size={15} /> : <MaximizeIcon size={15} />}
-          </Button>
-          <Button
-            variant="ghost-muted"
-            size="icon-sm"
-            aria-label={hideLabel}
-            title={hideLabel}
-            onClick={onHide}
-          >
-            <ClosePanelIcon size={15} />
-          </Button>
-        </div>
-      </div>
-      <Tabs.Panel className="workspace-desk-tab-panel" value={active}>
-        {children}
-      </Tabs.Panel>
-    </Tabs.Root>
-  );
 }
 
 function PageCard({
@@ -330,7 +213,6 @@ function AttachmentCard({
 
 export const WorkspaceDeskSurface = {
   Root,
-  Panel,
   PageCard,
   AttachmentCard,
   Attachments: part('div', 'workspace-desk-attachments'),

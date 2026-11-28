@@ -29,6 +29,7 @@ type Workbench = {
   expanded?: boolean;
   dock?: 'side' | 'bottom';
   cardHidden?: boolean;
+  narrowCardDismissed?: boolean;
 };
 
 const workbenchState = Atom.family((_id: NoteId) =>
@@ -37,7 +38,7 @@ const workbenchState = Atom.family((_id: NoteId) =>
 
 /** Retains page tabs and unsent pages across note navigation without mixing them with chat drafts. */
 
-export function useWorkbench(id: NoteId) {
+export function useWorkbench(id: NoteId, wide: boolean) {
   const cache = useContext(RegistryContext);
   const preferences = useWorkspacePreferences();
   const appearance =
@@ -47,6 +48,10 @@ export function useWorkbench(id: NoteId) {
   const thread = useThreadPage(id);
   const messages = thread.data?.items ?? [];
   const update = (change: (value: Workbench) => Workbench) => cache.update(atom, change);
+  const cardOpen = (value: Workbench, wideLayout = wide) =>
+    !value.visible &&
+    !(value.cardHidden ?? !wideLayout) &&
+    (wideLayout || !value.narrowCardDismissed);
 
   function open(target: WorkbenchTarget) {
     const identity = workbenchIdentity(target);
@@ -93,17 +98,22 @@ export function useWorkbench(id: NoteId) {
   return {
     ...model,
     appearance,
+    wide,
     expanded: model.expanded ?? preferences.expandPages,
     tabs,
     dock: model.dock ?? appearance.noteEditorDock,
-    cardVisible: !model.visible && !(model.cardHidden ?? true),
+    cardVisible: cardOpen(model),
+    cardVisibleWhenNarrow: cardOpen(model, false),
     toggleCard: () =>
       update((value) => ({
         ...value,
         visible: false,
-        cardHidden: value.visible ? false : !(value.cardHidden ?? true)
+        cardHidden: cardOpen(value),
+        narrowCardDismissed: false
       })),
-    hideCard: () => update((value) => ({ ...value, cardHidden: true })),
+    dismissNarrowCard: () => {
+      if (!wide) update((value) => ({ ...value, narrowCardDismissed: true }));
+    },
     showEditor: (dock: 'side' | 'bottom') =>
       update((value) => {
         if (!value.tabs.length) return value;

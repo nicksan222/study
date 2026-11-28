@@ -26,7 +26,7 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(body).toHaveText('')
     });
-    await openHistory(page, copy);
+    await openHistory(page, expect, copy);
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const outline = page.getByRole('navigation', { name: copy.NoteOutline });
     const initial = study.notes.capture(first, 'Mitosis and daughter cells');
@@ -116,7 +116,7 @@ test.browser.stable(
       notebook.getByRole('heading', { name: 'DNA copying and inheritance' })
     ).toBeVisible();
     await page.reload();
-    await openHistory(page, copy);
+    await openHistory(page, expect, copy);
     await expectScreenshot('reopened-generated-titles', {
       target: 'viewport',
       ready: async () => {
@@ -268,7 +268,7 @@ test.browser.stable(
     await page.goto(url);
     await study.settings({ language: Language.ITALIAN });
     await page.reload();
-    await openHistory(page, catalogs.italian);
+    await openHistory(page, expect, catalogs.italian);
     await expectScreenshot('italian-dump-with-generated-titles', {
       target: 'viewport',
       ready: async () => {
@@ -341,13 +341,19 @@ test.browser.stable(
 
 async function openHistory(
   page: test.browser.Context['page'],
-  language: Record<'NoteActions' | 'NoteHistory', string>
+  expect: test.browser.Context['expect'],
+  language: Record<'NoteActions' | 'NoteHistory' | 'NoteContextPanel' | 'NoteBackToEditor', string>
 ) {
   const context = page.getByRole('button', { name: language.NoteActions, exact: true });
 
-  await context.click();
-  await page.getByRole('button', { name: language.NoteHistory, exact: true }).click();
-  await context.click();
+  const panel = page.getByRole('complementary', { name: language.NoteContextPanel });
+
+  await expect(context).toHaveAttribute('aria-expanded', 'true');
+  await panel.getByRole('button', { name: language.NoteHistory, exact: true }).click();
+  await expect(context).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    page.getByRole('button', { name: language.NoteBackToEditor, exact: true })
+  ).toBeFocused();
 }
 
 async function openStudyNotes(page: test.browser.Context['page']) {

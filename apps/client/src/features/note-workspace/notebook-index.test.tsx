@@ -1,6 +1,7 @@
 import { noteIdSchema, chatMessageSchema } from '@study/contracts';
 import { rpc as protocol } from '@study/contracts/react';
 import { test } from '@study/testing';
+import { WorkspaceCard } from '@study/ui';
 import { Schema } from 'effect';
 
 import type * as __MockType0 from '../document-editing/test-support';
@@ -102,7 +103,11 @@ function mount(
   return render(
     <Provider rpcHandlersTransport={rpcHandlersTransport}>
       {board && <Notebook />}
-      {noteId && <WorkspaceContext id={noteId} />}
+      {noteId && (
+        <WorkspaceCard.Provider open onOpenChange={() => undefined}>
+          <WorkspaceContext id={noteId} />
+        </WorkspaceCard.Provider>
+      )}
     </Provider>
   );
 }

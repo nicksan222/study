@@ -1,4 +1,6 @@
 import { test } from '@study/testing';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { WorkspaceCard } from './workspace';
 
@@ -9,14 +11,21 @@ test.unit.stable(
   async ({ userEvent, render, screen, expect }) => {
     const user = userEvent.setup();
 
-    render(
-      <WorkspaceCard.Provider>
-        <WorkspaceCard.Toggle label="Note context" />
-        <WorkspaceCard.Root aria-label="Note context">
-          <input aria-label="Instruction" defaultValue="Preserve this draft" />
-        </WorkspaceCard.Root>
-      </WorkspaceCard.Provider>
-    );
+    function ControlledCard() {
+      const [open, setOpen] = useState(true);
+
+      return (
+        <WorkspaceCard.Provider open={open} onOpenChange={setOpen}>
+          <WorkspaceCard.Toggle label="Note context" />
+          <WorkspaceCard.Root aria-label="Note context">
+            <input aria-label="Instruction" defaultValue="Preserve this draft" />
+            {createPortal(<button>Portal action</button>, document.body)}
+          </WorkspaceCard.Root>
+        </WorkspaceCard.Provider>
+      );
+    }
+
+    render(<ControlledCard />);
     const toggle = screen.getByRole('button', { name: 'Note context' });
     const panel = screen.getByRole('complementary', { name: 'Note context' });
 
@@ -31,6 +40,9 @@ test.unit.stable(
     expect(screen.getByRole('textbox', { name: 'Instruction' }).getAttribute('value')).toBe(
       'Preserve this draft'
     );
+    screen.getByRole('button', { name: 'Portal action' }).focus();
+    await user.keyboard('{Escape}');
+    expect(panel.hidden).toBe(false);
     screen.getByRole('textbox', { name: 'Instruction' }).focus();
     await user.keyboard('{Escape}');
     expect(panel.hidden).toBe(true);
