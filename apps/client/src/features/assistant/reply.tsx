@@ -1,4 +1,5 @@
 import type { MessageId } from '@study/contracts';
+import { StopIcon } from '@study/icons';
 import { RetryButton, AiActivity, Button, ErrorState, RichNoteContent } from '@study/ui';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
@@ -26,7 +27,8 @@ export function AssistantReply({
       {model.failed && <AiReadinessNotice state={model.readiness} />}
       {model.actionError && <ErrorState layout="inline" title={t('AssistantActionFailed')} />}
       {model.canStop && (
-        <Button size="sm" variant="ghost" disabled={model.stopping} onClick={model.stop}>
+        <Button size="sm" variant="outline" disabled={model.stopping} onClick={model.stop}>
+          <StopIcon size={16} aria-hidden="true" />
           {t('AssistantStop')}
         </Button>
       )}
@@ -67,12 +69,17 @@ function ReplyFailure({ model }: { model: ReplyModel }) {
     <ErrorState
       layout="inline"
       title={t(model.stopped ? 'AssistantStopped' : 'AssistantReplyFailed')}
-      description={model.auth ? t('AssistantSignIn') : undefined}
+      description={
+        model.auth
+          ? t('AssistantSignIn')
+          : model.stopped
+            ? undefined
+            : t('AssistantReplyFailedDescription')
+      }
       action={
         <RetryButton
-          size="sm"
           variant="outline"
-          label={t('Retry')}
+          label={t('AssistantSendAgain')}
           disabled={model.retrying || model.readiness !== 'ready'}
           onClick={model.retry}
         />

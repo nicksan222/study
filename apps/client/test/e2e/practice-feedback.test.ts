@@ -83,7 +83,7 @@ async function checkFeedbackTiming(
     );
     await expect(
       page.getByRole('radio', {
-        name: `${copy.PracticeTrue} ${copy.ReaderCorrectAnswer}`,
+        name: `${copy.PracticeTrue} ${copy.RightAnswer}`,
         exact: true
       })
     ).toBeDisabled();
@@ -122,7 +122,7 @@ async function checkFeedbackTiming(
     ).toBeChecked();
     await expect(
       page.getByRole('radio', {
-        name: `${copy.PracticeFalse} ${copy.ReaderCorrectAnswer}`,
+        name: `${copy.PracticeFalse} ${copy.RightAnswer}`,
         exact: true
       })
     ).toBeDisabled();

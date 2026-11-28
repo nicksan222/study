@@ -84,7 +84,6 @@ export function AnalyticsSettings() {
               />
               <Button
                 variant="outline"
-                size="sm"
                 disabled={query.isFetching}
                 onClick={() => void query.refetch()}
               >
@@ -92,7 +91,6 @@ export function AnalyticsSettings() {
               </Button>
               <Button
                 variant="outline"
-                size="sm"
                 disabled={!query.data}
                 onClick={() =>
                   downloadFile(

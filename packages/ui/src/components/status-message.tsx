@@ -1,8 +1,8 @@
 import type { ComponentProps } from 'react';
 
 const variants = {
-  default: undefined,
-  hint: 'text-sm text-muted-foreground',
+  default: 'text-sm/[1.5] text-foreground',
+  hint: 'text-sm/[1.5] text-muted-foreground',
   announcement: 'sr-only'
 } as const;
 

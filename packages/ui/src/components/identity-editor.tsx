@@ -5,11 +5,11 @@ function Form(props: ComponentProps<'form'>) {
 }
 
 function Preview(props: ComponentProps<'div'>) {
-  return <div {...props} className="flex items-center gap-3" />;
+  return <div {...props} className="flex flex-wrap items-center gap-3.5" />;
 }
 
 function Name(props: ComponentProps<'span'>) {
-  return <span {...props} className="min-w-0 break-words text-sm font-medium" />;
+  return <span {...props} className="min-w-0 flex-1 break-words text-base font-semibold" />;
 }
 
 function Modes({ label, ...props }: ComponentProps<'div'> & { label: string }) {
