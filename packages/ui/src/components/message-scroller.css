@@ -102,3 +102,65 @@
   padding-inline: 1.25rem;
   padding-block-start: 1.25rem;
 }
+
+.ui-workspace[data-note='assistant'] .ui-ai-chat-layout [data-slot='message-scroller-content'] {
+  width: min(100%, 48rem);
+  gap: 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+}
+.ui-workspace[data-note='assistant'] .ui-ai-chat-empty > h3 {
+  line-height: 2rem;
+}
+.ui-workspace[data-note='assistant'] .ui-ai-chat-empty > p {
+  color: var(--muted-foreground);
+}
+.ui-workspace[data-note='assistant'] .workspace-desk-floating-composer > .ui-workspace-dock {
+  width: min(100%, 48rem);
+  padding-inline: 1.5rem;
+}
+.ui-workspace[data-note='assistant'] .ui-composer {
+  --composer-padding: 0.875rem 0.875rem 0.75rem 1.125rem;
+  --composer-input-height: 2.75rem;
+  --composer-input-padding: 0;
+  border: 1px solid var(--border);
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+}
+.ui-workspace[data-note='assistant'] .ui-composer-input {
+  line-height: 1.375rem;
+}
+.ui-workspace[data-note='assistant'] .ui-workspace-card {
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+}
+.ui-workspace[data-note='assistant'] .ui-workspace-card-primary {
+  height: 2rem;
+}
+.ui-workspace[data-note='assistant'] .ui-workspace-card-caption {
+  padding-inline: 0.5rem;
+  font-weight: 500;
+}
+.ui-workspace[data-note='assistant'] .ui-workspace-card .ui-workspace-card-item {
+  min-height: 2rem;
+  gap: 0.625rem;
+  padding: 0 0.5rem;
+  font-weight: 500;
+}
+.ui-workspace[data-note='assistant'] .ui-workspace-card-item > svg {
+  width: 1rem;
+  height: 1rem;
+}
+@media (min-width: 821px) {
+  .ui-workspace[data-note='assistant'] .workspace-desk[data-card-open] .workspace-desk-notebook {
+    --notebook-card-width: 17.875rem;
+  }
+  .ui-workspace[data-note='assistant'] .ui-ai-chat-layout > .ui-workspace-card:not([hidden]) {
+    flex-basis: 16.875rem;
+  }
+}
+@media (max-width: 640px) {
+  .ui-workspace[data-note='assistant'] .workspace-desk-floating-composer > .ui-workspace-dock {
+    padding-inline: 1rem;
+  }
+}

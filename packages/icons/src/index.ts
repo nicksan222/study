@@ -8,7 +8,6 @@ export {
   Palette as AppearanceIcon,
   Archive as ArchiveIcon,
   Archive as ArchiveSourceIcon,
-  MessageSquare as AssistantHistoryIcon,
   MessageCircle as AssistantIcon,
   Sparkles as AssistantMessageIcon,
   Atom as AtomIcon,

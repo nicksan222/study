@@ -33,10 +33,13 @@
   border-right: 1px solid var(--contrast-border);
   padding: 0.5rem;
 }
-.settings-search {
+.settings-search,
+.settings-search:hover {
   height: 2.5rem;
   margin-bottom: 0.25rem;
   padding-inline: 0.625rem;
+  background: transparent;
+  box-shadow: none;
 }
 .settings-search input {
   font-size: 0.875rem;

@@ -4,6 +4,9 @@
 .study-content:has(:is(.ui-subject-empty, .ui-subject-workspace)) {
   min-height: 0;
 }
+.study-content:has(.ui-subject-workspace) > header {
+  flex-shrink: 0;
+}
 .groam-shell-page-body:has(.ui-subject-empty) {
   min-height: calc(100dvh - 3.25rem);
   padding: 0;

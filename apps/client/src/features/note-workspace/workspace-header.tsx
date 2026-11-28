@@ -21,9 +21,7 @@ export function WorkspaceHeader({
   return (
     <Sidebar.Topbar
       variant="notebook"
-      parent={
-        owner ? owner.name : t('AppName')
-      }
+      parent={owner ? owner.name : t('AppName')}
       titleAction={titleAction}
       title={title || t('NoteUntitled')}
     >
