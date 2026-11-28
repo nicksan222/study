@@ -1415,6 +1415,8 @@ export const italian = Object.freeze({
   AttachmentReaderView: 'Vista allegato',
   MaterialEditFile: 'Modifica file',
   MaterialSaveRevision: 'Salva revisione',
+  MaterialUnsavedRevision:
+    'Modifiche non salvate · salva una nuova revisione, il file originale resta invariato',
   MaterialFileContents: 'Contenuto del file',
   MaterialRevisionSaved: 'Revisione salvata',
   MaterialCopyToPages: 'Apri una copia in Pagine',
@@ -2225,7 +2227,7 @@ export const italian = Object.freeze({
   QuestionChoice: 'Scelta multipla',
   QuestionOpen: 'Con parole tue',
   AnswerPlaceholder: 'Scrivi la tua risposta. Invio per inviarla; Maiusc+Invio per andare a capo.',
-  SubmitAnswer: 'Invia',
+  SubmitAnswer: 'Verifica risposta',
   CheckingAnswer: 'Correzione della tua risposta…',
   WritingQuestion: 'Scrittura della prossima domanda…',
   NextQuestion: 'Prossima domanda',
@@ -2422,7 +2424,7 @@ export const italian = Object.freeze({
   SetupSearchBody:
     'La ricerca per significato funziona su questo computer. Il modello si scarica una volta sola.',
   SetupResumes: 'Riprende da sola appena è tutto pronto.',
-  LoadingSettings: 'Caricamento delle impostazioni…',
+  LoadingSettings: 'Caricamento delle tue impostazioni…',
   SettingsSaved: 'Impostazioni salvate.',
   ModelCopies: 'Copie del modello',
   CountError: 'Usa un numero intero di copie del modello, da 1 a 4.',

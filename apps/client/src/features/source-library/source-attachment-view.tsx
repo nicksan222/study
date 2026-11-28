@@ -89,7 +89,9 @@ function AttachmentTabs({
         view={view}
         onSelect={setSelected}
       />
-      {job && view !== 'details' && <ExtractionSummary sourceId={source.id} job={job} allowRetry />}
+      {job && (
+        <ExtractionSummary sourceId={source.id} job={job} allowRetry={view !== 'details'} />
+      )}
       <AttachmentViewBody
         source={source}
         preview={preview}

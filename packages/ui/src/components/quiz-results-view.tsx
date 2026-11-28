@@ -59,7 +59,7 @@ export function QuizResultsView({
     <>
       <Practice.FooterContext>
         <PreviousButton
-          variant="ghost"
+          variant={presentation === 'page' ? 'outline' : 'ghost'}
           size={presentation === 'page' ? 'icon' : 'default'}
           disabled={index === 0}
           onClick={() => setIndex((value) => value - 1)}
@@ -73,7 +73,7 @@ export function QuizResultsView({
         ></PreviousButton>
         {presentation === 'page' && (
           <NextButton
-            variant="ghost"
+            variant="outline"
             size="icon"
             disabled={index >= attempt.questions.length - 1}
             onClick={() => setIndex((value) => value + 1)}

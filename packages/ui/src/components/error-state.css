@@ -14,8 +14,12 @@
   width: 2rem;
   height: 2rem;
   border-radius: 0.625rem;
-  background: var(--muted);
-  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--destructive) 10%, var(--background));
+  color: var(--destructive-foreground);
+
+  @variant dark {
+    background: color-mix(in srgb, var(--destructive) 16%, var(--background));
+  }
 }
 
 .ui-error-state-content {

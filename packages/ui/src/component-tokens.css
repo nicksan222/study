@@ -31,6 +31,15 @@
   --ui-control-border: color-mix(in srgb, var(--contrast-input) 45%, var(--background));
   --ui-surface-border: color-mix(in srgb, var(--contrast-border) 60%, var(--background));
   --ui-divider-border: color-mix(in srgb, var(--contrast-border) 45%, var(--background));
+  --ui-field-border: var(--input);
+  --ui-field-border-hover: color-mix(in srgb, var(--foreground) 32%, var(--background));
+  --ui-focus-ring: color-mix(in srgb, var(--primary) 22%, transparent);
+  --ui-invalid-ring: color-mix(in srgb, var(--destructive) 20%, transparent);
+  --ui-neutral-fill: color-mix(in srgb, var(--foreground) 6%, var(--background));
+  --ui-neutral-fill-strong: color-mix(in srgb, var(--foreground) 11%, var(--background));
+  --ui-track: color-mix(in srgb, var(--foreground) 18%, var(--background));
+  --ui-raised: #ffffff;
+  --ui-raised-shadow: 0 1px 2px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.05);
   --glass-saturation: 1.14;
   --desktop-window-right-resize-inset: 0px;
   --workspace-topbar-height: 48px;
@@ -57,6 +66,14 @@
     --app-scrollbar-thumb-hover: var(--scrollbar-thumb-hover-dark);
     --glass-blur: 16px;
     --glass-saturation: 1.08;
+    --ui-field-border: color-mix(in srgb, var(--foreground) 16%, var(--background));
+    --ui-field-border-hover: color-mix(in srgb, var(--foreground) 30%, var(--background));
+    --ui-focus-ring: color-mix(in srgb, var(--primary) 38%, transparent);
+    --ui-neutral-fill: color-mix(in srgb, var(--foreground) 8%, var(--background));
+    --ui-neutral-fill-strong: color-mix(in srgb, var(--foreground) 14%, var(--background));
+    --ui-track: color-mix(in srgb, var(--foreground) 22%, var(--background));
+    --ui-raised: color-mix(in srgb, var(--foreground) 16%, var(--background));
+    --ui-raised-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.06);
   }
 }
 

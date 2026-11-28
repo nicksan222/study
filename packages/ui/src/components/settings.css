@@ -520,7 +520,7 @@
 }
 .settings-row-control [data-slot='input-control'] {
   display: block;
-  width: 18rem;
+  width: 16.875rem;
   max-width: 100%;
 }
 .settings-row[data-has-control='false'] {
@@ -866,13 +866,38 @@
 
 .settings-intro {
   color: var(--contrast-muted-foreground);
-  font-size: 0.8125rem;
-  line-height: 1.65;
-  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: -0.5rem 0 1rem;
   max-width: 64ch;
 }
 .settings-group + .settings-intro {
   margin-top: 1rem;
+}
+.settings-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.settings-status[data-recoverable] {
+  padding: 0.875rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--destructive) 35%, var(--contrast-border));
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--destructive) 11%, var(--card));
+}
+.settings-status > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  color: var(--destructive);
+}
+.settings-status > span {
+  min-width: 0;
+  flex: 1;
 }
 .settings-feedback {
   color: var(--contrast-muted-foreground);
