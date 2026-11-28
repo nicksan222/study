@@ -1418,7 +1418,7 @@ export const italian = Object.freeze({
   MaterialEditFile: 'Modifica file',
   MaterialSaveRevision: 'Salva revisione',
   MaterialUnsavedRevision:
-    'Modifiche non salvate · salva una nuova revisione, il file originale resta invariato',
+    'Modifiche non salvate · verranno salvate come nuova revisione, il file originale resta invariato',
   MaterialFileContents: 'Contenuto del file',
   MaterialRevisionSaved: 'Revisione salvata',
   MaterialCopyToPages: 'Apri una copia in Pagine',

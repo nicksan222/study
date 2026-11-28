@@ -55,47 +55,9 @@ export function QuizResultsView({
       </Practice.ResultContent>
     </Practice.StageBody>
   );
-  const controls = (
-    <>
-      <Practice.FooterContext>
-        <PreviousButton
-          variant={presentation === 'page' ? 'outline' : 'ghost'}
-          size={presentation === 'page' ? 'icon-sm' : 'default'}
-          disabled={index === 0}
-          onClick={() => setIndex((value) => value - 1)}
-          label={
-            presentation === 'page' ? (
-              <span className="sr-only">{t('QuizPrevious')}</span>
-            ) : (
-              t('QuizPrevious')
-            )
-          }
-        ></PreviousButton>
-        {presentation === 'page' && (
-          <Practice.MutedText>{reviewProgress(index + 1, attempt.questions.length)}</Practice.MutedText>
-        )}
-        {presentation === 'page' && (
-          <NextButton
-            variant="outline"
-            size="icon-sm"
-            disabled={index >= attempt.questions.length - 1}
-            onClick={() => setIndex((value) => value + 1)}
-            label={<span className="sr-only">{t('PracticeNextQuestion')}</span>}
-          ></NextButton>
-        )}
-      </Practice.FooterContext>
-      {presentation === 'preview' ? (
-        <NextButton
-          variant="outline"
-          disabled={index >= attempt.questions.length - 1}
-          onClick={() => setIndex((value) => value + 1)}
-          label={t('PracticeNextQuestion')}
-        ></NextButton>
-      ) : (
-        retry
-      )}
-    </>
-  );
+  const last = index >= attempt.questions.length - 1;
+  const previous = () => setIndex((value) => value - 1);
+  const next = () => setIndex((value) => value + 1);
 
   if (presentation === 'preview')
     return (
@@ -119,7 +81,23 @@ export function QuizResultsView({
             </Surface.Body>
           </Surface.Scroll>
           <Surface.ArchiveFooter>
-            <Surface.ArchiveActions>{controls}</Surface.ArchiveActions>
+            <Surface.ArchiveActions>
+              <Practice.FooterContext>
+                <PreviousButton
+                  variant="ghost"
+                  size="default"
+                  disabled={index === 0}
+                  onClick={previous}
+                  label={t('QuizPrevious')}
+                ></PreviousButton>
+              </Practice.FooterContext>
+              <NextButton
+                variant="outline"
+                disabled={last}
+                onClick={next}
+                label={t('PracticeNextQuestion')}
+              ></NextButton>
+            </Surface.ArchiveActions>
           </Surface.ArchiveFooter>
         </Surface.ArchiveFrame>
       </>
@@ -133,7 +111,28 @@ export function QuizResultsView({
     >
       <Practice.Results aria-labelledby={headingId} data-presentation={presentation}>
         {body}
-        <Practice.StageFooter>{controls}</Practice.StageFooter>
+        <Practice.StageFooter>
+          <Practice.FooterContext>
+            <PreviousButton
+              variant="outline"
+              size="icon-sm"
+              disabled={index === 0}
+              onClick={previous}
+              label={<span className="sr-only">{t('QuizPrevious')}</span>}
+            ></PreviousButton>
+            <Practice.MutedText>
+              {reviewProgress(index + 1, attempt.questions.length)}
+            </Practice.MutedText>
+            <NextButton
+              variant="outline"
+              size="icon-sm"
+              disabled={last}
+              onClick={next}
+              label={<span className="sr-only">{t('PracticeNextQuestion')}</span>}
+            ></NextButton>
+          </Practice.FooterContext>
+          {retry}
+        </Practice.StageFooter>
       </Practice.Results>
     </QuizSessionView>
   );

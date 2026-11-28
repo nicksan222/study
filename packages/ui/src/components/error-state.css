@@ -80,11 +80,8 @@
 }
 
 .ui-error-state:is([data-layout='page'], [data-layout='screen']) .ui-error-state-action {
-  margin-top: 1.25rem;
-}
-
-.ui-error-state:is([data-layout='page'], [data-layout='screen']) .ui-error-state-action {
   justify-content: center;
+  margin-top: 1.25rem;
 }
 .ui-error-state[data-layout='screen'] {
   min-height: 100dvh;

@@ -1,10 +1,9 @@
-import { NextIcon } from '@study/icons';
 import { useState, useEffect, useRef, useId } from 'react';
 import type { ReactNode, KeyboardEvent, RefObject } from 'react';
 
 import { Button } from '#ui/components/button.tsx';
 import { Input } from '#ui/components/input.tsx';
-import { PreviousButton } from '#ui/components/navigation-button.tsx';
+import { NextButton, PreviousButton } from '#ui/components/navigation-button.tsx';
 import { Practice } from '#ui/components/practice.tsx';
 import { SelectControl } from '#ui/components/select-control.tsx';
 import { Textarea } from '#ui/components/textarea.tsx';
@@ -298,6 +297,7 @@ function QuestionFooter({
   next?: () => void;
 }) {
   const { t } = usePracticePresentation();
+  const disabled = !valid || pending;
 
   return (
     <Practice.StageFooter>
@@ -320,16 +320,18 @@ function QuestionFooter({
           {t(last ? 'PracticeLastQuestion' : 'PracticeAnswerSaved')}
         </Practice.MutedText>
       </Practice.FooterContext>
-      <Button
-        ref={action}
-        type={next ? 'button' : 'submit'}
-        variant={next ? 'outline' : 'default'}
-        onClick={next}
-        disabled={!valid || pending}
-      >
-        {t(pending ? 'PracticeSaving' : next ? 'PracticeNextQuestion' : 'SubmitAnswer')}
-        {next && <NextIcon aria-hidden="true" />}
-      </Button>
+      {next ? (
+        <NextButton
+          ref={action}
+          onClick={next}
+          disabled={disabled}
+          label={t(pending ? 'PracticeSaving' : 'PracticeNextQuestion')}
+        ></NextButton>
+      ) : (
+        <Button ref={action} type="submit" disabled={disabled}>
+          {t(pending ? 'PracticeSaving' : 'SubmitAnswer')}
+        </Button>
+      )}
     </Practice.StageFooter>
   );
 }

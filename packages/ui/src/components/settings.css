@@ -33,12 +33,13 @@
   border-right: 1px solid var(--contrast-border);
   padding: 0.5rem;
 }
-.settings-search,
-.settings-search:hover {
+.settings-search {
   height: 2.5rem;
   margin-bottom: 0.25rem;
   padding-inline: 0.625rem;
   background: transparent;
+}
+.settings-search:not(:has(input:focus-visible)) {
   box-shadow: none;
 }
 .settings-search input {
