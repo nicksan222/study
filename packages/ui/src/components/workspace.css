@@ -18,10 +18,7 @@
 .ui-workspace > .study-workspace-header {
   order: -1;
   flex: none;
-  height: 3rem;
   margin-inline: -1.5rem;
-  padding-inline-end: 1.25rem;
-  font-size: 0.8125rem;
 }
 .ui-workspace > .study-workspace-header > span:first-child {
   max-width: 35%;
@@ -192,9 +189,6 @@
   .ui-workspace-card {
     width: 15rem;
   }
-  .ui-workspace > .study-workspace-header {
-    padding-inline-end: 1.25rem;
-  }
 }
 
 @container (max-width: 959px) {
@@ -206,9 +200,6 @@
     flex: none;
     max-width: calc(100% - 3rem);
     margin-block: 1rem;
-  }
-  .ui-workspace > .study-workspace-header {
-    padding-inline-end: 1.25rem;
   }
   .ui-workspace-body {
     min-height: 12rem;
@@ -235,7 +226,6 @@
   }
   .ui-workspace > .study-workspace-header {
     margin-inline: -1rem;
-    padding-inline-end: 1.25rem;
   }
   .ui-workspace-heading {
     padding-block: 1.5rem 2rem;
@@ -495,6 +485,42 @@
   .ui-workspace-content:not([data-inset='none']) {
     padding: 0 1rem 1rem;
   }
+}
+
+/* Practice pages use the compact design card. Touch sizing above still applies. */
+.ui-workspace[data-note='practice'] {
+  --workspace-card-width: 16.875rem;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card {
+  padding-block: 0.375rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card-heading {
+  padding: 0.375rem 1rem;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card-group {
+  padding: 0;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card-group + .ui-workspace-card-group {
+  margin-top: 0.375rem;
+  padding-top: 0.375rem;
+  border-top-color: var(--border);
+}
+.ui-workspace[data-note='practice'] :where(.ui-workspace-card .ui-workspace-card-item) {
+  min-height: 2.375rem;
+  padding: 0.5625rem 1rem;
+  border-radius: 0;
+  font-weight: 500;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card-item > svg:first-child {
+  width: 1rem;
+  height: 1rem;
+}
+.ui-workspace[data-note='practice'] .ui-workspace-card-caption {
+  padding: 0.375rem 1rem;
+  line-height: 1.25rem;
 }
 
 /* Long lists flow with the shell header inside its scroll area. */

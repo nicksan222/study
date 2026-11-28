@@ -8,7 +8,7 @@ import type {
   MaterialVersionDetailDto
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { StartIcon, GradeIcon } from '@study/icons';
+import { StartIcon, SavedIcon } from '@study/icons';
 import { questionNumber, questionCount } from '@study/localization';
 import { Button, ErrorState, Practice, QuizSessionView, QuizFinishView } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -91,7 +91,7 @@ function QuizStart({ version, projectId }: QuizSetupProps) {
           )}
           <QuizOutline version={version} />
           <Practice.Muted>
-            <GradeIcon aria-hidden="true" />
+            <SavedIcon aria-hidden="true" />
             {t('PracticeQuizSaveHint')}
           </Practice.Muted>
           {preferences.isError && <OperationError retry={() => void preferences.refetch()} />}

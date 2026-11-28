@@ -51,9 +51,15 @@ button[data-ai-working='true']:disabled {
 }
 .ui-ai-activity-status[data-variant='chip'] {
   gap: 0.375rem;
-  border-radius: var(--control-radius);
-  padding-inline: 0.375rem;
-  background: var(--muted);
+  border-radius: 999px;
+  padding-inline: 0.5rem 0.625rem;
+  background: color-mix(in srgb, var(--primary) 10%, var(--background));
+  color: var(--foreground);
+  font-weight: 500;
+
+  @variant dark {
+    background: color-mix(in srgb, var(--primary) 22%, var(--background));
+  }
 }
 .ui-ai-activity-status > :is(svg, .ui-ai-icon) {
   width: 0.875rem;

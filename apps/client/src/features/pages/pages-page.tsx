@@ -1,5 +1,5 @@
 import type { ProjectId, PageSummary } from '@study/contracts';
-import { OpenIcon, PageIcon, RefreshIcon } from '@study/icons';
+import { PageIcon, RefreshIcon } from '@study/icons';
 import { IconButton, PageOverview, WorkspaceSurface } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
@@ -102,7 +102,6 @@ function PageRow({ item, project }: { item: PageSummary; project?: ProjectId }) 
           search={project ? { project: String(project) } : {}}
         >
           <PageRowContent item={item} />
-          <OpenIcon aria-hidden="true" />
         </Link>
       </PageContextMenu>
     </li>
