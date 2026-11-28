@@ -1,9 +1,10 @@
+import { NextIcon } from '@study/icons';
 import { useState, useEffect, useRef, useId } from 'react';
 import type { ReactNode, KeyboardEvent, RefObject } from 'react';
 
 import { Button } from '#ui/components/button.tsx';
 import { Input } from '#ui/components/input.tsx';
-import { NextButton, PreviousButton } from '#ui/components/navigation-button.tsx';
+import { PreviousButton } from '#ui/components/navigation-button.tsx';
 import { Practice } from '#ui/components/practice.tsx';
 import { SelectControl } from '#ui/components/select-control.tsx';
 import { Textarea } from '#ui/components/textarea.tsx';
