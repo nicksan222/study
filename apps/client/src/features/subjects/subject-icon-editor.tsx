@@ -163,27 +163,27 @@ function SubjectIconDialog({
           <IdentityEditor.Preview>
             <SubjectIdentity name={project.name} icon={valid ? icon : project.icon} size="large" />
             <IdentityEditor.Name>{project.name}</IdentityEditor.Name>
+            <IdentityEditor.Modes label={t('SubjectIconMode')}>
+              {(['symbol', 'emoji', 'monogram'] as const).map((value) => (
+                <Button
+                  key={value}
+                  variant={mode === value ? 'secondary' : 'ghost-muted'}
+                  size="sm"
+                  aria-pressed={mode === value}
+                  disabled={mutation.isPending}
+                  onClick={() => changeMode(value)}
+                >
+                  {t(
+                    value === 'symbol'
+                      ? 'SubjectIconSymbols'
+                      : value === 'emoji'
+                        ? 'SubjectIconEmojis'
+                        : 'SubjectIconMonogram'
+                  )}
+                </Button>
+              ))}
+            </IdentityEditor.Modes>
           </IdentityEditor.Preview>
-          <IdentityEditor.Modes label={t('SubjectIconMode')}>
-            {(['symbol', 'emoji', 'monogram'] as const).map((value) => (
-              <Button
-                key={value}
-                variant={mode === value ? 'secondary' : 'ghost-muted'}
-                size="sm"
-                aria-pressed={mode === value}
-                disabled={mutation.isPending}
-                onClick={() => changeMode(value)}
-              >
-                {t(
-                  value === 'symbol'
-                    ? 'SubjectIconSymbols'
-                    : value === 'emoji'
-                      ? 'SubjectIconEmojis'
-                      : 'SubjectIconMonogram'
-                )}
-              </Button>
-            ))}
-          </IdentityEditor.Modes>
           <IdentityEditor.Field>
             <Label>{t('SubjectIconColor')}</Label>
             <IconChoices

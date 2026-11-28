@@ -71,7 +71,6 @@ export type PracticeMessageKey =
   | 'RateEasy'
   | 'RateGood'
   | 'RateHard'
-  | 'ReaderCorrectAnswer'
   | 'RightAnswer'
   | 'ShowAnswer'
   | 'StudyLoadError'

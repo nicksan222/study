@@ -27,12 +27,17 @@
 }
 
 .source-reader[data-materials-reader] .ui-attachment-preview[data-kind='image'] {
-  width: fit-content;
-  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
 }
 
 .source-reader[data-materials-reader] .ui-attachment-preview[data-kind='image'] img {
   width: auto;
+  max-width: 100%;
   height: auto;
   max-height: 70dvh;
   aspect-ratio: auto;

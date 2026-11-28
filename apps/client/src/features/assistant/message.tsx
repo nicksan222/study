@@ -36,9 +36,9 @@ export function AssistantMessage({
       aria-label={t(roleLabels[message.role])}
     >
       <MessageContent>
-        <MessageHeader>{t(roleLabels[message.role])}</MessageHeader>
         {message.role === 'assistant' ? (
           <>
+            <MessageHeader>{t('Assistant')}</MessageHeader>
             <AssistantToolActivity message={message} />
             <Bubble variant="ghost">
               <BubbleContent>

@@ -1,4 +1,4 @@
-import { CloseIcon, DisclosureIcon } from '@study/icons';
+import { CloseIcon, DisclosureIcon, ErrorIcon } from '@study/icons';
 import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
@@ -394,7 +394,8 @@ function Empty({
 /** Presents a settings status with an optional recovery action. */
 function Status({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div role="alert" className="mb-6 flex items-center justify-between gap-4 text-sm">
+    <div role="alert" className="settings-status" data-recoverable={action ? '' : undefined}>
+      {action && <ErrorIcon aria-hidden="true" />}
       <span>{children}</span>
       {action}
     </div>
