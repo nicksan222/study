@@ -67,6 +67,9 @@ test.server.stable(
             assert.strictEqual(created.sha256.length, 32);
             expect(yield* client['sources.source']({ id: created.id })).toStrictEqual(created);
             const state = yield* client['sources.sourceProcessing']({ id: created.id });
+
+            expect(state.requestedAtMs).toBeGreaterThan(0);
+            expect(state.publishedRequestId).toBeNull();
             const stale = yield* Effect.flip(
               client['sources.requestSourceProcessing']({
                 id: created.id,
@@ -84,6 +87,54 @@ test.server.stable(
 
             assert.notStrictEqual(renewed.requestId, state.requestId);
             assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 2);
+            const binaryBytes = Uint8Array.from({ length: 1024 }, (_, index) => index % 256);
+            const binary = yield* client['sources.createSource']({
+              name: 'data.bin',
+              bytes: binaryBytes,
+              projectId: null
+            });
+            const delimited = yield* client['sources.createSource']({
+              name: 'misure.csv',
+              bytes: new TextEncoder().encode(
+                'Roma;centro,0012,TRUE\r\n"Italia, Roma","due\nrighe",=1+1'
+              ),
+              projectId: null
+            });
+            const literalDelimiter = yield* client['sources.createSource']({
+              name: 'literal.csv',
+              bytes: new TextEncoder().encode('uno;due;tre,0001'),
+              projectId: null
+            });
+            const largeTable = yield* client['sources.createSource']({
+              name: 'large.csv',
+              bytes: new TextEncoder().encode('a,b\n'.repeat(550000)),
+              projectId: null
+            });
+
+            expect(yield* client['sources.preview']({ id: binary.id })).toEqual({
+              kind: 'unavailable',
+              reason: 'unsupported'
+            });
+            expect(yield* client['sources.preview']({ id: delimited.id })).toEqual({
+              kind: 'table',
+              columns: 3,
+              rows: [
+                ['Roma;centro', '0012', 'TRUE'],
+                ['Italia, Roma', 'due\nrighe', '=1+1']
+              ],
+              limited: false
+            });
+            expect(yield* client['sources.preview']({ id: literalDelimiter.id })).toEqual({
+              kind: 'table',
+              columns: 2,
+              rows: [['uno;due;tre', '0001']],
+              limited: false
+            });
+            expect(yield* client['sources.preview']({ id: largeTable.id })).toEqual({
+              kind: 'unavailable',
+              reason: 'size'
+            });
+
             const response = yield* Effect.promise(() =>
               fetch(`${url}/rpc`, {
                 method: 'POST',

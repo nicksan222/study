@@ -1,19 +1,23 @@
 import {
+  contentInputKey,
   defaultQuizSettings,
+  studyNotesInstructionLimit,
   practiceGenerationSettings,
   writtenExamTopicLimit
 } from '@study/contracts';
 import type {
   PageId,
+  PageVersionId,
   ProjectId,
   ContentInput,
   materialGenerationInputSchema,
-  MaterialVersionDetailDto,
   WrittenExamInput,
-  QuizSettings
+  QuizSettings,
+  studyNotesRequestSchema
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import {
+  PageIcon,
   MatchingIcon,
   QuizIcon,
   FlashcardsIcon,
@@ -53,21 +57,18 @@ import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';
 import { useNativeAction } from '#client/lib/effect/native.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { GenerationWatcher } from './generation-watcher';
+import { MaterialInputPicker } from './material-input-picker';
+import { NoteInputPicker } from './note-input-picker';
 import { QuizInputPicker } from './quiz-input-picker';
 import { useWrittenExamRequest } from './written-exam-request';
 import type { TrackExamRequest } from './written-exam-request';
 import { useWrittenExamOpening } from './written-exam-state';
 import type { ExamOpening } from './written-exam-state';
 
-export function QuizGenerationAction({
-  projectId
-}: {
-  version: MaterialVersionDetailDto;
-  projectId?: ProjectId;
-  title?: string;
-}) {
+export function QuizGenerationAction({ projectId }: { projectId?: ProjectId }) {
   return <GenerationDialog projectId={projectId} inline />;
 }
 
@@ -250,6 +251,11 @@ function GenerationDialog({
               setRequests((current) => [...current, id]);
               dialog.closeAccepted();
             }}
+            notesAccepted={() => {
+              if (projectId === undefined || !dialog.closeAccepted()) return;
+
+              void navigate({ to: '/practice', search: { project: String(projectId) } });
+            }}
             examOpened={openExam}
             trackRequest={dialog.trackRequest}
           />
@@ -279,12 +285,21 @@ const generationKinds = [
     icon: TrueFalseIcon,
     help: 'PracticeTrueFalseHelp'
   },
+  {
+    kind: 'study_notes',
+    label: 'PracticeStudyNotes',
+    icon: PageIcon,
+    help: 'PracticeStudyNotesHelp'
+  },
   { kind: 'exam', label: 'WrittenExam', icon: AssistantIcon, help: 'WrittenExamHelp' }
 ] as const;
 
 type GenerationKind = (typeof generationKinds)[number]['kind'];
 
-function quizConfiguration(kind: Exclude<GenerationKind, 'exam'>, settings: QuizSettings) {
+function quizConfiguration(
+  kind: Exclude<GenerationKind, 'exam' | 'study_notes'>,
+  settings: QuizSettings
+) {
   if (kind === 'flashcards') return undefined;
 
   const configuration = kind === 'quiz' ? settings : practiceGenerationSettings(settings, kind);
@@ -321,21 +336,62 @@ function useExamOpening(opened: (opening: ExamOpening) => void, track: TrackExam
   };
 }
 
+function useStudyNotesGeneration(accepted: () => void, fallbackTitle: string) {
+  const pending = useRef<{ intent: string; key: string } | undefined>(undefined);
+
+  return useNativeAction(async (draft: Omit<typeof studyNotesRequestSchema.Type, 'key'>) => {
+    const input = { ...draft, title: draft.title.trim() || fallbackTitle };
+    const intent = JSON.stringify({
+      ...input,
+      projectId: String(input.projectId),
+      inputs: input.inputs.map(contentInputKey)
+    });
+    const key = pending.current?.intent === intent ? pending.current.key : crypto.randomUUID();
+
+    pending.current = { intent, key };
+    const result = await rpc.pages.generateStudyNotes.call({ ...input, key });
+
+    accepted();
+
+    return result;
+  });
+}
+
+function useGenerationReadiness(isExam: boolean) {
+  return useAiReadiness('medium', isExam ? 'chatgpt' : undefined);
+}
+
+function useGenerationQuizSettings(kind: GenerationKind) {
+  const enabled = kind !== 'exam' && kind !== 'study_notes';
+  const query = rpc.settings.quizSettings.useQuery({}, { enabled });
+
+  return {
+    ...query,
+    ready: !enabled || query.isSuccess,
+    failed: enabled && query.isError
+  };
+}
+
 /** Build document-grounded requests using the selected practice format. */
 function useGeneration(
   projectId: ProjectId | undefined,
   accepted: (id: string) => void,
+  notesAccepted: () => void,
   examOpened: (opening: ExamOpening) => void,
   trackRequest: TrackExamRequest
 ) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [kind, setKind] = useState<GenerationKind>('quiz');
   const submission = useDictationSubmission();
   const [instruction, setInstruction] = useState('');
+  const [studyNotesTitle, setStudyNotesTitle] = useState('');
+  const [capturePending, setCapturePending] = useState(false);
   const { pages, inputs, setInputs } = useGenerationPages(projectId);
   const isExam = kind === 'exam';
-  const readiness = useAiReadiness('medium', isExam ? 'chatgpt' : undefined);
-  const preferences = rpc.settings.quizSettings.useQuery({}, { enabled: !isExam });
+  const isStudyNotes = kind === 'study_notes';
+  const studyNotes = useStudyNotesGeneration(notesAccepted, t('PracticeStudyNotesTitle'));
+  const readiness = useGenerationReadiness(isExam);
+  const preferences = useGenerationQuizSettings(kind);
   const exam = useExamOpening(examOpened, trackRequest);
   const start = useNativeAction(async (input: typeof materialGenerationInputSchema.Type) => {
     const result = await rpc.materials.requestMaterialGeneration.call(input);
@@ -344,25 +400,35 @@ function useGeneration(
 
     return result;
   });
-  const busy = start.isPending || exam.isPending;
+  const busy = [start, exam, studyNotes].some((action) => action.isPending);
+  const instructionTooLong = isStudyNotes && instruction.length > studyNotesInstructionLimit;
   const option = generationKinds.find((entry) => entry.kind === kind)!;
   const canStart =
     readiness === 'ready' &&
-    !busy &&
-    pages.isSuccess &&
+    ![busy, capturePending, instructionTooLong].some(Boolean) &&
     inputs.length > 0 &&
     inputs.length <= 20 &&
-    (isExam || preferences.isSuccess);
+    preferences.ready;
 
   const create = () => {
     if (!canStart || projectId === undefined || submission.isBlocked()) return;
 
-    const selected = inputs.filter((input) => input.kind === 'page');
-
     if (kind === 'exam') {
-      const [first, ...rest] = selected;
+      const selected = [inputs[0]!, ...inputs.slice(1)] as const;
 
-      if (first) void exam.startExam({ projectId, inputs: [first, ...rest] });
+      void exam.startExam({ projectId, inputs: selected });
+
+      return;
+    }
+
+    if (isStudyNotes) {
+      studyNotes.mutate({
+        title: studyNotesTitle,
+        projectId,
+        inputs,
+        language: locale,
+        instruction: instruction.trim()
+      });
 
       return;
     }
@@ -373,7 +439,7 @@ function useGeneration(
       autoTitle: true,
       kind: kind === 'flashcards' ? 'flashcards' : 'quiz',
       instruction: instruction.trim() || undefined,
-      inputs: selected,
+      inputs,
       quizConfig: quizConfiguration(kind, preferences.data ?? defaultQuizSettings)
     });
   };
@@ -385,11 +451,21 @@ function useGeneration(
     option,
     instruction,
     setInstruction,
+    setCapturePending,
+    instructionTooLong,
+    inputSelectionBusy: busy || capturePending,
+    studyNotesTitle,
+    setStudyNotesTitle,
     pages,
     inputs,
-    setInputs,
+    setInputs: (update: SetStateAction<ContentInput[]>) => {
+      exam.reset();
+      setInputs(update);
+    },
     preferences,
     start,
+    studyNotes,
+    isStudyNotes,
     exam,
     isExam,
     busy,
@@ -405,16 +481,18 @@ type GenerationModel = ReturnType<typeof useGeneration>;
 function GenerationPanel({
   projectId,
   accepted,
+  notesAccepted,
   examOpened,
   trackRequest
 }: {
   projectId?: ProjectId;
   accepted: (id: string) => void;
+  notesAccepted: () => void;
   examOpened: (opening: ExamOpening) => void;
   trackRequest: TrackExamRequest;
 }) {
   const { t } = useI18n();
-  const model = useGeneration(projectId, accepted, examOpened, trackRequest);
+  const model = useGeneration(projectId, accepted, notesAccepted, examOpened, trackRequest);
   const topicId = useId();
 
   return (
@@ -454,15 +532,34 @@ function GenerationPanel({
           )}
         </Practice.GenerationBrief>
         <Practice.GenerationPages>
-          <QuizInputPicker
-            pages={model.pages}
-            inputs={model.inputs}
-            onChange={(update) => {
-              model.exam.reset();
-              model.setInputs(update);
-            }}
-            disabled={model.busy}
-          />
+          <Practice.SourceInputs>
+            <Settings.Section title={t('QuizChooseInputs')}>
+              <Settings.Intro>{t('QuizChooseInputsHelp')}</Settings.Intro>
+            </Settings.Section>
+            {projectId !== undefined && (
+              <>
+                <NoteInputPicker
+                  project={projectId}
+                  inputs={model.inputs}
+                  onChange={model.setInputs}
+                  disabled={model.inputSelectionBusy}
+                  onCapturePending={model.setCapturePending}
+                />
+                <MaterialInputPicker
+                  project={projectId}
+                  inputs={model.inputs}
+                  onChange={model.setInputs}
+                  disabled={model.inputSelectionBusy}
+                />
+              </>
+            )}
+            <QuizInputPicker
+              pages={model.pages}
+              inputs={model.inputs}
+              onChange={model.setInputs}
+              disabled={model.inputSelectionBusy}
+            />
+          </Practice.SourceInputs>
         </Practice.GenerationPages>
       </Practice.GenerationLayout>
       <Practice.GenerationStatus>
@@ -498,18 +595,32 @@ function GenerationInstructions({
         <ExpandIcon aria-hidden="true" />
       </Practice.CustomizeSummary>
       <Practice.CustomizeBody>
+        {model.isStudyNotes && (
+          <Label>
+            {t('PracticeStudyNotesCustomTitle')}
+            <Input
+              value={model.studyNotesTitle}
+              placeholder={t('PracticeStudyNotesTitle')}
+              maxLength={200}
+              disabled={model.busy}
+              onChange={(event) => model.setStudyNotesTitle(event.target.value)}
+            />
+          </Label>
+        )}
         <DictationSubmissionScope value={model.submission.scope}>
           <DictationTextarea
             targetKey={`${projectId}:${model.kind}`}
             toolbarLabel={t('PracticeGeneratePrompt')}
             placeholder={t('PracticeGeneratePromptHint')}
             value={model.instruction}
-            maxLength={100000}
+            maxLength={model.isStudyNotes ? studyNotesInstructionLimit : 100000}
             disabled={model.busy || !open}
             onValueChange={model.setInstruction}
           />
         </DictationSubmissionScope>
-        <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
+        {!model.isStudyNotes && (
+          <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
+        )}
       </Practice.CustomizeBody>
     </Practice.Customize>
   );
@@ -520,6 +631,11 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
 
   return (
     <>
+      {model.instructionTooLong && (
+        <Settings.Feedback role="status">
+          {t('PracticeStudyNotesInstructionLimit')}
+        </Settings.Feedback>
+      )}
       {model.inputs.length > 20 && (
         <Settings.Feedback role="status">{t('PracticeGenerateLimit')}</Settings.Feedback>
       )}
@@ -529,14 +645,14 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
       {hasGenerationError(model) && (
         <ErrorState
           layout="inline"
-          title={t(model.isExam ? 'WrittenExamStartError' : 'QuizGenerateError')}
+          title={t(generationErrorLabel(model))}
           action={
             <RetryButton
               variant="outline"
               size="sm"
-              disabled={model.submission.blocked && (model.isExam || !model.preferences.isError)}
+              disabled={model.submission.blocked && !model.preferences.failed}
               onClick={() => {
-                if (!model.isExam && model.preferences.isError) void model.preferences.refetch();
+                if (model.preferences.failed) void model.preferences.refetch();
                 else model.create();
               }}
               label={t('Retry')}
@@ -548,8 +664,22 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
   );
 }
 
+function generationErrorLabel(model: GenerationModel) {
+  if (model.isExam) return 'WrittenExamStartError';
+
+  if (!model.isStudyNotes) return 'QuizGenerateError';
+
+  return toStudyError(model.studyNotes.error).kind === 'not_enough'
+    ? 'PracticeStudyNotesEvidenceLimit'
+    : 'PracticeStudyNotesFailed';
+}
+
 function hasGenerationError(model: GenerationModel) {
-  return model.isExam ? model.exam.isError : model.preferences.isError || model.start.isError;
+  if (model.isExam) return model.exam.isError;
+
+  if (model.isStudyNotes) return model.studyNotes.isError;
+
+  return model.preferences.failed || model.start.isError;
 }
 
 function GenerationAction({ model }: { model: GenerationModel }) {
@@ -582,22 +712,38 @@ function useGenerationPages(projectId?: ProjectId) {
 
   useCursorRecovery(pagination, query.error);
   const pages = { ...query, pagination };
-  const [excluded, setExcluded] = useState<bigint[]>([]);
-  const inputs: ContentInput[] = (pages.data?.items ?? [])
-    .filter((doc) => doc.headVersionId !== null && !excluded.includes(doc.headVersionId))
-    .map((doc) => ({ kind: 'page', versionId: doc.headVersionId! }));
-  const setInputs = (update: SetStateAction<ContentInput[]>) => {
-    const next = typeof update === 'function' ? update(inputs) : update;
-    const selected = new Set(
-      next.filter((input) => input.kind === 'page').map((input) => input.versionId)
-    );
+  const [selection, setSelection] = useState<{
+    excluded: ReadonlySet<PageVersionId>;
+    additional: ContentInput[];
+  }>(() => ({ excluded: new Set(), additional: [] }));
+  const available = (pages.data?.items ?? []).flatMap((page) =>
+    page.headVersionId === null ? [] : [page.headVersionId]
+  );
+  const inputsFor = (current: typeof selection): ContentInput[] => [
+    ...available
+      .filter((id) => !current.excluded.has(id))
+      .map((versionId) => ({ kind: 'page' as const, versionId })),
+    ...current.additional
+  ];
+  const setInputs = (update: SetStateAction<ContentInput[]>) =>
+    setSelection((current) => {
+      const next = typeof update === 'function' ? update(inputsFor(current)) : update;
+      const selected = new Set(
+        next.flatMap((input) => (input.kind === 'page' ? [input.versionId] : []))
+      );
 
-    setExcluded(
-      (pages.data?.items ?? []).flatMap((doc) =>
-        doc.headVersionId !== null && !selected.has(doc.headVersionId) ? [doc.headVersionId] : []
-      )
-    );
-  };
+      const excluded = new Set(current.excluded);
 
-  return { pages, inputs, setInputs };
+      for (const id of available) {
+        if (selected.has(id)) excluded.delete(id);
+        else excluded.add(id);
+      }
+
+      return {
+        excluded,
+        additional: next.filter((input) => input.kind !== 'page')
+      };
+    });
+
+  return { pages, inputs: inputsFor(selection), setInputs };
 }

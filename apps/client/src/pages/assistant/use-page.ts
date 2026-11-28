@@ -8,6 +8,7 @@ export function usePage() {
   const composer = useAssistantComposer(note);
   const [cardVisible, setCardVisible] = useState(false);
   const historyPanel = useRef<HTMLElement>(null);
+  const historyToggle = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (cardVisible) historyPanel.current?.scrollIntoView?.({ block: 'nearest' });
@@ -17,9 +18,11 @@ export function usePage() {
     ...note,
     ...composer,
     historyPanel,
+    historyToggle,
     selectChat: (id: Parameters<typeof note.selectChat>[0]) => {
       note.selectChat(id);
       setCardVisible(false);
+      historyToggle.current?.focus({ preventScroll: true });
     },
     cardVisible,
     setCardVisible

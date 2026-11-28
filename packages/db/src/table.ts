@@ -40,12 +40,12 @@ interface RegisteredTable {
   readonly metadata: TableSearchMetadata;
 }
 
-export interface RegisteredEntity extends RegisteredTable {
+interface RegisteredEntity extends RegisteredTable {
   readonly metadata: EntityTableMetadata;
 }
 
 /** The exported Drizzle schema namespace is the sole input to registry discovery. */
-export type SchemaExports = Readonly<Record<string, unknown>>;
+type SchemaExports = Readonly<Record<string, unknown>>;
 
 const declarations = new WeakMap<SQLiteTable, TableSearchMetadata>();
 

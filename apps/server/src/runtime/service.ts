@@ -22,8 +22,6 @@ import {
   acquireDatabaseOwnership,
   initializeWorkflowInfrastructure
 } from '@study/server';
-import type { AiRuntimeAdapters } from '@study/server';
-import type { VoiceRuntimeAdapters } from '@study/server';
 import { Cause, Clock, Effect, Exit, Fiber, Queue, Scope } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
@@ -32,6 +30,7 @@ import { System } from '#server/features/system/index';
 import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';
 import { nativeLayers } from './native.ts';
+import type { NativeOptions } from './native.ts';
 import { Workers } from './workers.ts';
 
 type OpenPhase = `${'ownership' | 'restore' | 'database' | 'services'}:${'start' | 'complete'}`;
@@ -68,17 +67,16 @@ export class App {
     this.backupSchedule = backupSchedule;
   }
 
-  static async open(options: {
-    path: string;
-    issuer?: string;
-    hostId?: string;
-    /** Overrides store timestamps only; authentication and workflow scheduling keep live time. */
-    timestampClock?: Clock.Clock;
-    fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
-    ai?: AiRuntimeAdapters;
-    voice?: VoiceRuntimeAdapters;
-    onPhase?: (phase: OpenPhase) => void;
-  }): Promise<App> {
+  static async open(
+    options: NativeOptions & {
+      path: string;
+      issuer?: string;
+      hostId?: string;
+      /** Overrides store timestamps only; authentication and workflow scheduling keep live time. */
+      timestampClock?: Clock.Clock;
+      onPhase?: (phase: OpenPhase) => void;
+    }
+  ): Promise<App> {
     const report = (phase: OpenPhase) => {
       try {
         options.onPhase?.(phase);
@@ -221,9 +219,7 @@ export class App {
                       })
               })
           },
-          options.fetch,
-          options.ai,
-          options.voice
+          options
         );
 
         runtime = yield* Effect.acquireRelease(

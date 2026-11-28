@@ -11,6 +11,7 @@ export function exactContentInputColumns() {
     page_version_id: integer()
       .$type<PageVersionId>()
       .references(() => page_versions.id),
+    note_context_id: text(),
     source_id: integer().$type<SourceId>(),
     source_revision: integer().$type<bigint>(),
     source_snapshot_id: integer().$type<ContentSnapshotId>()
@@ -19,6 +20,7 @@ export function exactContentInputColumns() {
 
 export function exactContentInputConstraints(t: {
   page_version_id: AnySQLiteColumn;
+  note_context_id: AnySQLiteColumn;
   source_id: AnySQLiteColumn;
   source_revision: AnySQLiteColumn;
   source_snapshot_id: AnySQLiteColumn;
@@ -34,7 +36,11 @@ export function exactContentInputConstraints(t: {
     }),
     check(
       'exact_content_input_reference',
-      sql`((${t.page_version_id} IS NOT NULL AND ${t.source_id} IS NULL AND ${t.source_revision} IS NULL AND ${t.source_snapshot_id} IS NULL) OR (${t.page_version_id} IS NULL AND ${t.source_id} IS NOT NULL AND ${t.source_revision}>0 AND ${t.source_snapshot_id} IS NOT NULL))`
+      sql`(
+        (${t.page_version_id} IS NOT NULL AND ${t.note_context_id} IS NULL AND ${t.source_id} IS NULL AND ${t.source_revision} IS NULL AND ${t.source_snapshot_id} IS NULL)
+        OR (${t.page_version_id} IS NULL AND ${t.note_context_id} IS NULL AND ${t.source_id} IS NOT NULL AND ${t.source_revision}>0 AND ${t.source_snapshot_id} IS NOT NULL)
+        OR (${t.page_version_id} IS NULL AND ${t.note_context_id} IS NOT NULL AND ${t.source_id} IS NULL AND ${t.source_revision} IS NULL AND ${t.source_snapshot_id} IS NULL)
+      )`
     )
   ];
 }

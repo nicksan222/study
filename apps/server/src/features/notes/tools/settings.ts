@@ -70,7 +70,6 @@ const snapshotSchema = Schema.Struct({
   review: schemas.reviewSettingsSchema,
   materials: schemas.materialSettingsSchema,
   concurrency: schemas.concurrencySettingsSchema,
-  sidebar: schemas.sidebarSettingsSchema,
   instructions: schemas.agentRulesSchema
 });
 
@@ -100,7 +99,6 @@ export const settingsTools = {
           review: settings.reviewSettings(),
           materials: settings.materialSettings(),
           concurrency: settings.concurrencySettings(),
-          sidebar: settings.sidebarSettings(),
           instructions: settings.agentRules()
         });
       }).pipe(Effect.provide(Settings.layer))
@@ -144,7 +142,7 @@ export const settingsTools = {
     schemas.workspacePreferencesSchema,
     'Change writing, reading, export, sidebar display and automatic assistance preferences.',
     {
-      when: 'Tune autosave, spellcheck, Enter behavior, font sizes, AI detail, automatic titles or answers, text/PDF conversion mode and strategy, sidebar density/counts/time, export format and expanded pages.',
+      when: 'Tune autosave, spellcheck, font sizes, AI detail, automatic titles or answers, text/PDF conversion mode and strategy, sidebar density, compact navigation and time format, export format and expanded pages.',
       examples: ['Save notes every five seconds and use a larger reader font.'],
       limits:
         'Changes affect future actions; they do not rewrite existing content. Export formats are markdown, html, aid_json and csv.'
@@ -203,17 +201,6 @@ export const settingsTools = {
 
         if (Option.isSome(admission)) yield* admission.value.configure(input);
       }).pipe(Effect.uninterruptible)
-  ),
-  update_sidebar_settings: updateTool(
-    schemas.sidebarSettingsSchema,
-    'Change the page threshold used to settle notes in the sidebar.',
-    {
-      when: 'Tune which notes look settled.',
-      examples: ['Set the settled page threshold to two.'],
-      limits: 'Does not delete or archive any note.'
-    },
-    (settings) => settings.sidebarSettings(),
-    (settings, input) => settings.saveSidebarSettings(input)
   ),
   update_custom_instructions: updateTool(
     schemas.agentRulesSchema,

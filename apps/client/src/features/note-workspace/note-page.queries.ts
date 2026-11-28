@@ -1,14 +1,6 @@
 import { RegistryContext, useAtomInitialValues, useAtomValue } from '@effect/atom-react';
-import { StudyError, plainBlock, documentSchema } from '@study/contracts';
-import type {
-  PageId,
-  PageVersionId,
-  ProjectId,
-  NoteId,
-  createSchema,
-  saveSchema,
-  Page
-} from '@study/contracts';
+import { StudyError, documentSchema } from '@study/contracts';
+import type { PageId, PageVersionId, NoteId, saveSchema, Page } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
@@ -19,11 +11,7 @@ import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.ts
 import { repeatRequest } from '#client/lib/study-client/repeat-request.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
-import { blankDocument } from '../document-editing';
-
 type Document = typeof documentSchema.Type;
-
-type CreationInput = typeof createSchema.Type;
 
 type SaveInput = typeof saveSchema.Type;
 
@@ -41,74 +29,6 @@ export function useLinkedPages(noteId: NoteId) {
   useCursorRecovery(pagination, query.error);
 
   return { ...query, pagination };
-}
-
-type Creation = { pending: boolean; input?: CreationInput; error?: unknown };
-
-const initialCreation: Creation = { pending: false };
-
-const creations = Atom.family((_owner: string) => Atom.make(initialCreation).pipe(Atom.keepAlive));
-
-/** An uncertain creation retains its exact key and payload until the receipt is recovered. */
-type PageOwner = { kind: 'note'; noteId: NoteId } | { kind: 'project'; projectId?: ProjectId };
-
-export function useNotePageCreation(noteId: NoteId) {
-  return useBlankPageCreation({ kind: 'note', noteId });
-}
-
-export function useBlankPageCreation(owner: PageOwner) {
-  const registry = useContext(RegistryContext);
-  const atom = creations(
-    owner.kind === 'note' ? `note:${owner.noteId}` : `project:${owner.projectId ?? 'global'}`
-  );
-  const creation = useAtomValue(atom);
-
-  async function submit(input: CreationInput) {
-    const current = registry.get(atom);
-
-    if (current?.pending) return undefined;
-
-    registry.set(atom, { pending: true, input });
-
-    try {
-      const createdPage = await rpc.pages.create.call(input);
-
-      registry.set(atom, initialCreation);
-
-      return createdPage;
-    } catch (error) {
-      registry.set(atom, { pending: false, input, error });
-
-      return undefined;
-    }
-  }
-
-  return {
-    pending: creation.pending,
-    error: creation.error,
-    create: (title: string) => {
-      const pending = registry.get(atom);
-
-      return submit(
-        pending?.input ?? {
-          ...(owner.kind === 'note' ? { noteId: owner.noteId } : { projectId: owner.projectId }),
-          title,
-          createKey: crypto.randomUUID(),
-          document: {
-            ...blankDocument(),
-            blocks: [plainBlock('paragraph', '', { type: 'authored' })]
-          },
-          inputs: [],
-          citations: []
-        }
-      );
-    },
-    retry: () => {
-      const input = registry.get(atom)?.input;
-
-      return input ? submit(input) : Promise.resolve(undefined);
-    }
-  };
 }
 
 type Draft = {

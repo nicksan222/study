@@ -1,7 +1,7 @@
 ---
 title: Practice
 headline: Put what you know to the test.
-description: Choose your pages, generate exercises and work through saved quizzes with feedback.
+description: Choose your sources, generate exercises and work through saved quizzes with feedback.
 section: practice
 order: 1
 stage:
@@ -10,22 +10,20 @@ stage:
 
 import DocStep from '../../../components/DocStep.astro';
 
-Practice starts from [Pages](../pages/). You choose what to practise, generate a saved set, and work through it at your own pace.
+Generate a saved practice set from [notes](../notes/), [materials](../sources/) or [study notes](../pages/), then work through it at your own pace.
 
 <DocStep number={1} example="quiz">
 <header slot="intro">
 
 ## Generate a set
 
-Choose your pages and the kind of practice you need.
+Choose the material and the kind of practice you need.
 
 </header>
 
-Open **Practice** in your subject and choose **Generate practice**. The source picker lists the subject's pages. All are selected initially; leave out any you do not want, and keep the selection to at most 20.
+Open **Practice** in your subject and choose **Generate practice**. Under **Sources**, select up to 20 inputs. Review the study notes already selected and deselect any you want to leave out.
 
 Choose exercises or [flashcards](../flashcards/). Add an optional instruction to focus on a topic or skill. Customize the available question settings, then start generation. This work runs through your ChatGPT connection, and the new material appears in the sidebar when it is ready.
-
-If there are no pages yet, create one first. An unprocessed attachment or unsaved note is not a substitute for a selected page.
 
 </DocStep>
 
@@ -57,7 +55,7 @@ Look back at your answers to find what needs another pass.
 
 Review saved attempts to see your answers and the available scores, explanations and feedback. If a score is still pending, Study shows that state rather than inventing a result.
 
-Use the linked source pages to revisit the material behind the set. If you discover a problem in your notes, correct the page and generate another set from the revised material.
+If you find a problem in the material behind the set, correct the source and generate another set from the revised material.
 
 </DocStep>
 
@@ -70,7 +68,7 @@ Return to saved sets and practise again when you need to.
 
 </header>
 
-You can generate more than one set from the same pages, with different instructions or question settings. Archive material when you no longer want it in the active list; the archive lets you preview and restore it.
+You can generate more than one set from the same sources, with different instructions or question settings. Archive material when you no longer want it in the active list; the archive lets you preview and restore it.
 
 For another way to rehearse the same ideas, use [flashcards](../flashcards/).
 

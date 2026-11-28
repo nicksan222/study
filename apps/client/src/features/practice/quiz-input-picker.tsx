@@ -24,57 +24,54 @@ export function QuizInputPicker({
   const rows = pages.data?.items ?? [];
 
   return (
-    <Practice.SourceInputs>
-      <Settings.Section title={t('QuizChooseInputs')}>
-        <Settings.Intro>{t('QuizChooseInputsHelp')}</Settings.Intro>
-        <CursorWindowActions
-          {...pages.pagination}
-          more={() => pages.pagination.more(pages.data?.nextCursor)}
-          hasMore={!!pages.data?.nextCursor}
-          pending={pages.isFetching}
-        />
-        <Practice.PageChoices>
-          {pages.isPending && <Loading label={t('LoadingPractice')} layout="panel" />}
-          {pages.isError && (
-            <ErrorState
-              layout="inline"
-              title={t('QuizInputsError')}
-              action={
-                <RetryButton
-                  variant="outline"
-                  onClick={() => {
-                    void pages.refetch();
-                  }}
-                  label={t('Retry')}
-                />
-              }
-            />
-          )}
-          <Settings.Group>
-            {rows.map((page) => (
-              <PageInput
-                key={String(page.id)}
-                page={page}
-                inputs={inputs}
-                onChange={onChange}
-                disabled={disabled}
+    <Settings.Section title={t('SourcePage')}>
+      <CursorWindowActions
+        {...pages.pagination}
+        more={() => pages.pagination.more(pages.data?.nextCursor)}
+        hasMore={!!pages.data?.nextCursor}
+        pending={pages.isFetching}
+      />
+      <Practice.PageChoices>
+        {pages.isPending && <Loading label={t('LoadingPractice')} layout="panel" />}
+        {pages.isError && (
+          <ErrorState
+            layout="inline"
+            title={t('QuizInputsError')}
+            action={
+              <RetryButton
+                variant="outline"
+                onClick={() => {
+                  void pages.refetch();
+                }}
+                label={t('Retry')}
               />
-            ))}
-          </Settings.Group>
-          {rows.length === 0 && pages.isSuccess && (
-            <Settings.Feedback>{t('QuizNoProjectInputs')}</Settings.Feedback>
-          )}
-        </Practice.PageChoices>
-        {pages.isSuccess && rows.length > 0 && (
-          <InputSelectionActions
-            rows={rows}
-            inputs={inputs}
-            onChange={onChange}
-            disabled={disabled}
+            }
           />
         )}
-      </Settings.Section>
-    </Practice.SourceInputs>
+        <Settings.Group>
+          {rows.map((page) => (
+            <PageInput
+              key={String(page.id)}
+              page={page}
+              inputs={inputs}
+              onChange={onChange}
+              disabled={disabled}
+            />
+          ))}
+        </Settings.Group>
+        {rows.length === 0 && pages.isSuccess && (
+          <Settings.Feedback>{t('QuizNoProjectInputs')}</Settings.Feedback>
+        )}
+      </Practice.PageChoices>
+      {pages.isSuccess && rows.length > 0 && (
+        <InputSelectionActions
+          rows={rows}
+          inputs={inputs}
+          onChange={onChange}
+          disabled={disabled}
+        />
+      )}
+    </Settings.Section>
   );
 }
 
@@ -89,7 +86,6 @@ function PageInput({
   onChange: Dispatch<SetStateAction<ContentInput[]>>;
   disabled: boolean;
 }) {
-  const { t } = useI18n();
   const selected = inputs.some(
     (input) => input.kind === 'page' && input.versionId === page.headVersionId
   );
@@ -97,7 +93,7 @@ function PageInput({
   return (
     <Settings.ToggleRow
       title={page.title}
-      description={t('NoteEntryPage')}
+      description={page.description ?? undefined}
       checked={selected}
       disabled={disabled || (!selected && inputs.length >= 20)}
       onCheckedChange={(checked) => {
@@ -138,13 +134,14 @@ function InputSelectionActions({
         variant="ghost"
         disabled={disabled}
         onClick={() =>
-          onChange(
-            rows
-              .slice(0, 20)
-              .flatMap((doc) =>
-                doc.headVersionId ? [{ kind: 'page' as const, versionId: doc.headVersionId }] : []
-              )
-          )
+          onChange((current) => {
+            const additional = current.filter((item) => item.kind !== 'page');
+            const pages = rows.flatMap((doc) =>
+              doc.headVersionId ? [{ kind: 'page' as const, versionId: doc.headVersionId }] : []
+            );
+
+            return [...additional, ...pages.slice(0, 20 - additional.length)];
+          })
         }
       >
         {t('SelectAll')}
@@ -157,9 +154,7 @@ function InputSelectionActions({
       >
         {t('PracticeClearSelection')}
       </Button>
-      <Practice.MutedText>
-        {inputs.length} / {rows.length}
-      </Practice.MutedText>
+      <Practice.MutedText>{inputs.length} / 20</Practice.MutedText>
     </Practice.SetupActions>
   );
 }

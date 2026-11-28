@@ -1,52 +1,11 @@
 import type { Editor } from '@tiptap/core';
-import { NodeSelection, Selection, TextSelection } from '@tiptap/pm/state';
+import { NodeSelection, Selection } from '@tiptap/pm/state';
 import { CellSelection } from '@tiptap/pm/tables';
-import type { EditorView } from '@tiptap/pm/view';
 
 /** Captured text ranges and selected whole nodes retain distinct restoration semantics. */
 export type RichNoteSelection =
   | { kind: 'text'; anchor: number; head: number }
   | { kind: 'node'; anchor: number; head: number; nodeType: string; blockId?: string };
-
-export function readNativeTextSelection(view: EditorView) {
-  const { dom } = view;
-  const selection = dom.ownerDocument.getSelection();
-
-  if (
-    !selection?.anchorNode ||
-    !selection.focusNode ||
-    !dom.contains(selection.anchorNode) ||
-    !dom.contains(selection.focusNode)
-  )
-    return undefined;
-
-  return {
-    anchor: view.posAtDOM(selection.anchorNode, selection.anchorOffset),
-    head: view.posAtDOM(selection.focusNode, selection.focusOffset)
-  };
-}
-
-/** Native navigation can move the caret before ProseMirror observes the selection change. */
-export function reconcileEnterSelection(view: EditorView, event: KeyboardEvent): boolean {
-  if (
-    event.key !== 'Enter' ||
-    event.isComposing ||
-    view.composing ||
-    !(view.state.selection instanceof TextSelection)
-  )
-    return false;
-
-  const native = readNativeTextSelection(view);
-
-  if (!native) return false;
-
-  const { doc, tr, selection } = view.state;
-  const next = TextSelection.between(doc.resolve(native.anchor), doc.resolve(native.head));
-
-  if (!next.eq(selection)) view.dispatch(tr.setSelection(next));
-
-  return false;
-}
 
 export function captureEditorSelection(editor: Editor): RichNoteSelection {
   const selection = editor.state.selection;

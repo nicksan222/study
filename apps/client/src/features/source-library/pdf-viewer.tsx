@@ -1,10 +1,4 @@
-import {
-  MinimizeIcon,
-  NextVersionIcon,
-  PreviousVersionIcon,
-  ZoomInIcon,
-  ZoomOutIcon
-} from '@study/icons';
+import { MinimizeIcon, ZoomInIcon, ZoomOutIcon } from '@study/icons';
 import { ErrorState, IconButton, Loading, SourceReader } from '@study/ui';
 import { GlobalWorkerOptions } from 'pdfjs-dist';
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -134,25 +128,15 @@ function PdfControls({
 
   return (
     <SourceReader.PdfControls>
-      <div role="group" aria-label={t('PdfPages')}>
-        <IconButton
-          size="icon-sm"
-          label={t('PdfPreviousPage')}
-          aria-disabled={page === 1}
-          onClick={() => goTo(Math.max(1, page - 1))}
-        >
-          <PreviousVersionIcon aria-hidden="true" />
-        </IconButton>
-        <output>{t('PdfPagePosition', { page: number(page), total: number(total) })}</output>
-        <IconButton
-          size="icon-sm"
-          label={t('PdfNextPage')}
-          aria-disabled={page === total}
-          onClick={() => goTo(Math.min(total, page + 1))}
-        >
-          <NextVersionIcon aria-hidden="true" />
-        </IconButton>
-      </div>
+      <SourceReader.PageStepper
+        label={t('PdfPages')}
+        previousLabel={t('PdfPreviousPage')}
+        nextLabel={t('PdfNextPage')}
+        position={t('PdfPagePosition', { page: number(page), total: number(total) })}
+        page={page}
+        total={total}
+        onPageChange={goTo}
+      />
       <div role="group" aria-label={t('PdfZoom')}>
         <IconButton
           size="icon-sm"

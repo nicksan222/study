@@ -71,6 +71,8 @@ export const Sources = defineService(
 
       return Option.getOrNull(tx.store(CurrentExtractionStore).findCurrentExtraction({ id }));
     },
+    belongsToProjectInTransaction: (tx: Transaction, id: SourceId, projectId: ProjectId) =>
+      tx.store(SourceStore).belongsToProject({ id, projectId }),
     sourceInTransaction: (tx: Transaction, id: SourceId) => tx.store(SourceStore).source(id),
     extractionInTransaction: (tx: Transaction, v: typeof exactExtractionInputSchema.Type) => {
       tx.store(SourceStore).source(v.sourceId);

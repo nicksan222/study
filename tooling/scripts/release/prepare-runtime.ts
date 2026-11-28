@@ -24,10 +24,10 @@ await Effect.runPromise(fs.makeDirectory(licenses, { recursive: true }));
 for (const file of ['NOTICE', 'LICENSE-MIT', 'LICENSE-APACHE', 'LICENSE-T3CODE'])
   await Effect.runPromise(fs.copyFile(join(root, '.github', file), join(licenses, file)));
 
-for (const file of ['package.json', 'bun.lock'])
+for (const file of ['package.json', 'bun.lock', 'bunfig.toml'])
   await Effect.runPromise(fs.copyFile(join(root, file), join(server, file)));
 
-// Keep workspace resolution and the lockfile intact while installing only server dependencies.
+// Keep workspace resolution, the lockfile and the linker intact while installing only server dependencies.
 for (const parent of ['apps', 'packages', 'tooling']) {
   const folders =
     parent === 'tooling' ? [''] : await Effect.runPromise(fs.readDirectory(join(root, parent)));

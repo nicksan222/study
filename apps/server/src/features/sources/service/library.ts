@@ -24,6 +24,8 @@ import {
   SourceStore
 } from '#server/features/sources/store/index';
 
+import { previewSource } from './preview.ts';
+
 type SourcePageInput = typeof sourcePageInputSchema.Type;
 
 export function* sourceLibraryOperations() {
@@ -50,9 +52,11 @@ export function* sourceLibraryOperations() {
   return {
     source: sources.source,
     sourceExport: exports.sourceExport,
+    previewSource,
     findSource: sources.findSource,
     sources: (input: SourcePageInput) => pageById(sources.sources, input),
     sourceProcessing: processing.sourceProcessing,
+    sourceProcessingJob: processing.sourceProcessingJob,
     extraction: (v: typeof exactExtractionInputSchema.Type) =>
       sources.source(v.sourceId).pipe(Effect.andThen(extractions.extraction(v))),
     currentExtraction: (v: Parameters<typeof currentExtraction.findCurrentExtraction>[0]) =>
@@ -75,13 +79,6 @@ export function* sourceLibraryOperations() {
           tx.store(CurrentExtractionStore).findCurrentExtraction({ id: v.sourceId })
         );
       }),
-    attachSource: (v: typeof sourceLinkSchema.Type) =>
-      transaction((tx) => {
-        tx.store(SourceStore).source(v.sourceId);
-        tx.store(NoteSourcesStore).attachSource(v);
-      }),
-    detachSource: (v: typeof sourceLinkSchema.Type) =>
-      transaction((tx) => tx.store(NoteSourcesStore).detachSource(v)),
     sourceSnapshot: snapshots.sourceSnapshot,
     sourceDocument: documents.sourceDocument,
     document: historical.document,

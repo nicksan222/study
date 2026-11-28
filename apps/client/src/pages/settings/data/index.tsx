@@ -18,7 +18,7 @@ import { useRef, useState } from 'react';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AutomaticBackups } from './automatic-backups.tsx';
-import { useDataSettings } from './use-data';
+import { useDataSettings } from './data-owner.queries';
 
 type BackupDeletion = { id: BackupId } | 'recovery';
 
@@ -99,7 +99,6 @@ function ManualBackups({ state, owner, busy, mutable, setDeletion }: DataView & 
             })}
           >
             <Button
-              size="sm"
               variant="outline"
               disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
               onClick={() => void owner.create()}
@@ -124,7 +123,6 @@ function ManualBackups({ state, owner, busy, mutable, setDeletion }: DataView & 
               }}
             />
             <Button
-              size="sm"
               variant="outline"
               disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
               onClick={() => fileInput.current?.click()}
@@ -165,7 +163,6 @@ function SavedBackups({
         >
           <DataManagement.Actions>
             <Button
-              size="sm"
               variant="outline"
               disabled={busy}
               onClick={() => void owner.download(backup.id)}
@@ -174,7 +171,6 @@ function SavedBackups({
               {t('DataDownload')}
             </Button>
             <Button
-              size="sm"
               variant="outline"
               disabled={!mutable}
               onClick={() => {
@@ -233,7 +229,6 @@ function RestoreStatus({ state, canDiscard, setDeletion }: DataView & DeletionCo
             {(state.status.recoveryCopy || state.status.state !== 'idle') && (
               <Settings.Row title={t('DataDiscard')} description="">
                 <Button
-                  size="sm"
                   variant="outline"
                   disabled={!canDiscard}
                   onClick={() => {

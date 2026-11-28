@@ -49,6 +49,31 @@ export const NoteDeletionStore = defineStore({
         : undefined;
     }
 
+    function assertCaptureRemovable(id: string) {
+      const retained = db.orm.get(sql`
+        SELECT 1 FROM ${s.material_evidence_inputs} i
+        LEFT JOIN ${s.material_generation_requests} r ON r.id=i.request_id
+        WHERE i.note_context_id=${id} AND (i.version_id IS NOT NULL OR r.cancelled=0)
+        UNION ALL
+        SELECT 1 FROM ${s.learning_practice_inputs} i
+        JOIN ${s.learning_practice_slots} p ON p.id=i.slot_id
+        JOIN ${s.learning_practice_controls} c ON c.project_id=p.project_id AND c.epoch=p.epoch
+        WHERE i.note_context_id=${id} AND p.status IN ('pending','ready') AND c.enabled=1
+        UNION ALL
+        SELECT 1 FROM ${s.page_transform_requests} r
+        JOIN json_each(r.request, '$.studyNotes.inputs') j
+        WHERE r.cancelled=0 AND r.result_version_id IS NULL
+          AND json_extract(j.value, '$.kind')='note'
+          AND json_extract(j.value, '$.contextId')=${id}
+        LIMIT 1
+      `);
+
+      if (retained)
+        throw new StudyError('invalid_input', 'Practice retains note evidence', {
+          resource: 'note_practice_evidence'
+        });
+    }
+
     return {
       queries: {
         noteDeletion: storeQuery({
@@ -108,6 +133,7 @@ export const NoteDeletionStore = defineStore({
           output: Schema.Void,
           run: (ids) => {
             for (const id of ids) {
+              assertCaptureRemovable(id);
               const captured = db.orm
                 .select()
                 .from(s.note_run_contexts)

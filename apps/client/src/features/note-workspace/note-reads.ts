@@ -42,12 +42,3 @@ export function useNoteList(project?: ProjectId | null) {
 
   return withWindowNavigation(state, pagination);
 }
-
-export function useNoteGenerations(noteId: NoteId) {
-  const pagination = useCursorWindow<string>(String(noteId));
-
-  return withWindowNavigation(
-    rpc.notes.noteGenerations.useQuery(noteWindowInput(noteId, pagination)),
-    pagination
-  );
-}

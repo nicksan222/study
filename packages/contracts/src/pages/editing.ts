@@ -11,11 +11,13 @@ import {
 
 export const keySchema = Schema.String.check(Schema.isBetweenLength(1, 200));
 
+export const authoredPageInputLimit = 1000;
+
 export const createSchema = Schema.Struct({
   createKey: keySchema,
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
   document: authoredContentSchema,
-  inputs: Schema.Array(exactInputSchema).check(Schema.isMaxLength(1000)),
+  inputs: Schema.Array(exactInputSchema).check(Schema.isMaxLength(authoredPageInputLimit)),
   citations: Schema.Array(citationSchema).check(Schema.isMaxLength(10000)),
   projectId: Schema.optional(projectIdSchema),
   noteId: Schema.optional(noteIdSchema)
@@ -49,15 +51,13 @@ export const compareSchema = Schema.Struct({
   currentVersionId: pageVersionIdSchema
 });
 
-export const blockDifferenceSchema = documentBlockDifferenceSchema;
-
 export const comparisonSchema = Schema.Struct({
   ...compareSchema.fields,
   before: versionSchema,
   proposed: versionSchema,
   current: versionSchema,
-  proposedChanges: Schema.Array(blockDifferenceSchema),
-  currentChanges: Schema.Array(blockDifferenceSchema),
+  proposedChanges: Schema.Array(documentBlockDifferenceSchema),
+  currentChanges: Schema.Array(documentBlockDifferenceSchema),
   evidence: Schema.Literal('structural_only')
 });
 

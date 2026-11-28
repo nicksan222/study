@@ -1,5 +1,5 @@
 import { useRender } from '@base-ui/react/use-render';
-import { ToggleSidebarIcon, CloseIcon, ExpandIcon, DisclosureIcon } from '@study/icons';
+import { ToggleSidebarIcon, CloseIcon, ExpandIcon } from '@study/icons';
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -246,13 +246,11 @@ function Navigation({ className, ...props }: ComponentProps<'nav'>) {
 function NavigationItem({
   label,
   count,
-  unresolved = false,
   children,
   ...props
 }: Omit<ComponentProps<typeof Button>, 'children'> & {
   label: string;
   count?: number;
-  unresolved?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -265,11 +263,7 @@ function NavigationItem({
     >
       {children}
       <span className="study-sidebar-navigation-label">{label}</span>{' '}
-      {count !== undefined && (
-        <span className="study-sidebar-navigation-count" data-unresolved={unresolved || undefined}>
-          {count}
-        </span>
-      )}
+      {count !== undefined && <span className="study-sidebar-navigation-count">{count}</span>}
     </Button>
   );
 }
@@ -364,7 +358,7 @@ function Toggle({
         placement === 'reveal' && 'study-entry-navigation-toggle',
         props.className
       )}
-      size="icon"
+      size="icon-sm"
       variant="ghost-muted"
       title={label}
       aria-expanded={expanded}
@@ -457,30 +451,16 @@ function SearchField({
   );
 }
 
-function NoteActivity({ running, ...props }: ComponentProps<'span'> & { running?: boolean }) {
-  return <span {...props} className="study-note-activity" data-running={running || undefined} />;
+function NoteActivity(props: ComponentProps<'span'>) {
+  return <span {...props} className="study-note-activity" />;
 }
 
 function NoteCount(props: ComponentProps<'span'>) {
   return <span {...props} className="study-note-page-count" />;
 }
 
-function NoteRowActions({
-  className,
-  placement = 'bottom',
-  ...props
-}: ComponentProps<'div'> & { placement?: 'top' | 'bottom' }) {
-  return (
-    <div
-      {...props}
-      data-placement={placement}
-      className={cn('study-note-row-actions', className)}
-    />
-  );
-}
-
-function SettleAction(props: ComponentProps<typeof Button>) {
-  return <Button {...props} size="sm" variant="ghost-muted" className="study-note-settle" />;
+function NoteRowActions({ className, ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={cn('study-note-row-actions', className)} />;
 }
 
 /** Floats contextual actions beside their sidebar without changing its list geometry. */
@@ -550,224 +530,12 @@ function SelectionCount({ count, label }: { count: number; label: string }) {
   );
 }
 
-function SettledRows(props: ComponentProps<'div'>) {
-  return <div {...props} className="study-settled-rows" />;
-}
-
-function NoteMore(props: ComponentProps<typeof Button>) {
-  return <Button {...props} size="sm" variant="ghost-muted" className="study-note-more" />;
+function NoteRows({ className, ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={cn('study-saved-notes', className)} />;
 }
 
 function NoteEntry({ className, ...props }: ComponentProps<'div'>) {
   return <div {...props} className={cn('study-note-entry', className)} />;
-}
-
-/** Cap expanded sections equally while letting short sections keep their natural height. */
-function NoteGroups({ className, ref, ...props }: ComponentProps<'div'>) {
-  const root = useRef<HTMLDivElement>(null);
-
-  useImperativeHandle(ref, () => root.current!);
-  useLayoutEffect(() => {
-    const element = root.current;
-    const boundary = element?.closest<HTMLElement>('.study-sidebar-scroll');
-
-    if (!element || !boundary || typeof ResizeObserver === 'undefined') return;
-
-    const resize = new ResizeObserver(measure);
-
-    function measure() {
-      if (!element || !boundary) return;
-
-      const children = Array.from(element.children) as HTMLElement[];
-      const groups = children.filter((child) => child.classList.contains('study-note-group'));
-      const expanded = groups.filter(
-        (group) => group.hasAttribute('open') && !group.hasAttribute('data-empty')
-      );
-      const fixed = reservedSectionSpace(boundary, children, expanded, resize);
-      const share = Math.max(0, boundary.clientHeight - fixed) / Math.max(1, expanded.length);
-
-      for (const group of groups) {
-        const summary = group.querySelector<HTMLElement>(':scope > summary');
-        const maximum = expanded.includes(group)
-          ? Math.max(0, share - (summary?.getBoundingClientRect().height ?? 0))
-          : 0;
-
-        group.style.setProperty('--sidebar-group-content-max', `${maximum}px`);
-      }
-    }
-
-    const mutations = new MutationObserver(measure);
-
-    resize.observe(boundary);
-    mutations.observe(element, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['open', 'data-empty']
-    });
-    measure();
-
-    return () => {
-      resize.disconnect();
-      mutations.disconnect();
-    };
-  }, []);
-
-  return <div {...props} ref={root} className={cn('study-note-groups', className)} />;
-}
-
-function reservedSectionSpace(
-  boundary: HTMLElement,
-  children: HTMLElement[],
-  expanded: HTMLElement[],
-  resize: ResizeObserver
-) {
-  const style = getComputedStyle(boundary);
-  const gap = Number.parseFloat(style.rowGap) || 0;
-  let fixed =
-    (Number.parseFloat(style.paddingTop) || 0) +
-    (Number.parseFloat(style.paddingBottom) || 0) +
-    gap * Math.max(0, children.length - 1);
-
-  for (const child of children) {
-    const summary = child.querySelector<HTMLElement>(':scope > summary');
-    const fixedElement = summary ?? child;
-
-    resize.observe(fixedElement);
-
-    if (!expanded.includes(child)) fixed += fixedElement.getBoundingClientRect().height;
-  }
-
-  return fixed;
-}
-
-type NoteGroupProps = {
-  title: string;
-  count: number;
-  children: ReactNode;
-  defaultOpen?: boolean;
-  variant?: 'settled';
-};
-
-function NoteGroup(props: NoteGroupProps) {
-  return props.variant === 'settled' ? (
-    <SlidingNoteGroup {...props} />
-  ) : (
-    <NativeNoteGroup {...props} />
-  );
-}
-
-function NativeNoteGroup({ title, count, children, defaultOpen = false, variant }: NoteGroupProps) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <details
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="study-note-group"
-      data-variant={variant}
-      data-empty={count === 0 || undefined}
-    >
-      <summary>
-        <span>{title}</span> <span>{count}</span>
-        <DisclosureIcon aria-hidden="true" />
-      </summary>
-      <div>{children}</div>
-    </details>
-  );
-}
-
-/** Keep native details mounted until the closing height transition has finished. */
-
-function useSlidingDisclosure(defaultOpen: boolean) {
-  const [open, setOpen] = useState(defaultOpen);
-  const [expanded, setExpanded] = useState(defaultOpen);
-  const phase = useRef<'idle' | 'opening' | 'closing'>('idle');
-  const frame = useRef<number | undefined>(undefined);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const clear = () => {
-    if (frame.current !== undefined) cancelAnimationFrame(frame.current);
-
-    if (timer.current !== undefined) clearTimeout(timer.current);
-  };
-
-  useEffect(() => clear, []);
-  const finish = () => {
-    if (phase.current !== 'closing') return;
-
-    clear();
-    phase.current = 'idle';
-    setOpen(false);
-  };
-  const toggle = () => {
-    clear();
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
-    if (expanded) {
-      setExpanded(false);
-      phase.current = 'closing';
-
-      if (reduced) finish();
-      else timer.current = setTimeout(finish, 220);
-
-      return;
-    }
-
-    setOpen(true);
-    phase.current = 'opening';
-
-    if (reduced) {
-      setExpanded(true);
-      phase.current = 'idle';
-    } else
-      frame.current = requestAnimationFrame(() => {
-        frame.current = requestAnimationFrame(() => {
-          setExpanded(true);
-          phase.current = 'idle';
-        });
-      });
-  };
-
-  return { open, expanded, toggle, finish };
-}
-
-function SlidingNoteGroup({ title, count, children, defaultOpen = false }: NoteGroupProps) {
-  const disclosure = useSlidingDisclosure(defaultOpen);
-
-  return (
-    <details
-      open={disclosure.open}
-      className="study-note-group"
-      data-variant="settled"
-      data-empty={count === 0 || undefined}
-    >
-      <summary
-        aria-expanded={disclosure.expanded}
-        onClick={(event) => {
-          event.preventDefault();
-          disclosure.toggle();
-        }}
-      >
-        <span>{title}</span> <span>{count}</span>
-        <DisclosureIcon aria-hidden="true" />
-      </summary>
-      <div
-        className="study-note-group-slide"
-        data-expanded={disclosure.expanded || undefined}
-        onTransitionEnd={(event) => {
-          if (event.target === event.currentTarget) disclosure.finish();
-        }}
-      >
-        <div
-          className="study-note-group-body"
-          aria-hidden={!disclosure.expanded}
-          inert={!disclosure.expanded}
-        >
-          {children}
-        </div>
-      </div>
-    </details>
-  );
 }
 
 function Item({
@@ -777,6 +545,8 @@ function Item({
   context,
   timestamp,
   description,
+  descriptionBelow,
+  announcement,
   activity,
   selection,
   render,
@@ -784,11 +554,13 @@ function Item({
   ...props
 }: useRender.ComponentProps<'button'> & {
   label: ReactNode;
-  layout?: 'compact' | 'detailed' | 'summary';
+  layout?: 'compact' | 'detailed';
   icon: ReactNode;
   context?: ReactNode;
   timestamp?: ReactNode;
   description?: ReactNode;
+  descriptionBelow?: boolean;
+  announcement?: string;
   activity?: AiActivityState;
   selection?: boolean;
 }) {
@@ -799,29 +571,68 @@ function Item({
       ...props,
       title: props.title ?? (typeof label === 'string' ? label : undefined),
       'data-layout': layout,
+      'data-description-below': (descriptionBelow && !!description) || undefined,
       'data-activity': activity,
       'data-selecting': selection !== undefined || undefined,
       'aria-pressed': selection,
       type: render ? undefined : 'button',
       className: cn('study-note-row', className),
-      children:
-        layout !== 'detailed' ? (
-          <>
-            <span className="study-note-row-icon">{icon}</span>{' '}
-            <span className="study-note-title">{label}</span>{' '}
-            {description && <span className="study-item-kind">{description}</span>} {timestamp}
-          </>
-        ) : (
-          <>
-            <span className="study-note-meta">
-              {icon} <span>{context}</span> {timestamp}
-            </span>{' '}
-            <span className="study-note-title">{label}</span>{' '}
-            {description && <span className="study-item-kind">{description}</span>}
-          </>
-        )
+      children: (
+        <>
+          <ItemContent
+            compact={layout === 'compact'}
+            icon={icon}
+            label={label}
+            description={description}
+            context={context}
+            timestamp={timestamp}
+          />
+          <ItemAnnouncement message={announcement} />
+        </>
+      )
     }
   });
+}
+
+function ItemAnnouncement({ message }: { message?: string }) {
+  if (message === undefined) return null;
+
+  return (
+    <span aria-live="polite" aria-atomic="true" className="sr-only">
+      {message}
+    </span>
+  );
+}
+
+function ItemContent({
+  compact,
+  icon,
+  label,
+  context,
+  description,
+  timestamp
+}: {
+  compact: boolean;
+  icon: ReactNode;
+  label: ReactNode;
+  context: ReactNode;
+  description: ReactNode;
+  timestamp: ReactNode;
+}) {
+  return (
+    <>
+      {compact ? (
+        <span className="study-note-row-icon">{icon}</span>
+      ) : (
+        <span className="study-note-meta">
+          {icon} <span>{context}</span> {timestamp}
+        </span>
+      )}{' '}
+      <span className="study-note-title">{label}</span>{' '}
+      {description && <span className="study-item-kind">{description}</span>}
+      {compact && <> {timestamp}</>}
+    </>
+  );
 }
 
 type PickerProps<T> = {
@@ -989,17 +800,13 @@ export const Sidebar = {
   NavigationItem,
   Items,
   Item,
-  NoteGroup,
-  NoteGroups,
-  NoteMore,
-  SettledRows,
   SelectionBar,
   SelectionCount,
+  NoteRows,
   NoteEntry,
   NoteRowActions,
   NoteActivity,
   NoteCount,
-  SettleAction,
   Message,
   Toggle,
   Utility,

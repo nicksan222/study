@@ -15,7 +15,6 @@ export const toolLabels = {
   update_review_settings: 'AssistantCallUpdateReviewSettings',
   update_material_settings: 'AssistantCallUpdateMaterialSettings',
   update_concurrency_settings: 'AssistantCallUpdateConcurrencySettings',
-  update_sidebar_settings: 'AssistantCallUpdateSidebarSettings',
   update_custom_instructions: 'AssistantCallUpdateCustomInstructions',
   list_themes: 'AssistantCallListThemes',
   read_theme: 'AssistantCallReadTheme',

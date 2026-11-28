@@ -18,15 +18,19 @@ import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contr
 import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db';
-import { ServerContext, Database, decodeEvent, emitEvent } from '@study/server';
+import { ServerContext, Database, decodeEvent, emitEvent, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Materials } from '#server/features/materials/index';
+import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
+import { Settings } from '#server/features/settings/index';
+import { Sources } from '#server/features/sources/index';
 import { materialRpcHandlers } from '#testing/material-rpc';
+import { withTestPublication } from '#testing/publication';
 
 const document = () => ({
   blocks: [plainBlock('paragraph', 'Canonical material', { type: 'authored' })],
@@ -65,6 +69,107 @@ function createEvidence(
     })
   );
 }
+
+test.server.stable(
+  'Practice publishes exact evidence from a file kept in Materials after its note moves',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Materials.layer,
+      Notes.layer,
+      Sources.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const notes = yield* Notes;
+          const sources = yield* Sources;
+          const materials = yield* Materials;
+          const biology = yield* projects.createProject({ name: 'Biology' });
+          const history = yield* projects.createProject({ name: 'History' });
+          const note = yield* notes.createNote({ title: 'Library file', project: biology.id });
+          const file = yield* sources.createSource({
+            name: 'observations.txt',
+            projectId: null,
+            bytes: new TextEncoder().encode('Cells have membranes.')
+          });
+
+          yield* transaction((tx) =>
+            Sources.attachInTransaction(tx, { noteId: note.id, sourceId: file.id })
+          );
+          yield* projects.removeNote({ projectId: biology.id, noteId: note.id });
+          yield* projects.addNote({ projectId: history.id, noteId: note.id });
+          const stored = context.db.orm
+            .select()
+            .from(workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload))
+            .find(
+              (event) => event.type === 'SourceProcessingRequested' && event.sourceId === file.id
+            );
+
+          assert.ok(stored?.type === 'SourceProcessingRequested');
+          yield* withTestPublication(
+            context,
+            sources
+              .publishSourceDocument({
+                event: stored,
+                document: {
+                  ...document(),
+                  blocks: [
+                    plainBlock('paragraph', 'Cells have membranes.', {
+                      type: 'paragraph',
+                      index: 1
+                    })
+                  ]
+                }
+              })
+              .pipe(Effect.asVoid)
+          );
+          const exact = yield* sources.currentExtraction({ id: file.id });
+
+          assert.ok(exact);
+          const input = {
+            kind: 'source' as const,
+            sourceId: file.id,
+            revision: exact.revision,
+            snapshotId: exact.snapshotId
+          };
+          const queued = yield* materials.requestMaterialGeneration({
+            projectId: biology.id,
+            title: 'Cells',
+            kind: 'flashcards',
+            inputs: [input]
+          });
+
+          yield* withTestPublication(
+            context,
+            Effect.gen(function* () {
+              const versionId = yield* materials.publishMaterialGeneration({
+                requestId: queued.id,
+                content: {
+                  kind: 'flashcards',
+                  cards: [{ front: 'What do cells have?', back: 'Membranes [1]' }]
+                },
+                citations: [{ marker: 1n, input, quote: 'Cells have membranes.', blockOrdinal: 0 }]
+              });
+
+              expect((yield* materials.materialVersion({ id: versionId })).inputs).toEqual([input]);
+            })
+          );
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
 
 test.server.stable(
   'quiz settings persist as request intent and reject changed settings',
@@ -727,6 +832,104 @@ test.server.stable(
           expect((yield* materials.activeMaterialGenerations({})).map((item) => item.id)).toEqual([
             otherRequest.id
           ]);
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.server.stable(
+  'accepts a captured notebook alongside a page and fences the exact authored evidence',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Materials.layer,
+      Notes.layer,
+      Pages.layer,
+      Settings.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const notes = yield* Notes;
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'Cell biology' });
+          const other = yield* projects.createProject({ name: 'Botany' });
+          const note = yield* notes.createUntitledNote({ project: project.id });
+          const message = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'Original observation',
+            requestReply: false
+          });
+          const input = yield* notes.captureStudyEvidence({
+            noteId: note.id,
+            projectId: project.id
+          });
+          const page = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Summary' }
+          );
+          const request = {
+            projectId: project.id,
+            title: 'Mixed quiz',
+            kind: 'quiz' as const,
+            inputs: [input, { kind: 'page' as const, versionId: page.version.id }]
+          };
+          const queued = yield* materials.requestMaterialGeneration(request);
+
+          expect(queued.inputs).toEqual(request.inputs);
+          yield* notes.editMessage({ messageId: message.id, text: 'A later observation' });
+          expect(
+            (yield* materials.contentInput(input)).document.blocks.map((block) => block.text)
+          ).toEqual(['Original observation']);
+          const failure = yield* Effect.flip(
+            materials.requestMaterialGeneration({
+              ...request,
+              projectId: other.id,
+              inputs: [input]
+            })
+          );
+
+          expect(failure.kind).toBe('invalid_input');
+          yield* withTestPublication(
+            context,
+            Effect.gen(function* () {
+              const id = yield* materials.publishMaterialGeneration({
+                requestId: queued.id,
+                content: {
+                  kind: 'quiz',
+                  questions: [
+                    {
+                      kind: 'open',
+                      prompt: 'What was recorded?',
+                      referenceAnswer: 'Original observation',
+                      explanation: 'The original note records this observation. [1]'
+                    }
+                  ]
+                },
+                citations: [{ marker: 1n, input, quote: 'Original observation', blockOrdinal: 0 }]
+              });
+              const version = yield* materials.materialVersion({ id });
+
+              expect(version.inputs).toEqual(request.inputs);
+              expect((yield* materials.citations({ id, limit: 10 })).items[0]?.input).toEqual(
+                input
+              );
+            })
+          );
+          const deletion = yield* Effect.flip(notes.deleteNote(note.id));
+
+          expect(deletion.kind).toBe('invalid_input');
+          expect(deletion.resource).toBe('note_practice_evidence');
+          expect((yield* notes.note(note.id)).id).toBe(note.id);
         }).pipe(Effect.provide(services))
       );
     } finally {

@@ -1,10 +1,11 @@
 /** @file Builds sources sources queries and mutations with bound store resources. */
 
-import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import type { ContentSnapshotId, ProjectId, SourceId } from '@study/contracts';
 import {
   StudyError,
   contentSnapshotIdSchema,
   correctBlockInputSchema,
+  projectIdSchema,
   documentSchema,
   encodeBlockContent,
   hasTextualContent,
@@ -12,10 +13,11 @@ import {
   sourceIdSchema,
   sourcePageInputSchema,
   sourceProcessingSchema,
-  sourceSchema
+  sourceSchema,
+  uploadedSourceOrigins
 } from '@study/contracts';
 import * as tables from '@study/db';
-import { and, desc, eq, lt } from '@study/db';
+import { and, desc, eq, inArray, lt, or, sql } from '@study/db';
 import { storeMutation, storeQuery, unixSeconds } from '@study/server';
 import type { StoreResources } from '@study/server';
 import { CryptoHasher } from 'bun';
@@ -24,6 +26,27 @@ import { Option, Schema } from 'effect';
 import { sourceDeletionBlockers } from './retention.ts';
 import { checkedBytes, makeHelpers } from './rows.ts';
 import { changeSchema, inputSchema, replacementSchema, request } from './schemas.ts';
+
+function uploadedFor(project: ProjectId | null | undefined) {
+  if (project === undefined) return undefined;
+
+  const originals = inArray(tables.sources.origin, uploadedSourceOrigins);
+
+  return project === null ? originals : and(originals, inProject(project));
+}
+
+function inProject(project: ProjectId) {
+  const { sources, project_sources } = tables;
+
+  return or(
+    eq(sources.project_id, project),
+    sql`EXISTS (
+      SELECT 1 FROM ${project_sources}
+      WHERE ${project_sources.source_id} = ${sources.id}
+        AND ${project_sources.project_id} = ${project}
+    )`
+  );
+}
 
 export function makeSourceStore({ db, clock, timestampClock }: StoreResources) {
   const { selectSources, sourceRow, find, state, checkState } = makeHelpers({
@@ -62,6 +85,17 @@ export function makeSourceStore({ db, clock, timestampClock }: StoreResources) {
         output: Schema.Option(sourceSchema),
         run: (id) => Option.fromNullishOr(find(id))
       }),
+      belongsToProject: storeQuery({
+        role: 'required',
+        input: Schema.Struct({ id: sourceIdSchema, projectId: projectIdSchema }),
+        output: Schema.Boolean,
+        run: ({ id, projectId }) =>
+          db.orm
+            .select({ id: tables.sources.id })
+            .from(tables.sources)
+            .where(and(eq(tables.sources.id, id), inProject(projectId)))
+            .get() !== undefined
+      }),
       sources: storeQuery({
         role: 'collection',
         input: sourcePageInputSchema,
@@ -70,6 +104,10 @@ export function makeSourceStore({ db, clock, timestampClock }: StoreResources) {
           selectSources()
             .where(
               and(
+                uploadedFor(input.uploadedFor),
+                input.nameContains
+                  ? sql`instr(lower(${tables.sources.name}), lower(${input.nameContains})) > 0`
+                  : undefined,
                 input.before === undefined ? undefined : lt(tables.sources.id, input.before),
                 input.projectId === undefined
                   ? undefined

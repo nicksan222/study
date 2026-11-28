@@ -1,4 +1,5 @@
-import { createBlock } from '@study/contracts';
+import { createBlock, plainBlock } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises durable document merge capture publication and failure recovery.         │
@@ -11,16 +12,20 @@ import { createBlock } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
-import { reconcileCancellation, decodeEvent, workflowStore } from '@study/server';
+import { reconcileCancellation, decodeEvent, transaction, workflowStore } from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
+import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import {
   pageTransformHandler,
   pageTransformWorkflow
 } from '#server/features/pages/workflows/transform';
+import { Projects } from '#server/features/projects/index';
+import { Sources } from '#server/features/sources/index';
+import { SourceStore } from '#server/features/sources/store/index';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestAdmission } from '#testing/workflow-admission';
 
@@ -340,6 +345,140 @@ test.server.stable(
           expect(pending.map((item) => item.id)).toContain(request.id);
           yield* service.cancelTransform({ requestId: request.id });
           expect((yield* service.merges({})).map((item) => item.id)).not.toContain(request.id);
+        }).pipe(Effect.provide(fixture.domain()))
+      );
+    } finally {
+      await fixture.close();
+    }
+  }
+);
+
+function uploadStudyInput(projectId: ProjectId) {
+  return Effect.gen(function* () {
+    const sources = yield* Sources;
+    const source = yield* sources.createSource({
+      name: 'measurements.txt',
+      bytes: new TextEncoder().encode('alpha measured'),
+      projectId
+    });
+    const state = yield* sources.sourceProcessing(source.id);
+    const { documentId } = yield* transaction((tx) =>
+      tx.store(SourceStore).publishSourceDocument({
+        id: source.id,
+        expectedRevision: state.revision,
+        requestId: state.requestId!,
+        document: {
+          ...content(),
+          blocks: [plainBlock('paragraph', 'alpha measured', { type: 'paragraph', index: 0 })]
+        }
+      })
+    );
+
+    return {
+      kind: 'source' as const,
+      sourceId: source.id,
+      revision: BigInt(state.revision),
+      snapshotId: documentId
+    };
+  });
+}
+
+test.server.stable(
+  'study notes reference captured notebook messages and selected documents and files in one editable page',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const fixture = await pageTransformFixture(databases);
+
+    try {
+      const { document, message, request, source } = await Effect.runPromise(
+        Effect.gen(function* () {
+          const docs = yield* Pages;
+          const notes = yield* Notes;
+          const projects = yield* Projects;
+          const project = yield* projects.createProject({ name: 'Study evidence' });
+          const note = yield* notes.createUntitledNote({ project: project.id });
+          const message = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'beta observation',
+            requestReply: false
+          });
+          const capture = yield* notes.captureStudyEvidence({
+            noteId: note.id,
+            projectId: project.id
+          });
+          const duplicateCapture = yield* notes.captureStudyEvidence({
+            noteId: note.id,
+            projectId: project.id
+          });
+          const document = yield* docs.create({
+            projectId: project.id,
+            title: 'Field measurements',
+            createKey: crypto.randomUUID(),
+            document: content(),
+            inputs: [],
+            citations: []
+          });
+
+          assert.ok(document.version);
+
+          const source = yield* uploadStudyInput(project.id);
+          const request = yield* notes.generateStudyNotes({
+            key: crypto.randomUUID(),
+            projectId: project.id,
+            title: 'Study notes',
+            language: 'english',
+            instruction: '',
+            inputs: [
+              capture,
+              duplicateCapture,
+              { kind: 'page', versionId: document.version.id },
+              source
+            ]
+          });
+
+          yield* notes.editMessage({ messageId: message.id, text: 'edited observation' });
+          expect(
+            yield* Effect.exit(
+              notes.deleteMessageVersion({
+                messageId: message.id,
+                versionId: message.activeVersionId!
+              })
+            )
+          ).toMatchObject({ _tag: 'Failure' });
+          yield* docs.save({
+            pageId: document.id,
+            expectedVersionId: document.version.id,
+            key: crypto.randomUUID(),
+            document: content()
+          });
+          const retirement = { pageId: document.id, keepLatest: 1 };
+          const preview = yield* docs.previewHistory(retirement);
+
+          expect(preview.blockedVersionIds).toContain(document.version.id);
+          yield* docs.archive({ id: document.id, archived: true });
+
+          return { document, message, request, source };
+        }).pipe(Effect.provide(fixture.domain()))
+      );
+      const event = eventFor({ assert }, fixture, request.id);
+
+      reply(fixture);
+      const versionId = await fixture.executeAuthored(event, 'study-notes');
+
+      expect(await fixture.executeAuthored(event, 'study-notes-replay')).toEqual(versionId);
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const docs = yield* Pages;
+          const result = yield* docs.version({ id: versionId });
+
+          expect(result.inputs).toEqual([
+            { kind: 'page', versionId: document.version!.id },
+            source,
+            { kind: 'message', versionId: message.activeVersionId }
+          ]);
+          expect(result.citations[0]?.quote).toContain('alpha');
+          expect((yield* docs.page({ id: document.id })).archivedAt).not.toBeNull();
+          expect((yield* docs.merges({ studyNotes: true }))[0]?.resultVersionId).toEqual(versionId);
         }).pipe(Effect.provide(fixture.domain()))
       );
     } finally {

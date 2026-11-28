@@ -1,7 +1,7 @@
 ---
 title: Note
 headline: Un quaderno per tutto quello che impari.
-description: Raccogli appunti e fonti, fai domande e trasforma una nota di studio in una pagina.
+description: Scrivi e modifica le note, fai domande e crea materiale di studio in Esercitazioni.
 section: capture
 order: 1
 stage:
@@ -10,20 +10,20 @@ stage:
 
 import DocStep from '../../../components/DocStep.astro';
 
-Una nota raccoglie ciò che stai imparando prima di dargli una forma da ripassare. Tieni appunti, domande e allegati insieme nella materia che stai studiando.
+Una nota raccoglie ciò che stai imparando prima di dargli una forma da ripassare. Tieni gli appunti nella materia che stai studiando e usa Materiali per i file originali.
 
 <DocStep number={1} example="note">
 <header slot="intro">
 
 ## Raccogli prima di riordinare
 
-Scrivi un’idea e salvala nel quaderno della tua materia.
+Scrivi un’idea nel quaderno della tua materia.
 
 </header>
 
-Apri **Note** e inizia una nota. Scrivi nel riquadro e scegli **Salva appunto**. Ctrl Invio (Cmd Invio su macOS) salva l'appunto. Salva le bozze prima di trasformare la nota: un appunto non inviato non fa parte del materiale salvato.
+Apri **Note** e inizia a scrivere nella pagina. Study crea la nota quando fai una pausa e salva automaticamente le modifiche successive. Fai clic sul titolo per rinominarla. Lo stato in fondo alla pagina indica quando il testo è stato salvato.
 
-Allega i file che accompagnano gli appunti. Lo stato di lettura e gli errori restano accanto al lavoro interessato, così puoi vedere se una fonte è pronta. Vedi [fonti](../sources/) per la differenza tra il file originale e il suo contenuto leggibile.
+Apri **Materiali** per caricare i file e controllarne lo stato di lettura. Vedi [fonti](../sources/) per consultare il file originale e il contenuto leggibile.
 
 </DocStep>
 
@@ -32,44 +32,38 @@ Allega i file che accompagnano gli appunti. Lo stato di lettura e gli errori res
 
 ## Chiedi quando serve
 
-Fai una domanda su quello che stai imparando e conserva la risposta con gli appunti.
+Fai una domanda su quello che stai imparando a partire dalla nota.
 
 </header>
 
-Usa **Chiedi a Study** per fare una domanda esplicita. Anche una domanda salvata ha un'azione per ottenere una risposta. Puoi classificare una voce come domanda o appunto e attivare le risposte automatiche nelle impostazioni dell'area di lavoro.
+Scegli **Chiedi su questa nota** nella barra della nota. Scrivi la domanda nel pannello Assistente.
 
-Le risposte usano la tua connessione a ChatGPT. Se manca l'accesso o il lavoro fallisce, la nota mostra il problema e l'azione disponibile per riprovare. Vedi [risposte e citazioni](../answers/).
+Le risposte usano la tua connessione a ChatGPT. Se manca l’accesso o una richiesta fallisce, controlla il pannello Assistente per i dettagli e le azioni di recupero. Vedi [risposte e citazioni](../answers/).
 
 </DocStep>
 
 <DocStep number={3} example="page" phase="result">
 <header slot="intro">
 
-## Trasforma la nota in una pagina
+## Genera appunti di studio
 
-Scegli il materiale salvato e trasformalo in una pagina da ripassare.
+Scegli il materiale salvato da cui ricavare gli appunti di studio.
 
 </header>
 
-Scegli **Trasforma nota**. Seleziona il materiale salvato da includere, dai un titolo alla pagina e aggiungi istruzioni se hai un obiettivo preciso.
-
-Puoi migliorare chiarezza, grammatica e struttura, eliminare ripetizioni, riassumere, spiegare, ampliare e tradurre. Le correzioni dei fatti sono proposte da controllare. Puoi anche unire più note in una pagina.
-
-La trasformazione usa le voci salvate del quaderno e le fonti selezionate entro il limite di contesto; non garantisce di includere ogni parola di una nota molto lunga. Salva le bozze importanti e controlla la selezione prima di iniziare.
+Apri **Esercitazioni**, scegli **Genera esercizi** e poi **Genera appunti**. Includi la nota salvata e gli altri materiali che vuoi usare. Indica un argomento se vuoi che Study gli dia più spazio.
 
 </DocStep>
 
 <DocStep number={4} example="quiz">
 <header slot="intro">
 
-## Usa il risultato
+## Rivedi gli appunti ed esercitati
 
-Rivedi la tua pagina, poi trasformala in esercizi.
+Confronta gli appunti generati con il materiale che hai selezionato.
 
 </header>
 
-Apri il risultato in [Pagine](../pages/). Controllalo, modificalo e conserva le versioni utili. Poi scegli le pagine da cui [generare esercitazioni](../practice/).
-
-La nota resta il tuo quaderno originale. La pagina dà alle idee una forma da leggere e ripassare.
+Apri gli [appunti di studio](../pages/) generati in **Esercitazioni**. Modificali dove serve e selezionali come fonte quando [generi esercitazioni](../practice/).
 
 </DocStep>

@@ -27,6 +27,7 @@ import {
   getApiKeyProvider,
   BackupStorage,
   ManagedBackups,
+  ModelUpdateNotices,
   Database,
   liveQueriesLayer,
   transaction,
@@ -78,6 +79,13 @@ import { WorkflowsRpcLive } from '#server/features/workflows/rpc/index';
 import { backupPolicy } from './backups.ts';
 import { workflowHandlers } from './workflows.ts';
 
+export type NativeOptions = {
+  fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+  ai?: AiRuntimeAdapters;
+  voice?: VoiceRuntimeAdapters;
+  modelUpdateNotices?: boolean;
+};
+
 export function nativeLayers(
   store: ServerContext,
   manager: AuthManager,
@@ -85,9 +93,7 @@ export function nativeLayers(
   hostId: string | undefined,
   lifecycle: WorkerLifecycle['Service'],
   control: WorkflowControl['Service'],
-  request?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>,
-  ai?: AiRuntimeAdapters,
-  voice: VoiceRuntimeAdapters = {}
+  { fetch: request, ai, voice = {}, modelUpdateNotices = true }: NativeOptions
 ) {
   const admission = admissionLayer(makeAdmission());
 
@@ -120,6 +126,7 @@ export function nativeLayers(
     Pages.layer,
     Integrations.layer,
     Materials.deletionParticipantsLayer({ Learning }),
+    Notes.mergeMaterialsLayer(Materials.attachInTransaction),
     Notes.layer,
     Learning.layer.pipe(Layer.provide(Layer.mergeAll(Settings.layer, Materials.layer))),
     Projects.layer,
@@ -132,6 +139,7 @@ export function nativeLayers(
         database,
         backups,
         session,
+        Layer.succeed(ModelUpdateNotices, modelUpdateNotices),
         lifecycleLayer,
         Layer.succeed(WorkflowControl, control)
       )

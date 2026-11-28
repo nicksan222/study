@@ -356,18 +356,16 @@ export {
   messageConversionSchema
 } from './notes/conversion.ts';
 export { noteDeletionSchema } from './notes/deletion.ts';
-export type {
-  ChatMessage,
-  MessagePart,
-  MessageVersion,
-  NewMessage,
-  Recording,
-  VersionOrigin,
-  VersionStatus
-} from './notes/messages.ts';
-export { newMessageSchema } from './notes/messages.ts';
-export type { Note, TitleSource } from './notes/notes.ts';
-export { copyNoteContentSchema, recordingCopySchema } from './notes/notes.ts';
+export type { ChatMessage, MessageVersion, Recording } from './notes/messages.ts';
+export type { Note } from './notes/notes.ts';
+export {
+  copyNoteContentSchema,
+  notebookBodyCaptureKey,
+  noteBodyInputSchema,
+  noteBodySchema,
+  recordingCopySchema,
+  saveNoteBodyInputSchema
+} from './notes/notes.ts';
 export {
   assistantAskInputSchema,
   countNotesInputSchema,
@@ -386,7 +384,6 @@ export {
   postMessageInputSchema,
   renameNoteInputSchema,
   setActiveVersionInputSchema,
-  setNoteSettledInputSchema,
   threadInputSchema,
   threadPageSchema,
   transformSuggestionInputSchema,
@@ -444,7 +441,7 @@ export {
 } from './notes/work.ts';
 export {
   applyProposalSchema,
-  blockDifferenceSchema,
+  authoredPageInputLimit,
   compareSchema,
   comparisonSchema,
   createGeneratedOutcomeSchema,
@@ -517,6 +514,8 @@ export {
   transformPublicationSchema,
   transformReportSchema,
   transformRequestSchema,
+  studyNotesInstructionLimit,
+  studyNotesRequestSchema,
   transformSnapshotSchema
 } from './pages/transform.ts';
 export type {
@@ -600,7 +599,6 @@ export {
   maxAgentRuleLength,
   quizSettingsSchema,
   reviewSettingsSchema,
-  sidebarSettingsSchema,
   tierSetupSchema,
   workspacePreferencesSchema
 } from './settings/schemas.ts';
@@ -613,7 +611,6 @@ export type {
   MaterialSettings,
   QuizSettings,
   ReviewSettings,
-  SidebarSettings,
   SpecializedPracticeKind,
   TierSetup,
   WorkspacePreferences
@@ -624,7 +621,6 @@ export {
   defaultAppearancePreferences,
   defaultConcurrencySettings,
   defaultQuizSettings,
-  defaultSidebarSettings,
   defaultWorkspacePreferences,
   Language,
   chatGptModelIds,
@@ -688,11 +684,18 @@ export {
   sourceHistoryRetireSchema,
   sourceLinkSchema,
   sourcePageInputSchema,
+  sourceProcessingJobSchema,
   sourceProcessingSchema,
   sourceRevisionSchema,
   sourcesEndpoints,
   SourcesRpc
 } from './sources/rpc.ts';
+export {
+  isDelimitedSource,
+  sourcePreviewInputSchema,
+  sourcePreviewSchema
+} from './sources/preview.ts';
+export type { SourcePreview } from './sources/preview.ts';
 export type { BlockContent, Inline, Source } from './sources/schemas.ts';
 export {
   blockContentSchema,
@@ -715,10 +718,9 @@ export {
   sourceKinds,
   sourceKindSchema,
   sourceOriginSchema,
+  uploadedSourceOrigins,
   viewerExtension
 } from './sources/sniff.ts';
-export type { NewSource } from './sources/types.ts';
-export { newSourceSchema } from './sources/types.ts';
 export {
   automaticBackupConfigurationSchema,
   automaticBackupFileDestinationSchema,

@@ -1,39 +1,22 @@
 import type { SidebarOwnerResolver } from '../study-client/sidebar-owner.queries';
 import type { PageMetadata } from './route-contract';
 
-export type SidebarContent = 'workspace' | 'pages' | 'practice' | 'assistant';
-
 /** Routes provide their canonical owner query; the shell only consumes membership. */
 export type SidebarRouteConfig = {
-  content?: SidebarContent;
   owner?: SidebarOwnerResolver;
 };
 
-const sectionContent: Record<PageMetadata['section'], SidebarContent> = {
-  notes: 'workspace',
-  assistant: 'assistant',
-  pages: 'pages',
-  practice: 'practice'
-};
-
-export function sidebarContent(metadata: PageMetadata): SidebarContent {
-  return metadata.sidebar?.content ?? sectionContent[metadata.section];
-}
-
-const contentRoutes = {
-  workspace: '/notes',
+const sectionRoutes = {
+  notes: '/notes',
   assistant: '/assistant',
-  pages: '/pages',
+  uploads: '/uploads',
   practice: '/practice'
-} as const;
-
-function sidebarIndex(metadata: PageMetadata) {
-  return contentRoutes[sidebarContent(metadata)];
-}
+} as const satisfies Record<PageMetadata['section'], string>;
 
 /** Owned pages return to their section index when the user changes subjects. */
 export function sidebarSubjectDestination(metadata: PageMetadata, owned: boolean) {
-  if (owned || metadata.section === 'assistant') return sidebarIndex(metadata);
+  if (owned || metadata.section === 'assistant' || metadata.section === 'uploads')
+    return sectionRoutes[metadata.section];
 
   return metadata.scope === 'global' ? '/notes' : '.';
 }

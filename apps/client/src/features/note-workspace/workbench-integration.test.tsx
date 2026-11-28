@@ -1,8 +1,8 @@
+import type { createSchema as createManualPageSchema } from '@study/contracts';
 import {
   noteIdSchema,
   contentSnapshotIdSchema,
   sourceIdSchema,
-  createSchema as createManualPageSchema,
   detailSchema as materialDetailSchema
 } from '@study/contracts';
 import { test } from '@study/testing';
@@ -61,6 +61,7 @@ function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandl
     'pages.page': rpc.material,
     'pages.pages': rpc.materials,
     'notes.thread': rpc.thread,
+    'notes.body': async () => ({ text: 'Notebook body', versionId: null }),
     'notes.noteAssistant': rpc.assistant,
     'notes.assistantAsk': rpc.ask,
     'notes.assistantContext': async () => ({
@@ -126,7 +127,6 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
   }));
-  mock('#client/features/note-workspace/composer', () => ({ Composer: () => null }));
   const __mockModule0 = await import('../assistant');
 
   AssistantProvider = __mockModule0.AssistantProvider;
@@ -193,55 +193,18 @@ test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-test.unit.stable(
-  'New page persists an empty attachment, adds its card, and opens its editable tab',
-  async ({ fireEvent, screen, waitFor, expect, within, render, rpcHandlersTransport }) => {
-    mount(
-      { render, rpcHandlersTransport },
-      <NoteWorkbench id={noteId} onDelete={() => undefined} />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteNewPage' }));
-    await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
-    const input = rpc.create.mock.calls[0]![0];
-
-    expect(Schema.decodeUnknownSync(createManualPageSchema)(input)).toEqual(input);
-    expect(input).toMatchObject({
-      noteId,
-      title: 'NoteNewPage',
-      createKey: expect.any(String)
-    });
-    expect(input.document.blocks.every((block: { text: string }) => block.text === '')).toBe(true);
-    expect(rpc.post).not.toHaveBeenCalled();
-    expect(await screen.findByRole('tab', { name: 'NoteNewPage' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(await screen.findByRole('textbox', { name: 'NotePageEditor' })).toHaveAttribute(
-      'contenteditable',
-      'true'
-    );
-    const history = screen.getByRole('region', { name: 'NoteNotebook' });
-
-    expect(await within(history).findByRole('button', { name: /NoteNewPage/ })).toBeVisible();
-  }
-);
-
 function ImportedPanel() {
   const [id, setId] = useState<ReturnType<typeof material>['id']>();
 
   return id ? (
     <NotePagePanel pageId={id} />
   ) : (
-    <SourcePanel
-      noteId={noteId}
-      sourceId={sourceIdSchema.make(41n)}
-      onOpenPage={(next) => setId(next.id)}
-    />
+    <SourcePanel sourceId={sourceIdSchema.make(41n)} onOpenPage={(next) => setId(next.id)} />
   );
 }
 
 test.unit.stable(
-  'Edit a copy pins the exact source revision and opens its independent authored page',
+  'copying a standalone source pins its exact revision and opens an independent authored page',
   async ({ expect, screen, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <ImportedPanel />);
     expect(await screen.findByText('Current extraction 41', { selector: 'p' })).toBeVisible();
@@ -249,7 +212,6 @@ test.unit.stable(
     fireEvent.click(screen.getByRole('button', { name: 'PageEditCopy' }));
     await waitFor(() => expect(rpc.copy).toHaveBeenCalledTimes(1));
     expect(rpc.copy.mock.calls[0]![0]).toEqual({
-      noteId,
       title: 'Current extraction 41',
       sourceId: sourceIdSchema.make(41n),
       revision: 3n,
@@ -268,31 +230,34 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'keeps vertical note actions in the default card and changes editor docking without creating another document',
+  'keeps vertical note actions in the context card and changes editor docking without creating another document',
   async ({ screen, expect, waitFor, within, fireEvent, render, rpcHandlersTransport }) => {
     const view = mount(
       { render, rpcHandlersTransport },
       <>
         <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} onDelete={() => undefined} />
+        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => undefined} />
       </>
     );
-    const card = screen.getByRole('complementary', { name: 'NoteContextPanel' });
-    const scrollHost = screen
-      .getByRole('log', { name: 'NoteNotebook' })
-      .closest('[data-notebook-scroll-host]');
 
+    expect(screen.queryByRole('complementary', { name: 'NoteContextPanel' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
+    const card = await screen.findByRole('complementary', { name: 'NoteContextPanel' });
+    const notebook = await screen.findByRole('textbox', { name: 'NotePageEditor' });
+    const scrollHost = notebook.closest('[data-notebook-scroll-host]');
+
+    expect(notebook).toHaveTextContent('Notebook body');
     expect(scrollHost).toContainElement(card);
     await waitFor(() => expect(card).toBeVisible());
-    expect(within(card).getByRole('button', { name: 'NoteTransform' })).toBeVisible();
+    expect(within(card).queryByRole('button', { name: 'NoteTransform' })).toBeNull();
     expect(screen.getByRole('button', { name: 'NoteDockBelow' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'NoteDockBeside' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
     await waitFor(() => expect(card).not.toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
     await waitFor(() => expect(card).toBeVisible());
-    fireEvent.click(within(card).getByRole('button', { name: 'NoteNewPage' }));
-    await screen.findByRole('tab', { name: 'NoteNewPage' });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));
+    await screen.findByRole('tab', { name: 'NoteAssistant' });
     await waitFor(() => expect(card).not.toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'NoteDockBelow' }));
     await waitFor(() =>
@@ -309,8 +274,9 @@ test.unit.stable(
     fireEvent.click(screen.getByRole('button', { name: 'NoteActions' }));
     await waitFor(() => expect(card).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'NoteDockBeside' }));
-    expect(await screen.findByRole('tab', { name: 'NoteNewPage' })).toBeVisible();
-    expect(rpc.create).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('tab', { name: 'NoteAssistant' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'NotePageEditor' })).toBe(notebook);
+    expect(rpc.create).not.toHaveBeenCalled();
   }
 );
 
@@ -321,7 +287,7 @@ test.unit.stable(
       { render, rpcHandlersTransport },
       <>
         <NoteLayoutControls id={noteId} />
-        <NoteWorkbench id={noteId} onDelete={() => {}} />
+        <NoteWorkbench id={noteId} title="Notebook" onDelete={() => {}} />
       </>
     );
     fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));

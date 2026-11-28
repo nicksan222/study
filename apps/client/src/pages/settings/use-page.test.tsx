@@ -26,15 +26,6 @@ test.unit.beforeEach(async ({ mock }) => {
     useSearch: () => router.scope,
     useNavigate: () => router.navigate
   }));
-  mock('#client/lib/study-client/types.ts', () => ({
-    loadAppearance: api.load,
-    updateAppSettings: api.save,
-    saveAppearancePreferences: mock.fn(),
-    selectTheme: api.select,
-    importTheme: mock.fn(),
-    saveTheme: mock.fn(),
-    deleteTheme: mock.fn()
-  }));
   mock('#client/lib/appearance.ts', () => ({ applyAppearance: mock.fn() }));
   const __studyMockModule0 = await import('./use-page');
 

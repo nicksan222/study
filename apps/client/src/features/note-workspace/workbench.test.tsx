@@ -231,10 +231,12 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'keeps the action card visible until hidden and docks existing tabs without creating pages',
+  'opens the action card on request and docks existing tabs without creating pages',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
 
+    expect(view.result.current.cardVisible).toBe(false);
+    act(() => view.result.current.toggleCard());
     await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
     act(() => view.result.current.showEditor('bottom'));
     await waitFor(() => expect(view.result.current.visible).toBe(false));

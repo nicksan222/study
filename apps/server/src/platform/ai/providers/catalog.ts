@@ -1,13 +1,18 @@
 /** @file Updates API-key provider model tiers from public model metadata. */
 import { modelIdSchema } from '@study/contracts';
 import type { ModelTier } from '@study/contracts';
-import { Effect, Option, Schema } from 'effect';
+import { Context, Effect, Option, Schema } from 'effect';
 
 import type { FetchOptions } from '#server/platform/http/index';
 import { streamingFetch } from '#server/platform/http/index';
 
 import { allowsAiModel } from './model-policy.ts';
 import { apiKeyProviders } from './registry.ts';
+
+/** Controls unsolicited notices independently of reading the model catalog. */
+export const ModelUpdateNotices = Context.Reference<boolean>('study/ModelUpdateNotices', {
+  defaultValue: () => true
+});
 
 const providersSchema = Schema.Record(
   Schema.String,

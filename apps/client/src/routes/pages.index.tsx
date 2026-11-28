@@ -1,10 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { PagesPage, pagesRouteDeps, pagesRouteLoader } from '../features/pages';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/pages/')({
-  staticData: { title: 'SourcePage', section: 'pages', scope: 'project' },
-  loaderDeps: pagesRouteDeps,
-  loader: pagesRouteLoader,
-  component: PagesPage
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: '/practice', search, replace: true });
+  }
 });

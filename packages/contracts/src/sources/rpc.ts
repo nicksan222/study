@@ -5,6 +5,7 @@ import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema, noteIdSchema 
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { importCapabilityInputSchema, importCapabilitySchema } from './capabilities.ts';
 import { conversionStrategySchema } from './conversion.ts';
+import { sourcePreviewInputSchema, sourcePreviewSchema } from './preview.ts';
 import { documentSchema, sourceSchema } from './schemas.ts';
 
 export const sourceExportSchema = Schema.Struct({ source: sourceSchema, bytes: Schema.Uint8Array });
@@ -28,6 +29,13 @@ export const sourceProcessingSchema = Schema.Struct({
   documentId: Schema.NullOr(contentSnapshotIdSchema)
 });
 
+/** The current processing request and evidence of its durable dispatch and publication. */
+export const sourceProcessingJobSchema = Schema.Struct({
+  ...sourceProcessingSchema.fields,
+  publishedRequestId: sourceProcessingSchema.fields.requestId,
+  requestedAtMs: Schema.NullOr(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
+});
+
 export const setSourceProjectInputSchema = Schema.Struct({
   id: sourceIdSchema,
   projectId: Schema.NullOr(projectIdSchema)
@@ -42,6 +50,8 @@ export const correctBlockInputSchema = Schema.Struct({
 });
 
 export const sourcePageInputSchema = Schema.Struct({
+  uploadedFor: Schema.optional(Schema.NullOr(projectIdSchema)),
+  nameContains: Schema.optional(Schema.String.check(Schema.isMaxLength(255))),
   projectId: Schema.optional(projectIdSchema),
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(sourceIdSchema)
@@ -213,24 +223,6 @@ export const sourcesEndpoints = {
     },
     { dependencies: allDependencies, refresh: 'database' }
   ),
-  attachSource: mutation(
-    'sources.attachSource',
-    {
-      payload: sourceLinkSchema,
-      success: Schema.Void,
-      error: failureSchema
-    },
-    { changes: [dependency.sources] }
-  ),
-  detachSource: mutation(
-    'sources.detachSource',
-    {
-      payload: sourceLinkSchema,
-      success: Schema.Void,
-      error: failureSchema
-    },
-    { changes: [dependency.sources] }
-  ),
   importCapability: liveQuery(
     'sources.importCapability',
     {
@@ -248,6 +240,15 @@ export const sourcesEndpoints = {
       error: failureSchema
     },
     { dependencies: allDependencies, refresh: 'database' }
+  ),
+  preview: liveQuery(
+    'sources.preview',
+    {
+      payload: sourcePreviewInputSchema,
+      success: sourcePreviewSchema,
+      error: failureSchema
+    },
+    { dependencies: [dependency.sources], refresh: 'database' }
   ),
   sourceExport: liveQuery(
     'sources.sourceExport',
@@ -280,7 +281,7 @@ export const sourcesEndpoints = {
     'sources.sourceProcessing',
     {
       payload: { id: sourceIdSchema },
-      success: sourceProcessingSchema,
+      success: sourceProcessingJobSchema,
       error: failureSchema
     },
     { dependencies: allDependencies, refresh: 'database' }

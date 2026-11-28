@@ -4,8 +4,4 @@ import { defineService } from '@study/server';
 
 import { integrationImportOperations } from './imports.ts';
 
-export const Integrations = defineService('study/Integrations', function* () {
-  return {
-    ...(yield* integrationImportOperations())
-  };
-});
+export const Integrations = defineService('study/Integrations', integrationImportOperations);

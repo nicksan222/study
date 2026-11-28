@@ -51,7 +51,6 @@ function PageEditor({ page, actions, versionId }: { page: Page } & EditorActions
             document={historical ? version.document : model.document}
             disabled={historical || exact.isFetching}
             snapshotId={version.snapshotId}
-            projectId={page.projectIds[0]}
             onChange={model.change}
             toolbarEnd={
               <>

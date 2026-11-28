@@ -1,3 +1,4 @@
+import { Language } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
@@ -27,282 +28,77 @@ const original = [
 test.browser.stable(
   'Bilingual notes preserve Unicode edits search and locale changes',
   async ({ page, rpc, expectScreenshot, expectAccessibility, expect }) => {
-    await page.goto('/notes');
-    expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
+    const preferences = await rpc.runPromise(rpc.client['settings.workspacePreferences']({}));
 
-    await composer.fill(original);
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
+    await rpc.runPromise(
+      rpc.client['settings.saveWorkspacePreferences']({
+        ...preferences,
+        autosaveIntervalSeconds: 1
+      })
+    );
+
+    await page.goto('/notes');
+    const starter = page.getByRole('textbox', { name: copy.NoteCompose, exact: true });
+    const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const status = page.getByRole('status').filter({ hasText: /^Saved$/ });
+
+    await starter.fill(original);
+    await expect(page).toHaveURL(/\/notes\/\d+$/);
     const noteUrl = page.url();
     const notePath = new URL(noteUrl).pathname;
-    const notebook = page.getByRole('region', { name: copy.NoteNotebook });
-    const body = notebook.locator('.chat-message-text');
-    const entry = body;
-    const scrollHost = page.locator('[data-notebook-scroll-host]');
+    const start = editor.getByText(opening, { exact: true });
 
-    await expect.poll(() => body.textContent()).toBe(original);
-    await page
-      .getByRole('navigation', { name: copy.NoteOutline })
-      .getByRole('button')
-      .first()
-      .click();
-    await expect(entry).toHaveVisibleText(opening);
+    await start.scrollIntoViewIfNeeded();
     await expectScreenshot('mixed-scripts', {
       target: 'viewport',
-      ready: async () => {
-        await expect(body).toHaveText(original);
-        await expect(entry).toHaveVisibleText(opening);
-      }
+      ready: () => expect(start).toBeInViewport()
     });
 
-    const top = await body.boundingBox();
+    const changed = original
+      .replace('lucciolacittà', 'lucciolaperché')
+      .replace('東京の庭で植物を観察します。', '東京の温室で植物を観察します。')
+      .replace('نهاية الملاحظات.', 'نهاية السجل.');
 
-    await scrollHost.press('PageDown');
-    await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y - 100);
-    const middle = await body.boundingBox();
-
-    await expect(body).toBeInViewport();
-    await scrollHost.press('End');
-    await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(middle!.y - 100);
-    await expect(entry).not.toHaveVisibleText(opening);
-    await expect
-      .poll(async () => {
-        const text = await body.boundingBox();
-        const capture = await page.locator('.workspace-desk-capture').boundingBox();
-
-        return !!text && !!capture && text.y + text.height <= capture.y;
-      })
-      .toBe(true);
-    await expect(composer).toBeHidden();
-    await expect(
-      page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
-    ).toBeInViewport({ ratio: 1 });
-    await expectScreenshot('mixed-scripts-bottom', {
-      target: 'viewport',
-      ready: async () => {
-        await expect(body).toHaveText(original);
-        await expect(entry).not.toHaveVisibleText(opening);
-        await expect(composer).toBeHidden();
-      }
-    });
-
+    await editor.fill(changed);
+    await expect(status).toBeVisible();
     await page.goto('/notes');
-    const initialSearch = page.getByRole('searchbox', { name: copy.Search, exact: true });
-
-    await initialSearch.fill('lucciolacittà');
-    const initialResult = page
-      .locator(`a[href="${notePath}"]`)
-      .filter({ hasText: 'lucciolacittà' });
-
-    await expect(initialResult).toHaveCount(1);
-    await initialResult.click();
-    await expect(page).toHaveURL(noteUrl);
-
-    await expect.poll(() => body.textContent()).toBe(original);
-
-    let content = original;
-
-    for (const [index, [before, after]] of [
-      ['pianeta🌿', 'g🌿'],
-      ['lucciolacittà', 'lucciolaperché'],
-      ['東京の庭で植物を観察します。', '京都の庭で植物を観察します。']
-    ].entries()) {
-      await notebook.locator('[data-role="user"]').hover();
-      await page.getByRole('button', { name: copy.NoteEditNote }).click();
-      const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
-
-      await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
-      const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
-
-      await expect(editor).toHaveValue(content);
-      content = content.replace(before!, after!);
-
-      if (index === 0) {
-        // Select only the Latin word touching the emoji, using real keyboard selection.
-        await editor.click();
-        await editor.press('ControlOrMeta+a');
-        await editor.press('ArrowLeft');
-
-        for (let letter = 0; letter < 7; letter++) await editor.press('Shift+ArrowRight');
-
-        await editor.press('g');
-
-        await expect(editor).toHaveValue(content);
-        await expect(editor).toBeFocused();
-        await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
-        const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
-
-        await editor.press('Tab');
-        await expect(
-          dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
-        ).toBeFocused();
-        await page.keyboard.press('Tab');
-        await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
-        await page.keyboard.press('Tab');
-        await expect(save).toBeFocused();
-        await expect(save).toBeInViewport({ ratio: 1 });
-        await expect(save.locator(':scope:focus-visible')).toHaveCount(1);
-        await save.press('Shift+Tab');
-        await page.keyboard.press('Shift+Tab');
-        await expect(
-          dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
-        ).toBeFocused();
-        await page.keyboard.press('Shift+Tab');
-        await expect(editor).toBeFocused();
-        // Navigate from the document end so the first caret line owns the scroll position.
-        await editor.press('ControlOrMeta+End');
-        await editor.press('ControlOrMeta+Home');
-        await expectAccessibility('edit-note');
-        await expectScreenshot('selection-edit', {
-          target: dialog,
-          ready: async () => {
-            await expect(editor).toHaveValue(content);
-            await expect(editor).toBeFocused();
-            await expect(save).toBeInViewport({ ratio: 1 });
-          }
-        });
-      } else await editor.fill(content);
-
-      await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
-      await expect(dialog).toBeHidden();
-      await expect.poll(() => body.textContent()).toBe(content);
-      await page.reload();
-      await expect.poll(() => body.textContent()).toBe(content);
-    }
-
-    await page.goto('/notes');
-    await composer.fill('Second notebook: an independent English observation.');
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
+    await starter.fill('Second notebook: an independent English observation.');
+    await expect(page).toHaveURL(/\/notes\/\d+$/);
     expect(page.url()).not.toBe(noteUrl);
-    const secondUrl = page.url();
+
     const search = page.getByRole('searchbox', { name: copy.Search, exact: true });
     const result = page.locator(`a[href="${notePath}"]`).filter({ hasText: 'lucciolaperché' });
 
-    for (const token of ['nessunrisultatounicode', 'lucciolacittà']) {
-      await search.fill('lucciolaperché');
-      await expect(result).toHaveCount(1);
-      await search.fill(token);
-      await expect(
-        page.getByRole('status').filter({ hasText: copy.SearchNoResults })
-      ).toBeVisible();
-    }
-
+    await search.fill('lucciolacittà');
+    await expect(page.getByRole('status').filter({ hasText: copy.SearchNoResults })).toBeVisible();
     await search.fill('lucciolaperché');
-
-    await expect(result).toHaveCount(1);
-    await expect(result).toBeInViewport({ ratio: 1 });
     await expectScreenshot('search-edited', {
       target: 'viewport',
-      ready: async () => {
-        await expect(result).toBeVisible();
-        await expect(search).toHaveValue('lucciolaperché');
-      }
+      ready: () => expect(result).toBeVisible()
     });
     await result.click();
     await expect(page).toHaveURL(noteUrl);
-    await expect.poll(() => body.textContent()).toBe(content);
+    await expect(editor).toContainText('東京の温室で植物を観察します。');
+    await expect(editor).toContainText('نهاية السجل.');
 
-    await page.getByRole('button', { name: copy.Settings, exact: true }).click();
-    await page
-      .getByRole('dialog', { name: copy.Settings })
-      .getByRole('button', { name: copy.GeneralSettingsTitle, exact: true })
-      .click();
-    await page.getByRole('combobox', { name: copy.GeneralSettingsLanguage }).click();
-    await page.getByRole('option', { name: copy.ItalianOwnName }).click();
-    const settings = page.getByRole('dialog', { name: italian.Settings });
-
-    await expect(
-      settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage })
-    ).toHaveText(italian.ItalianOwnName);
-
-    await expect(
-      settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage })
-    ).toBeEnabled();
-    await expectAccessibility('settings-italian');
-    await settings.getByRole('button', { name: italian.Close }).click();
-    await page.goto(secondUrl);
-    await page.reload();
-    await expect(page.getByRole('button', { name: italian.NoteAddCapture })).toBeVisible();
-    await page.getByRole('searchbox', { name: italian.Search, exact: true }).fill('lucciolaperché');
-    await page.locator(`a[href="${notePath}"]`).filter({ hasText: 'lucciolaperché' }).click();
-    await expect(page).toHaveURL(noteUrl);
-    const localizedNotebook = page.getByRole('region', { name: italian.NoteNotebook });
-
-    await expect
-      .poll(() => localizedNotebook.locator('.chat-message-text').textContent())
-      .toBe(content);
-    const localizedEntry = localizedNotebook.locator('.chat-message-text');
-
-    await page
-      .getByRole('navigation', { name: italian.NoteOutline })
-      .getByRole('button')
-      .first()
-      .click();
-    await expectScreenshot('localized-reopened', {
-      target: 'viewport',
-      ready: async () => {
-        await expect(localizedEntry).toHaveVisibleText(content.split('\n')[0]!);
-        await expect(page.getByRole('textbox', { name: italian.NoteCompose })).toBeHidden();
-        await expect(localizedNotebook.locator('.chat-message-text')).toHaveText(content);
-      }
-    });
-    await page.getByRole('button', { name: italian.Settings, exact: true }).click();
-    await page
-      .getByRole('dialog', { name: italian.Settings })
-      .getByRole('button', { name: italian.GeneralSettingsTitle, exact: true })
-      .click();
-    await expect(page.getByRole('combobox', { name: italian.GeneralSettingsLanguage })).toHaveText(
-      italian.ItalianOwnName
-    );
-    await page
-      .getByRole('dialog', { name: italian.Settings })
-      .getByRole('button', { name: italian.Close })
-      .click();
-    const mobileSettings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
 
     await rpc.runPromise(
-      rpc.client['settings.saveAppSettings']({ ...mobileSettings, zoomPercent: 100 })
+      rpc.client['settings.saveAppSettings']({ ...settings, language: Language.ITALIAN })
     );
-    await page.reload();
-    await localizedNotebook.locator('[data-role="user"]').hover();
-    await page.getByRole('button', { name: italian.NoteEditNote }).click();
-    const localizedEditor = page.getByRole('dialog', { name: italian.NoteEditNote });
-
-    await localizedEditor.getByRole('button', { name: italian.NoteMarkdownSource }).click();
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(
-      localizedEditor.getByRole('button', { name: italian.NoteBackToNotebook })
-    ).toBeInViewport({ ratio: 1 });
-    await expect(
-      localizedEditor.getByRole('button', { name: italian.NoteSaveNote })
-    ).toBeInViewport({ ratio: 1 });
-    await expectAccessibility('edit-note-italian-narrow');
-    await expectScreenshot('editing-italian-narrow', {
-      target: 'viewport',
-      zoomPercent: 100,
-      ready: () => expect(localizedEditor.getByRole('textbox')).toHaveValue(content)
-    });
     await page.setViewportSize({ width: 390, height: 520 });
-    const mobileText = localizedEditor.getByRole('textbox');
-    const mobileSave = localizedEditor.getByRole('button', { name: italian.NoteSaveNote });
+    await page.reload();
+    const localized = page.getByRole('textbox', { name: italian.NotePageEditor, exact: true });
+    const end = localized.locator('p').last();
 
-    await mobileText.fill(content + '\n\nCorrezione dal telefono.');
-    await expect(
-      localizedEditor.getByRole('button', { name: italian.NoteBackToNotebook })
-    ).toBeInViewport({ ratio: 1 });
-    await expect(mobileSave).toBeInViewport({ ratio: 1 });
-    await expectScreenshot('editing-italian-short-viewport', {
+    await expect(localized).toContainText(opening);
+    await expect(end).toContainText('👨‍👩‍👧‍👦 نهاية السجل.');
+    await end.click();
+    await expect(localized).toBeFocused();
+    await expectScreenshot('localized-reopened', {
       target: 'viewport',
-      zoomPercent: 100,
-      ready: () => expect(mobileText).toHaveValue(content + '\n\nCorrezione dal telefono.')
+      ready: () => expect(end).toBeInViewport()
     });
-    await mobileSave.click();
-    await expect(localizedEditor).toBeHidden();
-    await expect(localizedNotebook.locator('.chat-message-text')).toHaveText(
-      content + '\n\nCorrezione dal telefono.'
-    );
+    await expectAccessibility('italian-notebook');
   }
 );

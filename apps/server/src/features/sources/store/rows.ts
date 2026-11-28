@@ -37,12 +37,16 @@ export function makeHelpers({ db }: StoreResources) {
     return row ? sourceRow(row) : null;
   }
 
-  function state(id: SourceId) {
-    const row = db.orm
+  function processingRow(id: SourceId) {
+    return db.orm
       .select()
       .from(tables.source_processing)
       .where(eq(tables.source_processing.source_id, id))
       .get();
+  }
+
+  function state(id: SourceId) {
+    const row = processingRow(id);
 
     return row
       ? {
@@ -93,7 +97,7 @@ export function makeHelpers({ db }: StoreResources) {
     };
   }
 
-  return { selectSources, sourceRow, find, state, checkState, readDocument };
+  return { selectSources, sourceRow, find, processingRow, state, checkState, readDocument };
 }
 
 export function checkedBytes(value: Uint8Array) {

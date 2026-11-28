@@ -12,14 +12,6 @@ function Hint(props: Omit<ComponentProps<typeof ComposerSurface.Hint>, 'classNam
   return <ComposerSurface.Hint {...props} className="sr-only" />;
 }
 
-function Files(props: ComponentProps<'ul'>) {
-  return <ul {...props} className="note-start-files" />;
-}
-
-function Attachment({ htmlFor, ...props }: ComponentProps<'label'> & { htmlFor: string }) {
-  return <label {...props} htmlFor={htmlFor} className="note-file-button note-start-attach" />;
-}
-
 function Kind(props: ComponentProps<'span'>) {
   return <span {...props} className="note-start-kind" />;
 }
@@ -43,8 +35,6 @@ function Notes(props: ComponentProps<'ul'>) {
 export const NoteStarter = {
   Root,
   Hint,
-  Files,
-  Attachment,
   Kind,
   Recovery,
   Feedback,

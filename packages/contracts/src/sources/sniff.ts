@@ -31,6 +31,8 @@ export const sourceOriginSchema = Schema.Literals([
 
 export type SourceOrigin = typeof sourceOriginSchema.Type;
 
+export const uploadedSourceOrigins: readonly SourceOrigin[] = ['attachment', 'import', 'recording'];
+
 export const detectedSchema = Schema.Struct({ kind: sourceKindSchema, mime: Schema.String });
 
 export type Detected = typeof detectedSchema.Type;

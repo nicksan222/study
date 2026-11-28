@@ -21,11 +21,17 @@ import { pageEditingOperations } from './editing.ts';
 import { pageEvidenceOperations } from './evidence.ts';
 import { pageGenerationOperations } from './generation.ts';
 import { pageLibraryOperations } from './library.ts';
+import { wholeDocumentExcerpts } from './merge.ts';
 import { pageProposalOperations } from './proposals.ts';
 import { created, proposalCommitted } from './publication.ts';
 import { pageRetirementOperations } from './retirement.ts';
 import { pageTransformOperations } from './transform-operations.ts';
-import { publishTransform, requestTransform, retryTransform } from './transforms.ts';
+import {
+  publishTransform,
+  requestStudyNotes,
+  requestTransform,
+  retryTransform
+} from './transforms.ts';
 
 export const Pages = defineService(
   'study/Pages',
@@ -61,6 +67,8 @@ export const Pages = defineService(
       proposalCommitted(tx, tx.store(PageProposalsStore).keepProposal(v)),
     findTransformInTransaction: (tx: Transaction, v: typeof t.transformKeySchema.Type) =>
       Option.getOrNull(tx.store(PageTransformsStore).findTransform(v)),
+    wholeDocumentExcerpts,
+    requestStudyNotesInTransaction: requestStudyNotes,
     requestTransformInTransaction: requestTransform,
     publishTransformInTransaction: publishTransform,
     retryTransformInTransaction: retryTransform,
@@ -70,13 +78,6 @@ export const Pages = defineService(
       tx: Transaction,
       v: { noteId: NoteId; limit: number; before?: string }
     ) => tx.store(PageTransformsStore).transforms(v),
-    /** Notes/AI can join publication to an existing fenced transaction. */
-    proposeGeneratedInTransaction: (tx: Transaction, v: typeof e.publishSchema.Type) =>
-      tx.store(PageProposalsStore).proposeGenerated(v),
-    createGeneratedInTransaction: (tx: Transaction, v: typeof e.createGeneratedSchema.Type) =>
-      tx.store(PagesStore).createGenerated(v),
-    publishInTransaction: (tx: Transaction, v: typeof e.publishSchema.Type) =>
-      tx.store(PagesStore).publishGenerated(v),
     createInTransaction: (tx: Transaction, v: typeof e.createSchema.Type) =>
       created(tx, tx.store(PagesStore).create(v)),
     pageInTransaction: (tx: Transaction, v: typeof r.pageKeySchema.Type) =>

@@ -24,6 +24,8 @@ export type ExpectScreenshot = (
   name: string,
   options: {
     target: Locator | 'viewport';
+    /** Hide only values derived from live external clocks after asserting them in readiness. */
+    style?: string;
     center?: Locator;
     centerWithin?: Locator;
     /** Anchor the owner scroller at its end when zoom makes centering clamp ambiguously. */
@@ -45,16 +47,22 @@ export function screenshotAssertions(
   profile: string,
   info: {
     config: Pick<TestInfo['config'], 'updateSnapshots'>;
-    project: Pick<TestInfo['project'], 'ignoreSnapshots'>;
+    project: Pick<TestInfo['project'], 'ignoreSnapshots'> &
+      Partial<Pick<TestInfo['project'], 'outputDir'>>;
   },
   soft = false
 ) {
+  const outputDir = info.project.outputDir;
+  const reviewDir =
+    process.env.E2E_REVIEW && outputDir
+      ? `${outputDir}/review/${safeName(profile)}/${safeName(workflow)}`
+      : undefined;
   let count = 0;
   let captureMs = 0;
   const names = new Set<string>();
   const expectScreenshot: ExpectScreenshot = async (
     name,
-    { target, ready, timeoutMs = 30000, focus, center, centerWithin, scrollToEnd }
+    { target, ready, timeoutMs = 30000, focus, center, centerWithin, scrollToEnd, style }
   ) => {
     safeName(name);
 
@@ -70,13 +78,14 @@ export function screenshotAssertions(
       if (expired || Date.now() >= deadline) throw timeout;
     };
     const remaining = () => Math.max(1, deadline - Date.now());
-    const capture = () => {
+    const capture = (masked = true) => {
       fence();
 
       return (target === 'viewport' ? page : target).screenshot({
         animations: 'disabled',
         caret: 'hide',
         scale: 'css',
+        style: masked ? style : undefined,
         timeout: remaining()
       });
     };
@@ -100,23 +109,45 @@ export function screenshotAssertions(
 
       return previous;
     };
-    const updateReference = async (path: string, expected: Buffer | undefined) => {
+    const updateReference = async (path: string, expected: Buffer | undefined, first?: Buffer) => {
       // Native update mode is run-wide. Check this stable capture before writing its reference.
-      const actual = await captureStable(await capture());
+      const actual = await captureStable(first ?? (await capture()));
 
       if (expected && matchesBaseline(actual, expected)) return;
 
       fence();
       await Bun.write(path, actual);
     };
-    const matchesReference = async (expected: Buffer) => {
-      const actual = await capture();
+    const matchesReference = async (expected: Buffer, first?: Buffer) => {
+      const actual = first ?? (await capture());
 
       if (actual.equals(expected)) return true;
 
       if (!matchesHorizontalShift(actual, expected)) return false;
 
       return matchesBaseline(await captureStable(actual), expected);
+    };
+    const captureReview = async () => {
+      if (!reviewDir) return;
+
+      const actual = await capture(false);
+
+      fence();
+      await Bun.write(`${reviewDir}/${name}.png`, actual);
+
+      return style ? undefined : actual;
+    };
+    const compareWithPlaywright = async () => {
+      fence();
+      const snapshotExpect = soft ? expect.soft : expect;
+      const stylePath = style ? `${directory}/${name}-capture.css` : undefined;
+
+      if (stylePath && style) await Bun.write(stylePath, style);
+
+      await snapshotExpect(target === 'viewport' ? page : target).toHaveScreenshot(
+        [profile, workflow, `${name}.png`],
+        { timeout: remaining(), ...screenshotTolerance, stylePath }
+      );
     };
     const compareOrUpdate = async () => {
       const path = baselinePath(profile, workflow, name);
@@ -125,19 +156,16 @@ export function screenshotAssertions(
         ? Buffer.from(await reference.arrayBuffer())
         : undefined;
 
-      if (updating) return updateReference(path, expected);
+      if (!updating)
+        assertSnapshotComparison(info.config.updateSnapshots, info.project.ignoreSnapshots);
 
-      assertSnapshotComparison(info.config.updateSnapshots, info.project.ignoreSnapshots);
+      const first = await captureReview();
 
-      if (expected && (await matchesReference(expected))) return;
+      if (updating) return updateReference(path, expected, first);
 
-      fence();
-      const snapshotExpect = soft ? expect.soft : expect;
+      if (expected && (await matchesReference(expected, first))) return;
 
-      await snapshotExpect(target === 'viewport' ? page : target).toHaveScreenshot(
-        [profile, workflow, `${name}.png`],
-        { timeout: remaining(), ...screenshotTolerance }
-      );
+      await compareWithPlaywright();
     };
     let timer: ReturnType<typeof setTimeout> | undefined;
 

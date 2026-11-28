@@ -14,7 +14,6 @@ export const assistantToolNameSchema = Schema.Literals([
   'update_review_settings',
   'update_material_settings',
   'update_concurrency_settings',
-  'update_sidebar_settings',
   'update_custom_instructions',
   'list_themes',
   'read_theme',

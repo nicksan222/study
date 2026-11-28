@@ -20,7 +20,6 @@ export {
 } from 'drizzle-orm';
 export type { SQL } from 'drizzle-orm';
 
-export { defineTable, collectSchemaRegistry } from './table.ts';
 export { aiUsage } from './schema.ts';
 export { assistant_chat_starts } from './schema.ts';
 export { assistant_memory } from './schema.ts';
@@ -91,7 +90,6 @@ export { note_reply_requests } from './schema.ts';
 export { note_reply_sources } from './schema.ts';
 export { note_retired_intents } from './schema.ts';
 export { note_run_contexts } from './schema.ts';
-export { note_sidebar_preferences } from './schema.ts';
 export { note_sources } from './schema.ts';
 export { notes } from './schema.ts';
 export { page_annotation_revisions } from './schema.ts';
@@ -113,6 +111,7 @@ export { preferences } from './schema.ts';
 export { project_materials } from './schema.ts';
 export { project_notes } from './schema.ts';
 export { project_pages } from './schema.ts';
+export { project_sources } from './schema.ts';
 export { projects } from './schema.ts';
 export { reactiveGeneration } from './schema.ts';
 export { reactiveRevisions } from './schema.ts';

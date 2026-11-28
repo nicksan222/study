@@ -110,7 +110,7 @@ function WelcomeVisual({ kind }: { kind: (typeof slides)[number]['id'] }) {
         monogram={t('OnboardingSampleMonogram')}
         notesLabel={t('Notes')}
         note={t('OnboardingSampleNote')}
-        pagesLabel={t('NoteSelectionPages')}
+        pagesLabel={t('SourcePage')}
         page={t('OnboardingSamplePageTitle')}
       />
     );
@@ -134,7 +134,7 @@ function WelcomeVisual({ kind }: { kind: (typeof slides)[number]['id'] }) {
         content={t('OnboardingSamplePageBody')}
         transformLabel={t('OnboardingPreviewTransform')}
         captureLabel={t('OnboardingPreviewNotes')}
-        pagesLabel={t('NoteSelectionPages')}
+        pagesLabel={t('SourcePage')}
       />
     );
 

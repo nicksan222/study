@@ -7,24 +7,14 @@ import { useMemo } from 'react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-let attachmentState: typeof __MockType0.attachmentState;
-
-let Composer: typeof __MockType1.Composer;
-
-let composerDraft: typeof __MockType2.composerDraft;
-
 let MessageActions: typeof __MockType3.MessageActions;
 
 let messageActionDraft: typeof __MockType4.messageActionDraft;
 
-import type * as __MockType0 from './attachments';
-import type * as __MockType1 from './composer';
-import type * as __MockType2 from './composer.queries';
 import type * as __MockType3 from './message-actions';
 import type * as __MockType4 from './message-actions.queries';
 import type * as NoteQueries from './note-workspace.queries';
 import type * as __MockType5 from './note-workspace.queries';
-import type * as __MockType6 from './transformation';
 
 let activateVersion: typeof __MockType5.activateVersion;
 
@@ -35,12 +25,6 @@ let editNote: typeof __MockType5.editNote;
 let reanswerNote: typeof __MockType5.reanswerNote;
 
 let rewriteNote: typeof __MockType5.rewriteNote;
-
-let saveNote: typeof __MockType5.saveNote;
-
-let uploadSource: typeof __MockType5.uploadSource;
-
-let NoteRuns: typeof __MockType6.NoteRuns;
 
 let rpc: ReturnType<typeof createMockState>['rpc'];
 
@@ -103,21 +87,7 @@ function CanvasProvider({
           'notes.message': rpc.message,
           'notes.setItemArchived': rpc.archive,
           'notes.noteSelection': async () => ({ revision: 8n, targets: [] }),
-          'notes.noteGenerations': ({ before, limit }) => rpc.pages(before, limit),
-          'workflows.executions': async () => ({ items: [], next: null }),
-          'pages.transform': async ({ requestId }) => ({
-            id: requestId,
-            title: 'Retained generation title',
-            instruction: '',
-            contextRequestId: 'capture',
-            operations: ['clarity'],
-            noteId: id,
-            eventId: requestId,
-            errorKind: null,
-            cancelled: true,
-            resultVersionId: null,
-            report: null
-          })
+          'workflows.executions': async () => ({ items: [], next: null })
         },
         registry
       ),
@@ -152,7 +122,6 @@ function createMockState(mock: test.Mock) {
   return {
     rpc: (() => ({
       message: mock.fn(),
-      pages: mock.fn(),
       archive: mock.fn(),
       convert: mock.fn(),
       strategies: mock.fn()
@@ -169,18 +138,11 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
   }));
-  mock('#client/features/document-editing/proposal-review', () => ({
-    ProposalReview: ({ requestId }: { requestId: string }) => (
-      <div data-testid="proposal">{requestId}</div>
-    )
-  }));
   mock('#client/features/note-workspace/note-workspace.queries', async (load) => {
     const actual = await load<typeof NoteQueries>();
 
     return {
       ...actual,
-      uploadSource: mock.fn(),
-      saveNote: mock.fn(),
       ask: mock.fn(),
       editNote: mock.fn(),
       rewriteNote: mock.fn(),
@@ -188,15 +150,7 @@ test.unit.beforeEach(async ({ mock }) => {
       activateVersion: mock.fn()
     };
   });
-  const __mockModule0 = await import('./attachments');
 
-  attachmentState = __mockModule0.attachmentState;
-  const __mockModule1 = await import('./composer');
-
-  Composer = __mockModule1.Composer;
-  const __mockModule2 = await import('./composer.queries');
-
-  composerDraft = __mockModule2.composerDraft;
   const __mockModule3 = await import('./message-actions');
 
   MessageActions = __mockModule3.MessageActions;
@@ -210,11 +164,6 @@ test.unit.beforeEach(async ({ mock }) => {
   editNote = __mockModule5.editNote;
   reanswerNote = __mockModule5.reanswerNote;
   rewriteNote = __mockModule5.rewriteNote;
-  saveNote = __mockModule5.saveNote;
-  uploadSource = __mockModule5.uploadSource;
-  const __mockModule6 = await import('./transformation');
-
-  NoteRuns = __mockModule6.NoteRuns;
 });
 
 test.unit.beforeEach(({ vi }) => {
@@ -223,122 +172,12 @@ test.unit.beforeEach(({ vi }) => {
   rpc.strategies.mockResolvedValue([
     { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
   ]);
-  rpc.pages.mockResolvedValue({ items: [], next: null });
 });
 test.unit.afterEach(({ cleanup }) => {
   cleanup();
 
   for (const client of clients.splice(0)) client.dispose();
 });
-
-test.unit.stable(
-  'keeps an uncertain upload across remount and never automatically creates it twice',
-  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
-    vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-    const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-        target: { files: [new File(['notes'], 'notes.txt')] }
-      });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findByText('NoteUploadUncertain');
-    expect(uploadSource).toHaveBeenCalledTimes(1);
-    first.unmount();
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />, first.client);
-    expect(screen.getByText('notes.txt')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(uploadSource).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-  }
-);
-
-test.unit.stable(
-  'sends attachment-only notes with accepted source IDs and does not upload again on send',
-  async ({ vi, act, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    vi.mocked(saveNote).mockResolvedValue(message);
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-    await act(async () => {
-      fireEvent.drop(screen.getByRole('region', { name: 'NoteCompose' }), {
-        dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
-      });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findByText('NoteFileAccepted');
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, '', [44n]));
-    await waitFor(() => expect(screen.queryByText('notes.txt')).not.toBeInTheDocument());
-    expect(uploadSource).toHaveBeenCalledTimes(1);
-    expect(ask).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'keeps upload ownership while a receipt arrives after unmount',
-  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
-    let accept!: (value: Awaited<ReturnType<typeof uploadSource>>) => void;
-
-    vi.mocked(uploadSource).mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          accept = resolve;
-        })
-    );
-    const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-        target: { files: [new File(['n'], 'n.txt')] }
-      });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    first.unmount();
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />, first.client);
-    expect(screen.getByText('NoteUploading')).toBeVisible();
-    await act(async () => accept({ id: 45n } as Awaited<ReturnType<typeof uploadSource>>));
-    await screen.findByText('NoteFileAccepted');
-    expect(first.client.get(attachmentState(id))).toEqual([
-      expect.objectContaining({ sourceId: 45n, state: 'ready' })
-    ]);
-    expect(uploadSource).toHaveBeenCalledTimes(1);
-  }
-);
-
-test.unit.stable(
-  'retains a definite rejection and only retries after a deliberate click',
-  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
-    vi.mocked(uploadSource)
-      .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported'))
-      .mockResolvedValueOnce({ id: 46n } as Awaited<ReturnType<typeof uploadSource>>);
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-        target: { files: [new File(['n'], 'n.txt')] }
-      });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findByText('NoteFileRejected');
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findByText('NoteFileAccepted');
-    expect(uploadSource).toHaveBeenCalledTimes(2);
-  }
-);
 
 test.unit.stable.for([
   ['NoteImprove', 'improve'],
@@ -575,123 +414,6 @@ test.unit.stable(
     mount({ render, rpcHandlersTransport }, actions(), client);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(ask).toHaveBeenCalledExactlyOnceWith(input));
-    expect(saveNote).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals',
-  async ({ expect, screen, act, fireEvent, render, rpcHandlersTransport }) => {
-    const run = {
-      requestId: 'request-z',
-      contextRequestId: null,
-      state: 'available',
-      cancelled: false,
-      resultVersionId: null,
-      proposedVersionId: 90n,
-      baseVersionId: 89n
-    };
-
-    rpc.pages.mockImplementation((before, limit) =>
-      Promise.resolve(
-        before || limit > 30
-          ? {
-              items: [
-                {
-                  ...run,
-                  requestId: 'retired-a',
-                  state: 'retired',
-                  proposedVersionId: null,
-                  baseVersionId: null
-                }
-              ],
-              next: null
-            }
-          : {
-              items: [
-                run,
-                {
-                  ...run,
-                  requestId: 'unavailable-b',
-                  state: 'unavailable',
-                  proposedVersionId: null
-                }
-              ],
-              next: 'request-z'
-            }
-      )
-    );
-    mount({ render, rpcHandlersTransport }, <NoteRuns id={id} />);
-    expect(await screen.findByTestId('proposal')).toHaveTextContent('request-z');
-    expect(screen.getAllByText('NoteContextUnavailable')[0]).toBeVisible();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findAllByText('NoteRunRetired');
-    expect(rpc.pages).toHaveBeenCalledWith(undefined, 60);
-    expect(screen.queryByTestId('proposal')).toBeNull();
-  }
-);
-
-test.unit.stable(
-  'captures accepted files and plain text together without requesting a reply',
-  async ({ vi, fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    vi.mocked(saveNote).mockResolvedValue(message);
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-      target: { files: [new File(['n'], 'n.txt')] }
-    });
-    await screen.findByText('NoteFileAccepted');
-    fireEvent.change(screen.getByRole('textbox'), {
-      target: { value: 'Keep this with the lecture' }
-    });
-    expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() =>
-      expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Keep this with the lecture', [47n])
-    );
-    expect(ask).not.toHaveBeenCalled();
-    expect(uploadSource).toHaveBeenCalledTimes(1);
-  }
-);
-
-test.unit.stable(
-  'keeps the original note and source payload after an uncertain post without replay',
-  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 48n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-    const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-        target: { files: [new File(['n'], 'n.txt')] }
-      });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findByText('NoteFileAccepted');
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await screen.findByText('NoteNoteUncertain');
-    first.unmount();
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />, first.client);
-    expect(first.client.get(composerDraft(id))).toMatchObject({
-      noteAttempt: '',
-      noteSourceIds: [48n]
-    });
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(saveNote).toHaveBeenCalledTimes(1);
-    expect(uploadSource).toHaveBeenCalledTimes(1);
   }
 );
 
@@ -725,32 +447,6 @@ test.unit.stable(
     expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
-  }
-);
-
-test.unit.stable(
-  'puts the saved task title above technical run details without inventing a date',
-  async ({ expect, screen, render, rpcHandlersTransport }) => {
-    rpc.pages.mockResolvedValue({
-      items: [
-        {
-          requestId: 'technical-request-identity',
-          contextRequestId: null,
-          state: 'available',
-          cancelled: true,
-          resultVersionId: null,
-          proposedVersionId: null,
-          baseVersionId: null
-        }
-      ],
-      next: null
-    });
-    mount({ render, rpcHandlersTransport }, <NoteRuns id={id} />);
-    expect(await screen.findByText('Retained generation title')).toBeVisible();
-    const identity = screen.getByText('technical-request-identity');
-
-    expect(identity.closest('details')).not.toHaveAttribute('open');
-    expect(identity.closest('section')?.querySelector('time')).toBeNull();
   }
 );
 
@@ -1185,28 +881,6 @@ test.unit.stable(
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(rpc.convert).toHaveBeenCalledTimes(2));
     expect(rpc.convert.mock.calls[1][0]).toEqual(rpc.convert.mock.calls[0][0]);
-  }
-);
-
-test.unit.stable.for(['Copied text', ''])(
-  'pasting files retains the clipboard text payload %j',
-  async (text, { vi, fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
-    const file = new File(['pdf'], 'pasted.pdf', { type: 'application/pdf' });
-
-    vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
-    const accepted = fireEvent.paste(screen.getByRole('textbox'), {
-      clipboardData: {
-        files: [file],
-        getData: (kind: string) => (kind === 'text/plain' ? text : '')
-      }
-    });
-
-    expect(accepted).toBe(!!text);
-    await waitFor(() => expect(uploadSource).toHaveBeenCalledWith(file));
   }
 );
 

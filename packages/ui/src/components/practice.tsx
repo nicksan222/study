@@ -163,7 +163,11 @@ function ChoiceOption({
         ) : (
           <Practice.MutedText>{status}</Practice.MutedText>
         ))}
-      {selected && <CorrectIcon aria-hidden="true" data-feedback={Boolean(tone)} />}
+      {tone === 'incorrect' ? (
+        <IncorrectIcon aria-hidden="true" />
+      ) : (
+        (selected || tone) && <CorrectIcon aria-hidden="true" />
+      )}
     </Practice.Choice>
   );
 }

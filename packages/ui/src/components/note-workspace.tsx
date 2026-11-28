@@ -1,7 +1,6 @@
 import type { ComponentPropsWithRef } from 'react';
 
 import { ActionGroup } from './action-group';
-import { Button } from './button';
 import { semanticPart as part } from './semantic-part';
 import { Textarea } from './textarea';
 
@@ -9,17 +8,9 @@ function BlockText(props: Omit<ComponentPropsWithRef<typeof Textarea>, 'classNam
   return <Textarea {...props} className="note-block-text" />;
 }
 
-function TransformOperation(props: Omit<ComponentPropsWithRef<typeof Button>, 'className'>) {
-  return <Button {...props} className="note-transform-operation" />;
-}
-
 export const Notebook = {
   SectionTitle: part('h3', 'note-section-title'),
   FieldHeading: part('div', 'note-field-heading'),
-  TransformOperations: part('div', 'note-transform-operations'),
-  TransformOperation,
-  Attachments: part('div', 'note-attachments'),
-  FileButton: part('label', 'note-file-button'),
   AttemptRecovery: part('section', 'note-attempt-recovery'),
   Workspace: part('section', 'note-workspace'),
   Canvas: part('div', 'note-canvas'),
@@ -52,18 +43,10 @@ export const Notebook = {
   BatchDeletionItem: part('section', 'note-batch-deletion-item'),
   PageNotes: part('section', 'page-notes'),
   PageSourceList: part('ul', 'page-source-list'),
-  Preferences: part('details', 'note-preferences'),
-  ComposerFooter: part('div', 'note-composer-footer'),
-  Composer: part('div', 'note-composer'),
   Section: part('details', 'note-section'),
-  TransformResult: part('div', 'note-transform-result'),
-  Runs: part('section', 'note-runs'),
-  TransformRun: part('section', 'note-transform-run'),
-  RunHeading: part('header', 'note-run-heading'),
   Page: part('section', 'note-page'),
   PageNavigation: part('div', 'note-page-navigation'),
   PageHeading: part('header', 'note-page-heading'),
-  CaptureTools: part('div', 'note-capture-tools'),
   NotesHeading: part('div', 'note-notes-heading'),
   IndexTarget: part('div', 'note-index-target'),
   History: part('section', 'note-history'),

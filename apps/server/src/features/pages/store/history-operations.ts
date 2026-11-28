@@ -75,12 +75,16 @@ export function makePageHistory(resources: StoreResources) {
               orm.select().from(s.page_versions).where(eq(s.page_versions.id, id)).get()
                 ?.page_id !== pageId
           );
-        const captured =
-          orm
-            .select()
-            .from(s.note_context_pages)
-            .where(eq(s.note_context_pages.version_id, x.id))
-            .get() !== undefined;
+        const captured = orm.get(sql`
+          SELECT 1 FROM ${s.note_context_pages} WHERE version_id=${x.id}
+          UNION ALL
+          SELECT 1 FROM ${s.page_transform_requests} r
+          JOIN json_each(r.request, '$.studyNotes.inputs') j
+          WHERE r.cancelled=0 AND r.result_version_id IS NULL
+            AND json_extract(j.value, '$.kind')='page'
+            AND json_extract(j.value, '$.versionId')=CAST(${x.id} AS TEXT)
+          LIMIT 1
+        `);
 
         return (
           captured ||
@@ -207,6 +211,8 @@ export function makePageHistory(resources: StoreResources) {
           report: null,
           request: sql`CASE WHEN json_type(${requests.request},'$.merge')='object'
             THEN json_set(${requests.request},'$.title','-','$.merge.title','-','$.merge.instruction','')
+            WHEN json_type(${requests.request},'$.studyNotes')='object'
+            THEN json_set(${requests.request},'$.title','-','$.studyNotes.title','-','$.studyNotes.instruction','')
             ELSE json_set(${requests.request},'$.title','-') END`
         })
         .where(

@@ -3,6 +3,7 @@ import {
   AppearanceIcon,
   GeneralSettingsIcon,
   FlashcardsIcon,
+  PageIcon,
   DataStorageIcon,
   ProjectIcon,
   WritingIcon,
@@ -39,7 +40,6 @@ import { AnalyticsSettings } from './analytics';
 import { AppearanceStatus } from './appearance-status';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';
-import { SidebarSettings } from './general/sidebar-settings';
 import { IntegrationsSettings } from './integrations';
 import { InterfaceSettings, NoteAppearanceSettings } from './interface-settings';
 import { PerformanceSettings } from './performance';
@@ -95,7 +95,6 @@ const sections = [
       'TextSize',
       'AppearanceNotes',
       'AppearanceNoteWidth',
-      'AppearanceNoteComposer',
       'AppearanceNoteEditorDock'
     ]
   },
@@ -107,9 +106,7 @@ const sections = [
       'WorkspaceSidebarTitle',
       'WorkspaceDensity',
       'WorkspaceTimeFormat',
-      'WorkspacePageCounts',
-      'SidebarCompactNavigation',
-      'SidebarSettledThreshold'
+      'SidebarCompactNavigation'
     ]
   },
   {
@@ -120,7 +117,6 @@ const sections = [
       'WorkspaceAutosave',
       'WorkspaceSpellcheck',
       'WorkspaceEditorFont',
-      'WorkspaceEnterCapture',
       'WorkspaceExpandPages'
     ]
   },
@@ -195,6 +191,12 @@ const sections = [
       'PerformanceSettingsParallel',
       'PerformanceSettingsQueue'
     ]
+  },
+  {
+    id: 'study_notes',
+    label: 'PracticeStudyNotesTitle',
+    Icon: PageIcon,
+    keywords: ['AgentRulesPages', 'AgentRulesPagesHelp']
   },
   {
     id: 'flashcards',
@@ -294,7 +296,15 @@ const navigationGroups = [
   },
   {
     label: 'Practice',
-    ids: ['flashcards', 'quizzes', 'fill_blank', 'ordering', 'matching', 'true_false']
+    ids: [
+      'study_notes',
+      'flashcards',
+      'quizzes',
+      'fill_blank',
+      'ordering',
+      'matching',
+      'true_false'
+    ]
   },
   { label: 'SettingsGroupLibrary', ids: ['projects', 'data', 'integrations'] }
 ] as const satisfies readonly { label: StaticMessageKey; ids: readonly SettingsSectionId[] }[];
@@ -451,12 +461,7 @@ function SectionContent({
     appearance: <AppearanceContent model={model} search={search} />,
     general: <GeneralSettings />,
     updates: <UpdatesSettings />,
-    sidebar: (
-      <>
-        <SidebarDisplaySettings />
-        <SidebarSettings />
-      </>
-    ),
+    sidebar: <SidebarDisplaySettings />,
     writing: <WritingSettings />,
     voice: <VoiceSettings />,
     reading: <ReadingSettings />,
@@ -468,6 +473,7 @@ function SectionContent({
     analytics: <AnalyticsSettings />,
     usage: <UsageSettings />,
     activity: <AiActivitySettings />,
+    study_notes: <AgentRulesSettings studyNotes />,
     flashcards: <StudySettings />,
     quizzes: <QuizSettings />,
     fill_blank: <QuizSettings kind="fill_blank" />,

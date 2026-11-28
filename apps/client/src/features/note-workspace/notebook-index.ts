@@ -1,10 +1,21 @@
-import type { NoteId, PageId, MessageId, PartId, ChatMessage, PageSummary } from '@study/contracts';
+import { notebookBodyCaptureKey } from '@study/contracts';
+import type { NoteId, PageId, MessageId, ChatMessage, PageSummary } from '@study/contracts';
 
 export const notebookTargetId = (
   noteId: NoteId,
-  kind: 'message' | 'page' | 'attachment',
-  id: MessageId | PageId | PartId
+  kind: 'message' | 'page',
+  id: MessageId | PageId
 ) => `notebook-${noteId}-${kind}-${id}`;
+
+function isVisibleNotebookMessage(message: ChatMessage) {
+  if (message.captureKey === notebookBodyCaptureKey) return false;
+
+  return (
+    message.role !== 'user' ||
+    !message.parts.length ||
+    message.versions.some((version) => version.text.trim())
+  );
+}
 
 /** Both the board and its index use the same loaded, current-note timeline. */
 
@@ -12,7 +23,7 @@ export function notebookMessages(noteId: NoteId, messages: readonly ChatMessage[
   return [
     ...new Map(
       messages
-        .filter((message) => message.noteId === noteId)
+        .filter((message) => message.noteId === noteId && isVisibleNotebookMessage(message))
         .map((message) => [message.id, message])
     ).values()
   ].toSorted((a, b) =>

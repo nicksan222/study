@@ -236,7 +236,7 @@ function PageCopyStatus({ view }: { view: PageEditor }) {
       )}
       {comparison && <ComparisonView value={comparison} />}
       {savedCopy && (
-        <Link to="/pages/$pageId" params={{ pageId: savedCopy }} search={{}}>
+        <Link to="/practice/study-notes/$pageId" params={{ pageId: savedCopy }} search={{}}>
           {t('PageOpenCopy')}
         </Link>
       )}

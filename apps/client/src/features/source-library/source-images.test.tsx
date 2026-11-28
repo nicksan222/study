@@ -1,4 +1,4 @@
-import { StudyError, contentSnapshotIdSchema, noteIdSchema, createBlock } from '@study/contracts';
+import { StudyError, contentSnapshotIdSchema, createBlock } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
@@ -10,7 +10,7 @@ import { authoredPage } from '../document-editing/test-support';
 import { importedSource, materialRpc } from '../material-library/test/support';
 import { SourcePanel } from './source-panel';
 
-for (const context of ['current', 'historical', 'note'] as const)
+for (const context of ['current', 'historical', 'materials'] as const)
   test.unit.stable(
     `renders retained source images in ${context}, isolates retry and cleans URLs across extraction identities`,
     async ({ vi, rpcHandlersTransport, render, screen, waitFor, expect, userEvent }) => {
@@ -76,7 +76,7 @@ for (const context of ['current', 'historical', 'note'] as const)
       const props = {
         sourceId,
         exact: context === 'historical' ? { revision: 1n, snapshotId: base.snapshotId } : undefined,
-        noteId: context === 'note' ? Schema.decodeUnknownSync(noteIdSchema)(3n) : undefined,
+        presentation: context === 'materials' ? ('materials' as const) : undefined,
         onOpenPage: vi.fn()
       };
       const view = render(
@@ -86,6 +86,13 @@ for (const context of ['current', 'historical', 'note'] as const)
       );
 
       try {
+        const user = userEvent.setup();
+
+        if (context === 'materials')
+          await user.click(
+            await screen.findByRole('button', { name: catalogs.english.UploadedMaterialsText })
+          );
+
         await screen.findByRole('img', { name: 'Replacement figure' });
 
         await waitFor(() =>
@@ -97,9 +104,9 @@ for (const context of ['current', 'historical', 'note'] as const)
 
         const url = screen.getByRole('img', { name: 'Replacement figure' }).getAttribute('src');
 
-        await userEvent
-          .setup()
-          .click(await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
+        await user.click(
+          await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage })
+        );
         await waitFor(() =>
           expect(screen.getByRole('img', { name: 'Exact original figure' })).toHaveAttribute(
             'src',

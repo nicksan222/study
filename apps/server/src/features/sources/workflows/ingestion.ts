@@ -26,6 +26,7 @@ import { decoderPath } from '#server/features/sources/decoders/capability';
 import { DEFAULT_MAX_BYTES, checkInput } from '#server/features/sources/decoders/common';
 import { decodeHtml } from '#server/features/sources/decoders/html';
 import { decodeOffice } from '#server/features/sources/decoders/office';
+import { decodeSpreadsheet } from '#server/features/sources/decoders/spreadsheet';
 import { decodeText } from '#server/features/sources/decoders/text';
 import { visionDocument } from '#server/features/sources/decoders/vision';
 import { Sources } from '#server/features/sources/service/index';
@@ -173,11 +174,13 @@ export const sourceIngestionHandler = ({
         }
 
         if (isOffice()) {
-          const kind = input.kind as 'document' | 'slides';
+          const kind = input.kind as 'document' | 'slides' | 'spreadsheet';
 
           return yield* Effect.tryPromise({
             try: (signal) => {
               checkInput(input.bytes, DEFAULT_MAX_BYTES, signal);
+
+              if (kind === 'spreadsheet') return decodeSpreadsheet(input.bytes, signal);
 
               return decodeOffice({ bytes: input.bytes, kind }, signal);
             },

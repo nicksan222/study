@@ -2,24 +2,14 @@ import type { ProjectId, NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 
-import { uploadSource } from './note-workspace.queries';
-
-type CreationFlow = { id?: NoteId; uncertain?: boolean; pending?: boolean };
+type CreationFlow = { id?: NoteId; scope?: string | null; uncertain?: boolean; pending?: boolean };
 
 export const creationFlow = Atom.make<CreationFlow>({}).pipe(Atom.keepAlive);
 
-/** Capture the originating draft and files before starting independent uploads. */
-export async function startNote(input: {
-  project?: ProjectId;
-  draftKey: string;
-  filesKey: string;
-  text: string;
-  files: File[];
-}) {
-  const sources = await Promise.all(input.files.map(uploadSource));
-
+/** Save the writing draft as the initial version of the notebook body. */
+export async function startNote(input: { project?: ProjectId; draftKey: string; text: string }) {
   return rpc.notes.createUntitledNote.call({
     project: input.project,
-    initialMessage: { text: input.text, sourceIds: sources.map((source) => source.id) }
+    initialMessage: { text: input.text, notebookBody: true }
   });
 }

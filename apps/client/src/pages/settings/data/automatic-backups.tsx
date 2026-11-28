@@ -414,7 +414,6 @@ function BackupReceipt({
       >
         <Settings.Actions>
           <Button
-            size="sm"
             variant="outline"
             disabled={disabled}
             onClick={onEdit}
@@ -423,7 +422,7 @@ function BackupReceipt({
             {t(editing ? 'Cancel' : 'DataAutoBackupChange')}
           </Button>
           {!editing && (
-            <Button size="sm" variant="default" disabled={disabled} onClick={runNow}>
+            <Button variant="default" disabled={disabled} onClick={runNow}>
               {t('DataAutoBackupRun')}
             </Button>
           )}

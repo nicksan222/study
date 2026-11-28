@@ -1,7 +1,6 @@
 /** @file Owns context within this feature. */
 
 import type {
-  ContentInput,
   captureNoteContextSchema,
   noteContextIntentSchema,
   updateNoteSelectionSchema
@@ -150,7 +149,10 @@ export function assertCapturedTarget(tx: Transaction, target: typeof resolvedSel
 
 /** Availability checked immutable context, composed inside another feature transaction. */
 
-export function inputIsCurrent(tx: Transaction, input: ContentInput) {
+export function inputIsCurrent(
+  tx: Transaction,
+  input: (typeof updateNoteSelectionSchema.Type.targets)[number]['input']
+) {
   if (input.kind === 'page') {
     const version = Pages.versionInTransaction(tx, input.versionId);
 

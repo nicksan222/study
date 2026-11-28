@@ -1,8 +1,10 @@
 import { RegistryContext, useAtom } from '@effect/atom-react';
-import type { SourceId, NoteId, ContentSnapshotId, sourceCopySchema, Page } from '@study/contracts';
+import type { SourceId, ContentSnapshotId, sourceCopySchema, Page, Source } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';
+
+import { describeExtractionJob, isPublished } from './extraction-job';
 
 /** Current and pinned extraction reads never borrow another revision's body. */
 export function useSourceExtraction(
@@ -18,38 +20,80 @@ export function useSourceExtraction(
   return exact ? pinned : current;
 }
 
+const extractionWorkflows = ['source-ingestion/v1', 'source-correction/v1'];
+
 /** The bounded live workflow view follows the source's current request identity. */
-export function useSourceProcessingExecution(id: SourceId) {
-  const processing = rpc.sources.sourceProcessing.useQuery({ id });
+export function useSourceProcessingExecution(id: SourceId, enabled = true) {
+  const processing = rpc.sources.sourceProcessing.useQuery({ id }, { enabled });
+  const correlationId = processing.data?.requestId ?? undefined;
   const executions = rpc.workflows.executions.useQuery(
-    {
-      correlationId: processing.data?.requestId ?? undefined,
-      workflows: ['source-ingestion/v1', 'source-correction/v1'],
-      limit: 1
-    },
-    { enabled: !!processing.data?.requestId }
+    { correlationId, workflows: extractionWorkflows, limit: 1 },
+    { enabled: enabled && correlationId !== undefined }
   );
-  const state = processing.isError || processing.isPending ? processing : executions;
 
   return {
-    ...state,
+    processing: processing.data,
+    isPending: processing.isPending || (correlationId !== undefined && executions.isPending),
+    isError: processing.isError || (correlationId !== undefined && executions.isError),
     data: executions.data?.items.find(
-      (item) => item.workflow === 'source-ingestion/v1' || item.workflow === 'source-correction/v1'
+      (item) => item.correlationId === correlationId && extractionWorkflows.includes(item.workflow)
     )
   };
+}
+
+type ProcessingExecution = ReturnType<typeof useSourceProcessingExecution>;
+
+function capabilityReason(state: ProcessingExecution) {
+  if (isPublished(state.processing)) return;
+
+  if (state.data?.failureKind === 'unsupported') return 'retry';
+
+  if (!state.data && !state.isPending && !state.isError && state.processing?.requestedAtMs == null)
+    return 'classify';
+}
+
+function useExtractionCapability(
+  source: Source | undefined,
+  state: ProcessingExecution,
+  enabled: boolean
+) {
+  const reason = enabled && source && source.kind !== 'link' ? capabilityReason(state) : undefined;
+  const capability = rpc.sources.importCapability.useQuery(
+    source ? { kind: source.kind, mime: source.mime } : undefined,
+    { enabled: reason !== undefined }
+  );
+
+  return {
+    capability: reason ? capability.data : undefined,
+    pending: reason === 'classify' && capability.isPending,
+    unavailable: reason === 'classify' && capability.isError
+  };
+}
+
+export function useExtractionJob(id: SourceId, source?: Source, enabled = true) {
+  const state = useSourceProcessingExecution(id, enabled);
+  const capability = useExtractionCapability(source, state, enabled);
+
+  return describeExtractionJob({
+    processing: state.processing,
+    execution: state.data,
+    capability: capability.capability,
+    pending: state.isPending || capability.pending,
+    unavailable: state.isError || capability.unavailable
+  });
 }
 
 type Input = typeof sourceCopySchema.Type;
 
 type CopyState = { pending: boolean; input?: Input; page?: Page; error?: unknown };
 
-const copies = Atom.family((_key: string) =>
+const copies = Atom.family((_id: SourceId) =>
   Atom.make<CopyState>({ pending: false }).pipe(Atom.keepAlive)
 );
 
 /** An immutable draft request survives reconnects until its receipt is acknowledged. */
-export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
-  const atom = copies(`${sourceId}:${noteId ?? ''}`);
+export function useSourceCopy(sourceId: SourceId) {
+  const atom = copies(sourceId);
   const registry = useContext(RegistryContext);
   const [state, setState] = useAtom(atom);
 
@@ -66,7 +110,6 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
 
     const input = current.input ?? {
       sourceId,
-      noteId,
       createKey: crypto.randomUUID(),
       title: extraction.name,
       revision: extraction.revision,
@@ -94,5 +137,16 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
     if (current.page && !current.pending) setState({ pending: false });
   }
 
-  return { ...state, copy, acknowledge };
+  async function open(
+    extraction: Parameters<typeof copy>[0] | null | undefined,
+    onOpen: (page: Page) => void
+  ) {
+    if (!extraction) return;
+
+    const page = await copy(extraction);
+
+    if (page) onOpen(page);
+  }
+
+  return { ...state, copy, open, acknowledge };
 }

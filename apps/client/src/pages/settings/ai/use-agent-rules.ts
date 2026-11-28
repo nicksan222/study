@@ -6,9 +6,10 @@ import { useState } from 'react';
 import { useSettingsAutosave } from '#client/lib/settings-autosave.ts';
 
 /** Keeps task drafts until a confirmed save, including across refetches and failed mutations. */
-export function useAgentRules() {
+export function useAgentRules(locked?: AgentRule) {
   const query = rpc.settings.agentRules.useQuery({});
-  const [selected, setSelected] = useState<AgentRule>(AgentRule.Pages);
+  const [active, setSelected] = useState<AgentRule>(AgentRule.Pages);
+  const selected = locked ?? active;
   const [draft, setDraft] = useState<Partial<AgentRules>>({});
   const write = rpc.settings.saveAgentRules.useMutation();
   const autosave = useSettingsAutosave(() => rpc.settings.agentRules.read({}), write.mutateAsync);

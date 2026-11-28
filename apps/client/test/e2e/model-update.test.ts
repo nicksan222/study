@@ -73,6 +73,7 @@ function waitForNoticeSnapshot(page: Page) {
 }
 
 test.browser.use({
+  modelUpdateNotices: true,
   chatGpt: {
     chatGptReleases: [
       { model: earlier.model, text: earlier.title },
@@ -120,6 +121,7 @@ test.browser.stable(
     await page.setViewportSize({ width: 1120, height: 760 });
     await page.goto(`/notes/${note.id}`);
     const viewport = page.locator('.ui-toast-viewport');
+    const notebookScroll = page.locator('[data-notebook-scroll-host]');
     const title = (text: string) => page.getByText(text, { exact: true }).first();
     const announcement = viewport.getByText(english.ModelUpdateAvailable, { exact: true });
 
@@ -129,6 +131,7 @@ test.browser.stable(
     await expect(announcement).toHaveCount(0);
     await expectScreenshot('before-update', {
       target: 'viewport',
+      scrollToEnd: notebookScroll,
       zoomPercent: 100,
       ready: () => expect(title(earlier.title)).toBeVisible()
     });
@@ -147,6 +150,7 @@ test.browser.stable(
 
     await expectScreenshot('updated-on-desktop', {
       target: 'viewport',
+      scrollToEnd: notebookScroll,
       zoomPercent: 100,
       ready: () => expect(viewport.getByText(description, { exact: true })).toBeVisible()
     });

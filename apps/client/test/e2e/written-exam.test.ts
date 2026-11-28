@@ -85,6 +85,7 @@ async function checkSetupKeyboard(
   const sources = setup.getByRole('switch').first();
 
   await expect(setup).toHaveCSS('width', '368px');
+  await format.scrollIntoViewIfNeeded();
   expect((await format.boundingBox())!.y).toBeLessThan((await sources.boundingBox())!.y);
   await expectScreenshot('setup-tablet-pinched', {
     target: setup,
@@ -231,7 +232,7 @@ async function startExam(
   if (language === 'english') await expect(answer).toBeFocused();
   else {
     await expect(exam).toBeVisible();
-    expect(await exam.boundingBox()).toMatchObject({ x: 0, width: viewport.width });
+    await expect.poll(() => exam.boundingBox()).toMatchObject({ x: 0, width: viewport.width });
     await expect(send).toBeInViewport();
   }
 

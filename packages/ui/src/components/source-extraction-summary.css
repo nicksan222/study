@@ -1,0 +1,21 @@
+[data-materials-reader] .material-extraction-summary {
+  display: flex;
+  flex: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  padding-block: 0.75rem 0;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+[data-materials-reader] .material-extraction-summary > p {
+  margin: 0;
+}
+
+[data-materials-reader] .source-reader-details .material-extraction-summary {
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}

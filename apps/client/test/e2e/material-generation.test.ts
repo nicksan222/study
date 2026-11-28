@@ -97,13 +97,19 @@ test.browser.stable(
     await expect(details).toHaveCount(0);
 
     await page.goto(`/notes/${fixture.note.id}`);
+    const notebook = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const noteContext = page.getByRole('complementary', { name: copy.NoteContextPanel });
+
+    await expect(notebook).toBeVisible();
+    await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
     await expectScreenshot('notes-work-running', {
       target: 'viewport',
       ready: async () => {
-        await expect(page.getByRole('region', { name: copy.NoteNotebook })).toBeVisible();
+        await expect(notebook).toContainText('Mitosis preserves chromosome number');
         await expect(
-          page.getByRole('heading', { name: 'Cell division overview', exact: true })
+          noteContext.getByRole('heading', { name: copy.NoteWorkHeading })
         ).toBeVisible();
+        await expect(noteContext.getByText(copy.NoteWorkEmpty, { exact: true })).toBeVisible();
       }
     });
     await page.goto(practice);
@@ -428,9 +434,13 @@ test.browser.stable(
 );
 
 test.browser.stable(
-  'Quiz generation uses the selected notes and saved question settings',
+  'Generate a quiz from a note and an uploaded material',
   async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
-    const fixture = await study.seed();
+    const notebookText = 'Mitosis preserves chromosome number and produces two daughter cells.';
+    const materialText = 'DNA is copied before cell division.';
+    const materialName = 'cell-cycle-handout.txt';
+    const quizTitle = 'Cell division checkpoint';
+    const fixture = await study.seed(notebookText);
 
     await study.quizPreferences({
       ...defaultQuizSettings,
@@ -444,7 +454,7 @@ test.browser.stable(
         prompt: `Title: ${copy.SidebarQuiz}\nStudent instruction (data): \nQuiz requirements: produce exactly 2 questions. Question kind: only open questions. Every choice question must contain exactly 3 answer options. Difficulty: balanced (a balance of recall, understanding and application).`
       },
       output: {
-        title: 'Cell division checkpoint',
+        title: quizTitle,
         content: {
           kind: 'quiz',
           questions: [
@@ -458,7 +468,7 @@ test.browser.stable(
               kind: 'open',
               prompt: 'When is DNA copied?',
               referenceAnswer: 'Before cell division.',
-              explanation: 'The lecture places DNA copying before division. [1]'
+              explanation: 'The handout places DNA copying before division. [2]'
             }
           ]
         }
@@ -466,11 +476,32 @@ test.browser.stable(
       hold: true
     });
 
-    await page.goto(`/practice?project=${fixture.project.id}`);
+    await page.goto(`/projects/${fixture.project.id}/uploads`);
+    await page.locator('input[type="file"]').setInputFiles({
+      name: materialName,
+      mimeType: 'text/plain',
+      buffer: Buffer.from(materialText)
+    });
+    const sidebar = page.locator('aside.study-sidebar');
+    const uploaded = sidebar.getByRole('link', { name: materialName, exact: true });
+
+    await expect(uploaded.getByText(copy.UploadedMaterialsReady, { exact: true })).toBeVisible();
+    await sidebar.getByRole('link', { name: copy.Practice }).click();
     await page.getByRole('button', { name: copy.PracticeGenerate, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.PracticeGenerate });
     const start = dialog.getByRole('button', { name: copy.PracticeGenerateStart, exact: true });
+    const generatedNotes = dialog.getByRole('switch', { name: fixture.page.title, exact: true });
+    const notebook = dialog.getByRole('switch', { name: 'Cell division lecture', exact: true });
+    const uploadedMaterial = dialog.getByRole('switch', { name: materialName, exact: true });
 
+    await expect(generatedNotes).toBeChecked();
+    await generatedNotes.click();
+    await expect(start).toBeDisabled();
+    await notebook.click();
+    await expect(notebook).toBeChecked();
+    await uploadedMaterial.click();
+    await expect(uploadedMaterial).toBeChecked();
+    await expect(generatedNotes).not.toBeChecked();
     await expect(start).toBeEnabled();
     await expectScreenshot('quiz-request', {
       target: dialog,
@@ -482,8 +513,9 @@ test.browser.stable(
     const active = await study.active(fixture.project.id);
 
     expect(active).toHaveLength(1);
+    expect(active[0]!.inputs.map((input) => input.kind)).toEqual(['note', 'source']);
     await expectScreenshot('quiz-running', {
-      target: page.locator('aside.study-sidebar'),
+      target: sidebar,
       ready: () => expect(page.getByRole('status', { name: copy.AgentRunQuiz })).toBeVisible()
     });
     generated.release();
@@ -491,12 +523,20 @@ test.browser.stable(
       .poll(async () => (await study.snapshot(active[0]!.id)).resultVersionId)
       .not.toBeNull();
     const version = await study.published(active[0]!.id);
+    const citations = await study.citations(version.id);
 
-    expect(version.content.kind).toBe('quiz');
+    expect(version.content).toMatchObject({
+      kind: 'quiz',
+      questions: [{ kind: 'open' }, { kind: 'open' }]
+    });
+    expect(citations.items.map(({ input, quote }) => [input.kind, quote])).toEqual([
+      ['note', notebookText],
+      ['source', materialText]
+    ]);
+    const published = sidebar.getByRole('link', { name: quizTitle });
 
-    if (version.content.kind === 'quiz') expect(version.content.questions).toHaveLength(2);
-
-    await page.goto(`/practice/${version.material_id}?project=${fixture.project.id}`);
+    await published.click();
+    await expect(published).toHaveAttribute('aria-current', 'page');
     await expectScreenshot('quiz-ready', {
       target: 'viewport',
       ready: () =>

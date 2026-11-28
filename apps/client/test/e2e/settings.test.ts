@@ -116,13 +116,22 @@ test.browser.stable(
 );
 
 test.browser.stable(
-  'Writing settings validate every number and apply capture and page preferences',
-  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
-    await page.goto('/notes');
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
-    const draft = 'An unsent field observation survives opening and closing settings.';
+  'Writing settings validate numbers and apply editor and page preferences',
+  async ({ page, rpc, expectScreenshot, expectAccessibility, expect }) => {
+    const draft = 'A field observation is saved directly in the notebook editor.';
+    const { id } = await rpc.runPromise(
+      rpc.client['notes.createUntitledNote']({
+        initialMessage: { notebookBody: true, text: draft }
+      })
+    );
 
-    await composer.fill(draft);
+    await page.goto('/notes/' + id);
+    const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+    const saved = page
+      .getByRole('status')
+      .filter({ hasText: new RegExp('^' + copy.NoteAutosaved + '$') });
+
+    await expect(editor).toHaveText(draft);
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
     const navigation = dialog.getByRole('navigation', { name: copy.Settings });
@@ -137,10 +146,6 @@ test.browser.stable(
     const font = dialog.getByRole('spinbutton', { name: copy.WorkspaceEditorFont, exact: true });
     const fontSection = font.locator('xpath=ancestor::section[1]');
     const spellcheck = dialog.getByRole('switch', { name: copy.WorkspaceSpellcheck, exact: true });
-    const enterCapture = dialog.getByRole('switch', {
-      name: copy.WorkspaceEnterCapture,
-      exact: true
-    });
     const expand = dialog.getByRole('switch', { name: copy.WorkspaceExpandPages, exact: true });
 
     await expect(autosave).toHaveValue('3');
@@ -148,7 +153,6 @@ test.browser.stable(
     await expect(writingSection).toHaveAttribute('aria-busy', 'false');
     await expect(fontSection).toHaveAttribute('aria-busy', 'false');
     await expect(spellcheck).toBeChecked();
-    await expect(enterCapture).not.toBeChecked();
     await expect(expand).not.toBeChecked();
     await expectScreenshot('writing-defaults', {
       target: dialog,
@@ -232,7 +236,6 @@ test.browser.stable(
 
     for (const [name, control, checked] of [
       ['spellcheck-off', spellcheck, false],
-      ['enter-capture-on', enterCapture, true],
       ['expand-pages-on', expand, true]
     ] as const) {
       await control.press('Space');
@@ -245,45 +248,44 @@ test.browser.stable(
     }
 
     await dialog.getByRole('button', { name: copy.Close }).click();
-    await expect(composer).toHaveValue(draft);
-    await expect(composer).toHaveAttribute('spellcheck', 'false');
-    await composer.press('ControlOrMeta+End');
-    await composer.press('Shift+Enter');
-    await expect(composer).toHaveValue(draft + '\n');
-    await expect(page).toHaveURL(/\/notes$/);
-    await expectScreenshot('shift-enter-keeps-starter-draft', {
-      target: 'viewport',
-      ready: () => expect(composer).toHaveValue(draft + '\n')
-    });
-    await composer.fill(draft);
-    await composer.press('Enter');
-    await expect(page).toHaveURL(/\/notes\/.+/);
-    const notebook = page.getByRole('region', { name: copy.NoteNotebook });
-    const entries = notebook.locator('.chat-message-text');
+    await expect(editor).toHaveAttribute('spellcheck', 'false');
+    await expect(editor).toHaveCSS('font-size', '24px');
+    const followup = 'Enter starts a second paragraph.';
 
-    await expect(entries).toHaveText([draft]);
-    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    await composer.fill('A second observation captured from the existing notebook.');
-    await expectScreenshot('existing-input-draft', {
+    await editor.fill('');
+    await expect(editor).toHaveText('');
+    await page.keyboard.insertText(draft);
+    await expect(editor).toHaveText(draft);
+    await page.keyboard.press('Enter');
+    await page.keyboard.insertText(followup);
+    await expect(editor.locator('p')).toHaveText([draft, followup]);
+    await expect(saved).toBeVisible({ timeout: 12_000 });
+    await expectScreenshot('editor-saves-paragraph', {
       target: 'viewport',
-      ready: () =>
-        expect(composer).toHaveValue('A second observation captured from the existing notebook.')
+      ready: () => expect(saved).toBeVisible()
     });
-    await composer.press('Enter');
-    await expect(composer).toBeHidden();
-    await expect(entries).toHaveText([
-      draft,
-      'A second observation captured from the existing notebook.'
-    ]);
-    await expectScreenshot('enter-captures-existing-note', {
-      target: 'viewport',
-      ready: () => expect(entries).toHaveCount(2)
-    });
-    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    await page.getByRole('button', { name: copy.NoteWritePage, exact: true }).click();
-    const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
-    await expect(editor).toBeVisible();
+    const pageText = 'Field observation report';
+
+    await rpc.runPromise(
+      rpc.client['notes.postMessage']({
+        noteId: id,
+        format: 'document',
+        requestReply: false,
+        text: pageText
+      })
+    );
+    const openHistoricalPage = async () => {
+      await page.getByRole('button', { name: copy.NoteActions, exact: true }).click();
+      await page
+        .getByRole('complementary', { name: copy.NoteContextPanel })
+        .getByRole('button', { name: copy.NoteHistory, exact: true })
+        .click();
+      await page.locator('.workspace-desk-page').filter({ hasText: pageText }).click();
+      await expect(editor).toBeVisible();
+    };
+
+    await openHistoricalPage();
     await expect(editor).toHaveCSS('font-size', '24px');
     await expect(
       page.getByRole('button', { name: copy.NoteRestoreEditor, exact: true })
@@ -300,7 +302,6 @@ test.browser.stable(
 
     for (const [name, control, checked] of [
       ['spellcheck-on', spellcheck, true],
-      ['enter-capture-off', enterCapture, false],
       ['expand-pages-off', expand, false]
     ] as const) {
       await control.click();
@@ -313,7 +314,6 @@ test.browser.stable(
     }
 
     await expect(spellcheck).toBeChecked();
-    await expect(enterCapture).not.toBeChecked();
     await expect(expand).not.toBeChecked();
     await expectScreenshot('writing-behaviors-restored', {
       target: dialog,
@@ -321,23 +321,9 @@ test.browser.stable(
     });
     await dialog.getByRole('button', { name: copy.Close }).click();
     await page.reload();
-    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    await expect(composer).toHaveAttribute('spellcheck', 'true');
-    await composer.fill('Enter now inserts a newline rather than capturing.');
-    await composer.press('ControlOrMeta+End');
-    await composer.press('Enter');
-    await expect(composer).toHaveValue('Enter now inserts a newline rather than capturing.\n');
-    await expect(entries).toHaveCount(2);
-    await expectScreenshot('enter-inserts-newline-after-reload', {
-      target: 'viewport',
-      ready: () => expect(entries).toHaveCount(2)
-    });
-    await composer.press('ControlOrMeta+Enter');
-    await expect(entries).toHaveCount(3);
-    await expect(composer).toBeHidden();
-    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    await page.getByRole('button', { name: copy.NoteWritePage, exact: true }).click();
-    await expect(editor).toBeVisible();
+    await expect(editor).toHaveAttribute('spellcheck', 'true');
+    await expect(editor.locator('p')).toHaveText([draft, followup]);
+    await openHistoricalPage();
     await expect(editor).toHaveCSS('font-size', '24px');
     await expect(
       page.getByRole('button', { name: copy.NoteExpandEditor, exact: true })
@@ -351,7 +337,6 @@ test.browser.stable(
     await expect(autosave).toHaveValue('8');
     await expect(font).toHaveValue('24');
     await expect(spellcheck).toBeChecked();
-    await expect(enterCapture).not.toBeChecked();
     await expect(expand).not.toBeChecked();
     await expectScreenshot('writing-persisted', {
       target: dialog,
@@ -362,170 +347,82 @@ test.browser.stable(
 );
 
 test.browser.stable(
-  'Sidebar settings apply display preferences and validate settlement limits',
-  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
+  'Sidebar settings apply density and time display to all saved notes',
+  async ({ page, rpc, expectScreenshot, expectAccessibility, expect }) => {
+    const titles = ['Field observations', 'Reading list'];
+
+    const subject = await rpc.runPromise(rpc.client['projects.createProject']({ name: 'Biology' }));
+
+    for (const title of titles) {
+      await rpc.runPromise(rpc.client['notes.createNote']({ title }));
+      await rpc.runPromise(rpc.client['notes.createNote']({ title, project: subject.id }));
+    }
+
     await page.goto('/notes');
-    await page
-      .getByRole('textbox', { name: copy.NoteCompose })
-      .fill('Sidebar presentation sample.');
-    await page.getByRole('button', { name: copy.NoteSaveNote, exact: true }).click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
-    const notePath = new URL(page.url()).pathname;
-    const row = page
+    const rows = page
       .getByRole('navigation', { name: copy.Notes, exact: true })
-      .locator(`a[href="${notePath}"]`);
+      .getByRole('link', { name: /Field observations|Reading list/ });
     const dialog = page.getByRole('dialog', { name: copy.Settings });
     const sidebar = dialog
       .getByRole('navigation', { name: copy.Settings })
       .getByRole('button', { name: copy.SettingsSidebar, exact: true });
-
-    await expect(row).toHaveAttribute('data-layout', 'detailed');
-    await expect(row.getByTitle(copy.SidebarGeneratedPages, { exact: true })).toBeVisible();
-    await expectScreenshot('sidebar-comfortable-relative-counts', {
-      target: 'viewport',
-      ready: () => expect(row).toHaveAttribute('data-layout', 'detailed')
-    });
-
-    for (const [name, density, layout, time, counts, expectedCount] of [
-      [
-        'compact-absolute-hidden-counts',
-        copy.WorkspaceCompact,
-        'compact',
-        copy.WorkspaceAbsoluteTime,
-        false,
-        0
-      ],
-      [
-        'comfortable-relative-visible-counts',
-        copy.WorkspaceComfortable,
-        'detailed',
-        copy.WorkspaceRelativeTime,
-        true,
-        1
-      ]
-    ] as const) {
+    const openSettings = async () => {
       await page.getByRole('button', { name: copy.Settings, exact: true }).click();
       await sidebar.click();
+    };
 
-      for (const [control, label, value] of [
-        ['density', copy.WorkspaceDensity, density],
-        ['time', copy.WorkspaceTimeFormat, time]
-      ] as const) {
-        const select = dialog.getByRole('combobox', { name: label, exact: true });
-
-        await select.click();
-        await expectScreenshot(`sidebar-${name}-${control}-options`, {
-          target: 'viewport',
-          ready: () => expect(page.getByRole('option', { name: value, exact: true })).toBeVisible()
-        });
-        await page.getByRole('option', { name: value, exact: true }).click();
-        await expect(select).toHaveText(value);
-        await expect(select).toBeEnabled();
-        await expectScreenshot(`sidebar-${name}-${control}-saved`, {
-          target: dialog,
-          ready: () => expect(select).toHaveText(value)
-        });
-      }
-
-      const showCounts = dialog.getByRole('switch', {
-        name: copy.WorkspacePageCounts,
-        exact: true
-      });
-
-      await showCounts.press('Space');
-      await expect(showCounts).toBeChecked({ checked: counts });
-      await expect(showCounts).toBeEnabled();
-      await expectScreenshot(`sidebar-${name}-saved`, {
-        target: dialog,
-        ready: () => expect(showCounts).toBeChecked({ checked: counts })
-      });
-      await dialog.getByRole('button', { name: copy.Close }).click();
-      await expect(row).toHaveAttribute('data-layout', layout);
-      await expect(row.getByTitle(copy.SidebarGeneratedPages, { exact: true })).toHaveCount(
-        expectedCount
-      );
-
-      if (time === copy.WorkspaceAbsoluteTime) {
-        await expect(row.locator('time')).toHaveText(
-          (await row.locator('time').getAttribute('title')) ?? ''
-        );
-      } else {
-        await expect(row.locator('time')).not.toHaveText(
-          (await row.locator('time').getAttribute('title')) ?? ''
-        );
-      }
-
-      await expectScreenshot(`sidebar-${name}-applied`, {
-        target: 'viewport',
-        ready: () => expect(row).toHaveAttribute('data-layout', layout)
-      });
-      await page.reload();
-      await expect(row).toHaveAttribute('data-layout', layout);
-      await expect(row.getByTitle(copy.SidebarGeneratedPages, { exact: true })).toHaveCount(
-        expectedCount
-      );
-    }
-
-    await page.getByRole('button', { name: copy.Settings, exact: true }).click();
-    await sidebar.click();
-    const threshold = dialog.getByRole('spinbutton', {
-      name: copy.SidebarSettledThreshold,
-      exact: true
+    await expect(rows).toHaveCount(2);
+    await expect(rows.first()).toHaveAttribute('data-layout', 'detailed');
+    await expect(rows.last()).toHaveAttribute('data-layout', 'detailed');
+    await expectScreenshot('comfortable-note-list', {
+      target: 'viewport',
+      ready: () => expect(rows).toHaveCount(2)
     });
-    const section = threshold.locator('xpath=ancestor::section[1]');
 
-    await expect(threshold).toHaveValue('1');
-    await expect(section).toHaveAttribute('aria-busy', 'false');
+    await page.goto('/projects/' + subject.id + '/notes');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.first().locator('.study-note-meta')).toContainText('Biology');
+    await expect(rows.last().locator('time')).toBeVisible();
+    await expectScreenshot('subject-note-list', {
+      target: 'viewport',
+      ready: () => expect(rows.first().locator('.study-note-meta')).toContainText('Biology')
+    });
+    await page.goto('/notes');
 
-    for (const [name, value] of [
-      ['empty', ''],
-      ['negative', '-1'],
-      ['zero', '0'],
-      ['above-maximum', '101'],
-      ['fractional', '1.5']
+    await openSettings();
+    const density = dialog.getByRole('combobox', { name: copy.WorkspaceDensity, exact: true });
+    const time = dialog.getByRole('combobox', { name: copy.WorkspaceTimeFormat, exact: true });
+
+    for (const [select, value] of [
+      [density, copy.WorkspaceCompact],
+      [time, copy.WorkspaceAbsoluteTime]
     ] as const) {
-      await threshold.fill(value);
-      await expect(threshold).toHaveAttribute('aria-invalid', 'true');
-      await expect(dialog.getByRole('alert')).toHaveText(copy.SidebarSettledValidation);
-      await expect(section).toHaveAttribute('aria-busy', 'false');
-      await expectScreenshot(`settlement-invalid-${name}`, {
-        target: dialog,
-        ready: () => expect(threshold).toHaveAttribute('aria-invalid', 'true')
-      });
-    }
-
-    await expectAccessibility('sidebar-invalid-threshold');
-
-    for (const value of ['100', '1', '7']) {
-      await threshold.fill(value);
-      await expect(threshold).toHaveAttribute('aria-invalid', 'false');
-      await expect(dialog.getByRole('alert')).toHaveCount(0);
-
-      await expect(section).toHaveAttribute('aria-busy', 'false');
-      await expect(threshold).toBeEnabled();
-      await expectScreenshot(`settlement-saved-${value}`, {
-        target: dialog,
-        ready: () => expect(threshold).toHaveValue(value)
-      });
+      await select.click();
+      await page.getByRole('option', { name: value, exact: true }).click();
+      await expect(select).toHaveText(value);
+      await expect(select).toBeEnabled();
     }
 
     await dialog.getByRole('button', { name: copy.Close }).click();
+    await expect(rows.first()).toHaveAttribute('data-layout', 'compact');
+    await expect(rows.last()).toHaveAttribute('data-layout', 'compact');
+    const timestamp = rows.first().locator('time');
+
+    await expect(timestamp).toHaveText((await timestamp.getAttribute('title')) ?? '');
+    await expectScreenshot('compact-note-list', {
+      target: 'viewport',
+      ready: () => expect(rows.first()).toHaveAttribute('data-layout', 'compact')
+    });
+
     await page.reload();
-    await page.getByRole('button', { name: copy.Settings, exact: true }).click();
-    await sidebar.click();
-    await expect(threshold).toHaveValue('7');
-    await expect(
-      dialog.getByRole('combobox', { name: copy.WorkspaceDensity, exact: true })
-    ).toHaveText(copy.WorkspaceComfortable);
-    await expect(
-      dialog.getByRole('combobox', { name: copy.WorkspaceTimeFormat, exact: true })
-    ).toHaveText(copy.WorkspaceRelativeTime);
-    await expect(
-      dialog.getByRole('switch', { name: copy.WorkspacePageCounts, exact: true })
-    ).toBeChecked();
+    await expect(rows.first()).toHaveAttribute('data-layout', 'compact');
+    await expect(rows.last()).toHaveAttribute('data-layout', 'compact');
+    await openSettings();
+    await expect(density).toHaveText(copy.WorkspaceCompact);
+    await expect(time).toHaveText(copy.WorkspaceAbsoluteTime);
     await expectScreenshot('sidebar-persisted', {
       target: dialog,
-      ready: () => expect(threshold).toHaveValue('7')
+      ready: () => expect(time).toHaveText(copy.WorkspaceAbsoluteTime)
     });
     await expectAccessibility('sidebar-persisted');
   }
@@ -559,26 +456,28 @@ test.browser.stable(
     await expect(navigation).toHaveCSS('flex-direction', 'row');
     await expect(settings).toBeFocused();
 
-    const controls = navigation.getByRole('link').or(settings);
+    const shortcuts = [copy.Notes, copy.UploadedMaterials, copy.Practice, copy.Assistant].map(
+      (name) => navigation.getByRole('link', { name, exact: true })
+    );
 
-    await expect(controls).toHaveCount(5);
-    const buttons = await controls.all();
-
-    await expect
-      .poll(async () => {
-        const boxes = await Promise.all(buttons.map((button) => button.boundingBox()));
-
-        return boxes.every((box) => box !== null && box.y === boxes[0]?.y);
-      })
-      .toBe(true);
     await expectScreenshot('compact-navigation', {
       target: bottom,
-      ready: () => expect(navigation).toHaveCSS('flex-direction', 'row')
+      ready: () =>
+        expect
+          .poll(async () => {
+            const boxes = await Promise.all(
+              [...shortcuts, settings].map((item) => item.boundingBox())
+            );
+            const settingsBox = boxes.at(-1);
+
+            return !!settingsBox && boxes.every((box) => box?.y === settingsBox.y);
+          })
+          .toBe(true)
     });
     await page.reload();
     await expect(navigation).toHaveCSS('flex-direction', 'row');
-    await navigation.getByRole('link', { name: copy.SourcePage, exact: true }).press('Enter');
-    await expect(page).toHaveURL(/\/pages$/);
+    await navigation.getByRole('link', { name: copy.Practice, exact: true }).press('Enter');
+    await expect(page).toHaveURL(/\/practice$/);
 
     await openSidebarSettings();
     await expect(toggle).toBeChecked();
@@ -1079,6 +978,17 @@ test.browser.stable(
     });
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
+    await navigation
+      .getByRole('button', { name: copy.PracticeStudyNotesTitle, exact: true })
+      .click();
+    await expect(task).toHaveCount(0);
+    await expectScreenshot('study-notes-instructions', {
+      target: dialog,
+      ready: () =>
+        expect(pages).toHaveValue(
+          `Prefer concise examples for ${copy.AgentRulesPages}.\nKeep this task-specific instruction 0.`
+        )
+    });
     await navigation.getByRole('button', { name: copy.AgentRulesTitle, exact: true }).click();
 
     for (const [index, title] of tasks.entries()) {

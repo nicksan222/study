@@ -17,21 +17,38 @@ test.browser.use({
   }
 });
 
+async function openNotebook(
+  { page, rpc, expect }: Pick<test.browser.Context, 'page' | 'rpc' | 'expect'>,
+  content: string
+) {
+  const note = await rpc.runPromise(
+    rpc.client['notes.createUntitledNote']({ initialMessage: { text: content, sourceIds: [] } })
+  );
+
+  await page.goto(`/notes/${note.id}`);
+  const body = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+
+  await expect(body).toHaveText(content);
+  await body.focus();
+  await page.keyboard.press('Control+End');
+
+  return body;
+}
+
+function persistedNote(page: test.browser.Context['page']) {
+  return page.getByRole('status').filter({ hasText: new RegExp(`^${copy.NoteAutosaved}$`) });
+}
+
 test.browser.stable(
   'Dictation preserves a note through recording failure retry and cancellation',
-  async ({ page, rpc, microphone, expect, expectScreenshot }) => {
+  async ({ page, rpc, microphone, expect, expectScreenshot, selectEditorText }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
-    await page.goto('/notes');
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const original = 'Before the dictated words. After the dictated words.';
 
-    await composer.fill(original);
-    await composer.press('Home');
+    const composer = await openNotebook({ page, rpc, expect }, original);
 
-    for (let index = 0; index < 7; index++) await composer.press('ArrowRight');
-
-    for (let index = 0; index < 18; index++) await composer.press('Shift+ArrowRight');
-
+    await expect(persistedNote(page)).toBeVisible();
+    await selectEditorText(composer, 'the dictated words');
     const recording = await microphone.start(page, {
       holdPermission: true,
       segments: { failure: { error: 'transient' } }
@@ -41,7 +58,7 @@ test.browser.stable(
     await expect(page.getByRole('status', { name: copy.VoiceStarting, exact: true })).toBeVisible();
     await expectScreenshot('opening-microphone', {
       target: 'viewport',
-      ready: () => expect(composer).toHaveValue(original)
+      ready: () => expect(composer).toHaveText(original)
     });
     await recording.allow();
     const controls = page.getByRole('group', { name: copy.VoiceTitle, exact: true });
@@ -49,11 +66,10 @@ test.browser.stable(
     await expect(controls.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeEnabled();
     await expectScreenshot('recording', {
       target: 'viewport',
-      ready: () => expect(composer).toHaveValue(original)
+      ready: () => expect(composer).toHaveText(original)
     });
     await recording.stop();
     const input = await failure.requested;
-    const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
 
     expect(input.samples.length).toBeGreaterThan(0);
     expect(input.samples.every(Number.isFinite)).toBe(true);
@@ -61,17 +77,14 @@ test.browser.stable(
     await expect(
       page.getByRole('status', { name: copy.VoiceTranscribing, exact: true })
     ).toBeVisible();
-    await expect(save).toBeDisabled();
-    await composer.press('ControlOrMeta+Enter');
-    await expect(page).toHaveURL(/\/notes$/);
-    await expect(composer).toHaveValue(original);
+    await expect(composer).toHaveText(original);
     await expectScreenshot('transcribing', {
       target: 'viewport',
-      ready: () => expect(composer).toHaveValue(original)
+      ready: () => expect(composer).toHaveText(original)
     });
     await failure.deliver();
     await expect(page.getByRole('alert')).toContainText(copy.VoiceTranscriptionFailed);
-    await expect(composer).toHaveValue(original);
+    await expect(composer).toHaveText(original);
     const recovery = page.getByRole('button', { name: copy.VoiceRecoveryOptions, exact: true });
 
     await expectScreenshot('transcription-error', {
@@ -93,21 +106,19 @@ test.browser.stable(
 
     expect(retried.samples).toEqual(input.samples);
     await recovered.deliver();
-    await expect(composer).toHaveValue(
-      'Before spoken field observation. After the dictated words.'
-    );
+    const changed = 'Before spoken field observation. After the dictated words.';
+
+    await expect(composer).toHaveText(changed);
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeFocused();
     await expectScreenshot('transcript-inserted', {
       target: 'viewport',
       ready: () =>
         expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled()
     });
-    const changed = await composer.inputValue();
-
     await microphone.start(page);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
-    await expect(composer).toHaveValue(changed);
+    await expect(composer).toHaveText(changed);
     const cancelled = await microphone.start(page, {
       segments: { late: 'This late result must never enter the draft.' }
     });
@@ -119,75 +130,32 @@ test.browser.stable(
     await late.aborted;
     await late.deliver();
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
-    await expect(composer).toHaveValue(changed);
-    await expect(save).toBeEnabled();
-    await save.click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
+    await expect(composer).toHaveText(changed);
+    await expect(persistedNote(page)).toBeVisible();
     await page.reload();
-    await expect(
-      page.getByRole('region', { name: copy.NoteNotebook }).locator('.chat-message-text')
-    ).toHaveText(changed);
+    await expect(composer).toHaveText(changed);
 
-    const richNote = await rpc.runPromise(rpc.client['notes.createUntitledNote']({}));
-
-    await rpc.runPromise(
-      rpc.client['notes.postMessage']({
-        noteId: richNote.id,
-        format: 'document',
-        requestReply: false,
-        text: 'Keep the complete survey evidence',
-        sourceIds: []
-      })
+    const richEditor = await openNotebook(
+      { page, rpc, expect },
+      'Keep the complete survey evidence'
     );
-    await page.goto('/notes/' + String(richNote.id));
-    await page
-      .locator('.workspace-desk-page')
-      .filter({ hasText: 'Keep the complete survey evidence' })
-      .click();
-    await page.getByRole('button', { name: copy.VersionHistory, exact: true }).click();
-    const history = page.getByRole('dialog', { name: copy.VersionHistory });
-
-    await history.locator('[data-role="user"]').hover();
-    await page.getByRole('button', { name: copy.NoteEditNote, exact: true }).click();
-    const edit = page.getByRole('dialog', { name: copy.NoteEditNote });
-    const richEditor = edit.getByRole('textbox', { name: copy.NoteEditNote });
     const literal = '1. January is the deadline\n# Title\n---';
 
-    await richEditor.press('ControlOrMeta+a');
-    const rich = await microphone.start(edit, { segments: { literal } });
+    await expect(persistedNote(page)).toBeVisible();
+    await selectEditorText(richEditor, 'Keep the complete survey evidence');
+    const rich = await microphone.start(page, { segments: { literal } });
 
     await rich.stop();
     await rich.segments.literal.requested;
-    const saveEdit = edit.getByRole('button', { name: copy.NoteSaveNote, exact: true });
-
-    await expect(saveEdit).toBeDisabled();
-    await richEditor.press('ControlOrMeta+Enter');
-    await expect(edit).toBeVisible();
     await expect(richEditor).toHaveText('Keep the complete survey evidence');
     await rich.segments.literal.deliver();
     await expect(richEditor).toHaveText(literal.replaceAll('\n', ''));
     await expect(richEditor.locator('br:not(.ProseMirror-trailingBreak)')).toHaveCount(2);
     await expect(richEditor.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
-    await saveEdit.click();
-    await expect(edit).toBeHidden();
+    await expect(persistedNote(page)).toBeVisible();
     await page.reload();
-    await page
-      .locator('.workspace-desk-page')
-      .filter({ hasText: '1. January is the deadline' })
-      .click();
-    const reopenedPage = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
-
-    await expect(reopenedPage).toHaveText(literal.replaceAll('\n', ''));
-    await expect(reopenedPage.locator('br:not(.ProseMirror-trailingBreak)')).toHaveCount(2);
-    await expect(reopenedPage.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
-    await page.getByRole('button', { name: copy.VersionHistory, exact: true }).click();
-    const savedRich = history.locator('[data-role="user"] .rich-note-content');
-
-    await expect(savedRich).toHaveText(literal.replaceAll('\n', ''));
-    await expect(savedRich.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
-    await history.locator('[data-role="user"]').hover();
-    await page.getByRole('button', { name: copy.NoteEditNote, exact: true }).click();
     await expect(richEditor).toHaveText(literal.replaceAll('\n', ''));
+    await expect(richEditor.locator('br:not(.ProseMirror-trailingBreak)')).toHaveCount(2);
     await expect(richEditor.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
   }
 );
@@ -203,10 +171,9 @@ test.browser.stable(
     const modelLabel = text('english', 'VoiceActiveModel', { model: model.name });
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/notes');
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
+    const draft = 'A private draft stays intact while voice is configured.';
+    const composer = await openNotebook({ page, rpc, expect }, draft);
 
-    await composer.fill('A private draft stays intact while voice is configured.');
     await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
     const setup = page.getByRole('dialog', { name: copy.VoiceSetupTitle });
 
@@ -220,7 +187,7 @@ test.browser.stable(
     await setup.getByRole('button', { name: copy.Close, exact: true }).last().click();
     await expect(setup).toBeHidden();
     expect(microphone.model.downloads).toBe(0);
-    await expect(composer).toHaveValue('A private draft stays intact while voice is configured.');
+    await expect(composer).toHaveText(draft);
     await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
     const held = microphone.model.holdDownload();
 
@@ -321,9 +288,6 @@ test.browser.stable(
       })
     );
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/notes');
-
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const draft = 'Field notes.';
     const firstText = 'The river rose overnight.';
     const secondText = 'The footbridge is still open.';
@@ -336,7 +300,8 @@ test.browser.stable(
     const stop = controls.getByRole('button', { name: copy.VoiceStop, exact: true });
     const elapsed = controls.locator('time');
 
-    await composer.fill(draft);
+    const composer = await openNotebook({ page, rpc, expect }, draft);
+
     await composer.press('End');
     const recording = await microphone.start(page, {
       segments: { first: firstText, second: secondText }
@@ -362,7 +327,7 @@ test.browser.stable(
         await expect(
           controls.getByRole('button', { name: copy.VoiceCancel, exact: true })
         ).toBeEnabled();
-        await expect(composer).toHaveValue(draft);
+        await expect(composer).toHaveText(draft);
       }
     });
     await first.deliver();
@@ -372,7 +337,7 @@ test.browser.stable(
       ready: async () => {
         await expect(stop).toBeEnabled();
         await expect(elapsed).toHaveText('0:06');
-        await expect(composer).toHaveValue(firstDraft);
+        await expect(composer).toHaveText(firstDraft);
       }
     });
 
@@ -381,7 +346,7 @@ test.browser.stable(
       target: 'viewport',
       ready: async () => {
         await expect(stop).toBeEnabled();
-        await expect(composer).toHaveValue(secondDraft);
+        await expect(composer).toHaveText(secondDraft);
       }
     });
     const final = recording.expectSegment(finalText);
@@ -398,50 +363,39 @@ test.browser.stable(
         await expect(
           page.getByRole('status', { name: copy.VoiceTranscribing, exact: true })
         ).toBeVisible();
-        await expect(composer).toHaveValue(secondDraft);
+        await expect(composer).toHaveText(secondDraft);
       }
     });
     await final.deliver();
     await expectScreenshot('complete-transcript-in-draft', {
       target: 'viewport',
       ready: async () => {
-        await expect(composer).toHaveValue(complete);
+        await expect(composer).toHaveText(complete);
         await expect(composer).toBeFocused();
         await expect(starting).toBeEnabled();
       }
     });
 
-    await page.getByRole('button', { name: copy.NoteSaveNote, exact: true }).click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
+    await expect(persistedNote(page)).toBeVisible();
     await page.reload();
-    const saved = page
-      .getByRole('region', { name: copy.NoteNotebook })
-      .locator('.chat-message-text');
 
     await expectScreenshot('complete-transcript-in-saved-note', {
-      target: saved,
-      ready: () => expect(saved).toHaveText(complete)
+      target: composer,
+      ready: () => expect(composer).toHaveText(complete)
     });
   }
 );
 
 test.browser.stable(
-  'Closing saved notebook capture cancels transcription and preserves its draft',
+  'Leaving a notebook cancels transcription and keeps the delivered words',
   async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
     await rpc.runPromise(
       rpc.client['settings.saveVoiceSettings']({ filterSilence: true, chunkSeconds: 10 })
     );
-    const note = await rpc.runPromise(rpc.client['notes.createUntitledNote']({}));
-
-    await page.goto('/notes/' + String(note.id));
-    const addCapture = page.getByRole('button', { name: copy.NoteAddCapture, exact: true });
-
-    await addCapture.click();
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
-    const original = 'Keep this unsent observation when capture is closed.';
-
-    await composer.fill(original);
+    const original = 'Keep this observation when I leave the notebook.';
+    const composer = await openNotebook({ page, rpc, expect }, original);
+    const noteUrl = page.url();
     const partialText = 'A live transcript arrives before stopping.';
     const delivered = `${original} ${partialText}`;
     const recording = await microphone.start(page, {
@@ -456,57 +410,38 @@ test.browser.stable(
     expect(firstChunk.samples.length).toBeGreaterThan(0);
     expect(firstChunk.samples.length).toBeLessThanOrEqual(160_000);
     await first.deliver();
-    await expect(composer).toHaveValue(delivered);
-    const controls = page.getByRole('group', { name: copy.VoiceTitle, exact: true });
-    const stop = controls.getByRole('button', { name: copy.VoiceStop, exact: true });
-
-    await expect(stop).toBeEnabled();
+    await expect(composer).toHaveText(delivered);
+    await expect(persistedNote(page)).toBeVisible();
     await recording.stop();
     await pending.requested;
-    const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
-
-    await expect(save).toBeDisabled();
-    await expect(page.getByRole('button', { name: copy.NoteWritePage })).toBeDisabled();
-    await composer.press('ControlOrMeta+Enter');
-    await expect(composer).toHaveValue(delivered);
     await expectScreenshot('partial-transcript-before-cancel', {
       target: 'viewport',
       ready: async () => {
         await expect(
           page.getByRole('status', { name: copy.VoiceTranscribing, exact: true })
         ).toBeVisible();
-        await expect(composer).toHaveValue(delivered);
+        await expect(composer).toHaveText(delivered);
       }
     });
-    await page.getByRole('button', { name: copy.NoteHideCapture, exact: true }).click();
+    await page.getByRole('link', { name: new RegExp(`^${copy.Notes}(?: \\d+)?$`) }).click();
     await pending.aborted;
     await pending.deliver();
-    await expect(addCapture).toHaveAttribute('aria-expanded', 'false');
-    await expectScreenshot('capture-closed-after-cancel', {
-      target: 'viewport',
-      ready: () => expect(composer).toBeHidden()
-    });
-    await addCapture.click();
+    await expect(page.getByRole('textbox', { name: copy.NoteCompose })).toBeVisible();
+
+    await page.goto(noteUrl);
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
-    await expect(save).toBeEnabled();
-    await expectScreenshot('capture-reopened-after-cancelled-transcription', {
+    await expectScreenshot('notebook-reopened-after-cancelled-transcription', {
       target: 'viewport',
-      ready: () => expect(composer).toHaveValue(delivered)
+      ready: () => expect(composer).toHaveText(delivered)
     });
   }
 );
 
 test.browser.stable(
-  'Changing note capture placement preserves pending dictation',
+  'Changing note width preserves pending dictation',
   async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
-    const note = await rpc.runPromise(rpc.client['notes.createUntitledNote']({}));
-
-    await page.goto('/notes/' + String(note.id));
-    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
-    const input = page.getByRole('textbox', { name: copy.NoteCompose });
-
-    await input.fill('Field observation.');
+    const input = await openNotebook({ page, rpc, expect }, 'Field observation.');
     const recording = await microphone.start(page, {
       segments: { final: 'The water reached the marker.' }
     });
@@ -514,25 +449,18 @@ test.browser.stable(
     await recording.stop();
     await recording.segments.final.requested;
 
-    await rpc.runPromise(
-      rpc.client['settings.saveAppearancePreferences']({
-        noteWidth: 'wide',
-        showNoteComposer: true
-      })
-    );
+    await rpc.runPromise(rpc.client['settings.saveAppearancePreferences']({ noteWidth: 'wide' }));
     await expect(page.locator('.workspace-desk')).toHaveAttribute('data-content-width', 'wide');
     await expect(page.getByRole('status', { name: copy.VoiceTranscribing })).toBeVisible();
     await recording.segments.final.deliver();
 
-    const docked = page.locator('.workspace-desk-floating-composer');
-
-    await expectScreenshot('transcript-in-docked-capture', {
-      target: docked,
-      ready: () =>
-        expect(docked.getByRole('textbox', { name: copy.NoteCompose })).toHaveValue(
-          'Field observation. The water reached the marker.'
-        )
+    await expectScreenshot('transcript-in-wide-notebook', {
+      target: 'viewport',
+      ready: () => expect(input).toHaveText('Field observation. The water reached the marker.')
     });
+    await expect(persistedNote(page)).toBeVisible();
+    await page.reload();
+    await expect(input).toHaveText('Field observation. The water reached the marker.');
   }
 );
 
@@ -540,10 +468,8 @@ test.browser.stable(
   'A recognition result completed after cancellation cannot change the note',
   async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
-    await page.goto('/notes');
-    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
+    const composer = await openNotebook({ page, rpc, expect }, 'Keep this draft.');
 
-    await composer.fill('Keep this draft.');
     const recording = await microphone.start(page, {
       segments: { late: { text: 'Never add this text.', completeAfterAbort: true } }
     });
@@ -561,7 +487,7 @@ test.browser.stable(
     await replacement.segments.final.deliver();
     await expectScreenshot('fresh-transcript-only', {
       target: 'viewport',
-      ready: () => expect(composer).toHaveValue('Keep this draft. Fresh speech.')
+      ready: () => expect(composer).toHaveText('Keep this draft. Fresh speech.')
     });
   }
 );

@@ -15,9 +15,10 @@ import { captureTimestampClock } from './profile.ts';
 export async function openWebStack(
   options: Pick<
     NonNullable<Parameters<Awaited<ReturnType<typeof createServerFixture>>['openApp']>[0]>,
-    'ai' | 'voice'
+    'ai' | 'voice' | 'modelUpdateNotices'
   > & {
     chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0];
+    firstRun?: boolean;
     useDefaultNoteAppearance?: boolean;
   } = {}
 ) {
@@ -28,6 +29,7 @@ export async function openWebStack(
   const fixture = resources.manage(await createServerFixture());
   const { app, server } = await fixture.openRpc({
     timestampClock: captureTimestampClock(),
+    modelUpdateNotices: options.modelUpdateNotices ?? false,
     ai,
     voice,
     fetch:
@@ -56,6 +58,8 @@ export async function openWebStack(
 
   await rpc.runPromise(
     Effect.gen(function* () {
+      if (options.firstRun) return;
+
       const settings = yield* client['settings.appSettings']({});
 
       yield* client['settings.saveAppSettings']({
@@ -69,8 +73,7 @@ export async function openWebStack(
       if (!options.useDefaultNoteAppearance) {
         yield* client['settings.saveAppearancePreferences']({
           ...defaultAppearancePreferences,
-          noteWidth: 'comfortable',
-          showNoteComposer: false
+          noteWidth: 'comfortable'
         });
       }
     })

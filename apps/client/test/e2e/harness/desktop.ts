@@ -1,6 +1,6 @@
 import { catalogs } from '@study/localization';
 import { temporaryDirectory } from '@study/testing/resources';
-import { Effect, PlatformError, Schedule } from 'effect';
+import { Effect, Schedule } from 'effect';
 import { remote } from 'webdriverio';
 
 import { homeNavigation } from '../home-navigation.ts';
@@ -9,26 +9,10 @@ const executable = process.argv[2];
 
 if (!executable) throw new Error('Pass the executable built with the desktop-e2e feature');
 
-const directory = await temporaryDirectory({ prefix: 'study-desktop-e2e-' });
-
-const removeDirectory = () => directory[Symbol.asyncDispose]();
-
-await using _cleanup = {
-  [Symbol.asyncDispose]: () => {
-    if (process.platform !== 'win32') return removeDirectory();
-
-    // WebView2 can release its profile handles after the host process has exited.
-    return Effect.runPromise(
-      Effect.tryPromise({ try: removeDirectory, catch: (cause) => cause }).pipe(
-        Effect.retry({
-          schedule: Schedule.spaced('100 millis'),
-          times: 30,
-          while: (error) => PlatformError.isPlatformError(error) && error.reason._tag === 'Busy'
-        })
-      )
-    );
-  }
-};
+await using directory = await temporaryDirectory({
+  prefix: 'study-desktop-e2e-',
+  waitForWindowsHandles: true
+});
 
 // Reserve a free loopback port for the test-only driver.
 const listener = Bun.listen({
@@ -45,6 +29,7 @@ const app = Bun.spawn([executable], {
   env: {
     ...process.env,
     TAURI_WEBDRIVER_PORT: String(port),
+    STUDY_MODEL_UPDATE_NOTICES: '0',
     STUDY_DATABASE: `${directory.path}/study.sqlite`,
     XDG_DATA_HOME: `${directory.path}/xdg-data`,
     WEBVIEW2_USER_DATA_FOLDER: `${directory.path}/webview`

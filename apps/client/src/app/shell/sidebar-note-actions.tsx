@@ -1,5 +1,5 @@
 import type { NoteId } from '@study/contracts';
-import { OpenIcon, PageIcon, ChecklistIcon, DeleteIcon } from '@study/icons';
+import { OpenIcon, ChecklistIcon, DeleteIcon } from '@study/icons';
 import {
   AiIcon,
   ContextMenu,
@@ -12,11 +12,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
-import {
-  NoteDeleteDialog,
-  NotePageDialog,
-  useRegenerateNoteTitle
-} from '#client/features/note-workspace/index.ts';
+import { NoteDeleteDialog, useRegenerateNoteTitle } from '#client/features/note-workspace/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 /** Offers note actions without activating the row's navigation link. */
@@ -35,7 +31,6 @@ export function SidebarNoteActions({
   const navigate = useNavigate();
   const title = useRegenerateNoteTitle(id);
   const [deleting, setDeleting] = useState(false);
-  const [creating, setCreating] = useState<boolean>();
 
   return (
     <>
@@ -53,10 +48,6 @@ export function SidebarNoteActions({
           >
             <OpenIcon aria-hidden="true" />
             {t('OpenNote')}
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => setCreating(true)}>
-            <PageIcon aria-hidden="true" />
-            {t('NoteTransform')}
           </ContextMenuItem>
           <ContextMenuItem
             disabled={title.pending || title.readiness !== 'ready'}
@@ -79,9 +70,6 @@ export function SidebarNoteActions({
           </ContextMenuItem>
         </ContextMenuPopup>
       </ContextMenu>
-      {creating !== undefined && (
-        <NotePageDialog id={id} open={creating} onOpenChange={setCreating} />
-      )}
       {deleting && <NoteDeleteDialog id={id} open onOpenChange={setDeleting} />}
     </>
   );

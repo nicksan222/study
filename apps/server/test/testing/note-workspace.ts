@@ -1,15 +1,16 @@
 /** @file Real notebook services and controlled, typed model outcomes for browser journeys. */
 
-import type { NoteId, transformRequestSchema } from '@study/contracts';
+import type { NoteId, ProjectId } from '@study/contracts';
 import { transformSnapshotSchema } from '@study/contracts';
 import { preferences } from '@study/db';
-import { encodeAccount } from '@study/server';
+import { encodeAccount, transaction } from '@study/server';
 import type { createAiMock } from '@study/testing';
 import { Effect } from 'effect';
 
 import { questionAgent } from '#server/features/notes/agents/question';
 import { sectionTitleAgent } from '#server/features/notes/agents/section-title';
 import { Notes } from '#server/features/notes/index';
+import { studyNotesContext } from '#server/features/notes/service/study-notes';
 import { pageTransformAgent } from '#server/features/pages/agents/page-transform';
 import { pageTransformPrompt } from '#server/features/pages/decoders/page-transform-prompt';
 import { Projects } from '#server/features/projects/index';
@@ -35,34 +36,40 @@ export function createNoteWorkspace(app: App, ai: ReturnType<typeof createAiMock
 
       return { classification, naming };
     },
-    transform: async (
+    studyNotes: async (
       noteId: NoteId,
-      input: Omit<typeof transformRequestSchema.Type, 'contextRequestId'> & { instruction: string }
+      projectId: ProjectId,
+      title: string,
+      instruction: string
     ) => {
-      const context = await app.nativeRuntime.runPromise(
-        Effect.flatMap(Notes, (notes) =>
-          notes.captureNoteContext({
-            noteId,
-            intentKey: crypto.randomUUID(),
-            instruction: input.instruction,
-            preferences: { language: 'english' }
-          })
-        )
+      const key = crypto.randomUUID();
+      const note = await app.nativeRuntime.runPromise(
+        Effect.flatMap(Notes, (notes) => notes.captureStudyEvidence({ noteId, projectId }))
       );
-      // IDs belong to capture/publication, and are deliberately absent from the model prompt.
       const request = transformSnapshotSchema.make({
         id: 'expected-transform',
         eventId: 'expected-transform',
-        contextRequestId: context.requestId,
-        noteId,
-        title: input.title,
-        operations: input.operations,
-        instruction: input.instruction,
+        contextRequestId: key,
+        noteId: null,
+        title,
+        operations: ['summarize', 'structure'],
+        instruction,
         cancelled: false,
         errorKind: null,
         resultVersionId: null,
-        report: null
+        report: null,
+        studyNotes: {
+          key,
+          projectId,
+          title,
+          instruction,
+          language: 'english',
+          inputs: [note]
+        }
       });
+      const context = await app.nativeRuntime.runPromise(
+        transaction((tx) => studyNotesContext(tx, request))
+      );
       const expectedInput = { prompt: pageTransformPrompt(request, context).prompt };
 
       return {

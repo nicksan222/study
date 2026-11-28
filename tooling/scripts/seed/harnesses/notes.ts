@@ -26,7 +26,7 @@ export function createNote(project: ProjectHarness, fixture: NoteFixture) {
       created_at: time,
       updated_at: time + BigInt(Math.max(0, fixture.exchanges.length - 1) * 120 + 30)
     })
-    .returning()
+    .returning({ id: notes.id })
     .get();
 
   db.orm.insert(project_notes).values({ project_id: projectId, note_id: note.id }).run();
@@ -66,6 +66,4 @@ export function createNote(project: ProjectHarness, fixture: NoteFixture) {
 
   createMessages(db, note.id, fixture.exchanges, time);
   project.summary.notes++;
-
-  return { id: note.id, projectId };
 }

@@ -128,19 +128,13 @@ test.browser.stable(
       captureContext,
       'notebook',
       `/notes/${note.id}`,
-      page.getByRole('region', { name: copy.NoteNotebook })
+      page.getByRole('textbox', { name: copy.NotePageEditor })
     );
     await capture(
       captureContext,
       'subjects',
       `/projects${subject}`,
       main.getByRole('heading', { name: project.name, exact: true })
-    );
-    await capture(
-      captureContext,
-      'pages',
-      `/pages${subject}`,
-      main.getByRole('link', { name: savedPage.title, exact: false })
     );
     await capture(
       captureContext,
@@ -201,24 +195,29 @@ test.browser.stable(
       zoomPercent: 100,
       ready: () => expect(drawer).toBeInViewport()
     });
-    await drawer.getByRole('link', { name: copy.SourcePage, exact: false }).tap();
-    await expect(page).toHaveURL(/\/pages/);
+    await drawer.getByRole('link', { name: copy.Practice, exact: false }).tap();
+    await expect(page).toHaveURL(/\/practice/);
+    const studyNotes = drawer.getByRole('link', { name: savedPage.title, exact: false });
+
+    await expect(studyNotes).toBeVisible();
+    await studyNotes.tap();
+    await expect(page).toHaveURL(/\/practice\/study-notes\//);
     await expect(drawer).toBeHidden();
-    await expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport();
     await page.keyboard.press('ControlOrMeta+k');
-    await expect(drawer.getByRole('searchbox', { name: copy.Search, exact: true })).toBeFocused();
+    await expect(
+      drawer.getByRole('searchbox', { name: copy.SearchThisSubject, exact: true })
+    ).toBeFocused();
     await closeDrawer.tap();
     await expect(drawer).toBeHidden();
     await expect(mainElement).toHaveJSProperty('inert', false);
     await expect(reveal).toBeFocused();
     await page.setViewportSize({ width: 320, height: 640 });
-    await expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport();
+    await expect(main.getByRole('textbox', { name: copy.NotePageEditor })).toBeInViewport();
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
     await expectScreenshot('pages-small-phone', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () =>
-        expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport()
+      ready: () => expect(main.getByRole('textbox', { name: copy.NotePageEditor })).toBeInViewport()
     });
     await page.setViewportSize(phone);
 

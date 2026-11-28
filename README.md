@@ -6,30 +6,26 @@
 
 **A calm place for everything you learn.**
 
-Bring your lectures, slides and PDFs. Study reads them, answers your questions with
-citations, and turns them into flashcards and practice.
+Write in a notebook, upload your source files, and use your saved material to generate
+study notes, flashcards and quizzes.
 
 [Website](https://nicksan222.github.io/study/) ·
+[First steps](https://nicksan222.github.io/study/docs/first-steps/) ·
 [Download](https://github.com/nicksan222/study/releases) ·
 [Contribute](.github/CONTRIBUTING.md) ·
 [Report a bug](https://github.com/nicksan222/study/issues)
-
-![An older Study tour, including the retired diagram feature](https://nicksan222.github.io/study/demo.gif)
-
-Older tour: this recording includes features that have since been removed.
 
 </div>
 
 ## Why Study
 
-- **Everything in one place.** Recordings, slides, PDFs, pictures, pages, web pages and
-  YouTube videos, organized by course.
-- **Answers you can check.** Ask anything about your material. Every answer cites the page,
-  or the exact moment in the recording.
-- **Study material, made for you.** Notes, flashcards on a spaced-repetition
-  schedule, and quizzes that grade your answers.
-- **Yours, on your computer.** Your library lives in one local database. Transcription and
-  search run on your machine.
+- **Notes and materials by subject.** Write in [Notes](https://nicksan222.github.io/study/docs/notes/)
+  and upload original files in [Materials](https://nicksan222.github.io/study/docs/sources/).
+- **Answers you can check.** Ask the notebook Assistant about your material and follow
+  citations to the passages behind an answer.
+- **Study material from your sources.** Use [Practice](https://nicksan222.github.io/study/docs/practice/)
+  to generate editable study notes, spaced-repetition flashcards and quizzes.
+- **Yours, on your computer.** Your saved library lives in one local database.
 - **No extra AI bill.** Sign in with your ChatGPT Plus or Pro plan. No API keys, no
   subscription to us.
 - **Free and open source.** MIT or Apache 2.0, your choice.
@@ -41,19 +37,15 @@ for a certification.
 
 Download it from [Releases](https://github.com/nicksan222/study/releases) for Linux,
 macOS (Apple Silicon) or Windows. On Linux, you need Ubuntu 24.04, Debian 13 or newer.
-Study updates itself, and every update is signed.
-
-Optional: [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube videos, and FFmpeg for rare
-recording formats.
+Study offers signed updates that you can install from the app.
 
 > Study is in early development. Expect rough edges, and tell us about them.
 
 ## Your privacy
 
-Only what the models need goes to OpenAI, through your own ChatGPT plan: the pages to read
-and the passages that answers and study material come from. Your recordings and database
-stay on your computer by default. Speech-to-text and search models download only when you
-choose to.
+Model work uses your ChatGPT connection and sends the material needed for the task,
+such as selected source content, notebook text or a quiz answer. Study saves your library
+in a local database. Dictation runs locally after you install a speech model in Settings.
 
 You can turn on daily backups in **Settings → Data & backups**. Study rotates through seven
 backup names for the active installation. Turning backups off leaves existing copies in

@@ -1,6 +1,6 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { CreateNoteIcon, CloseIcon } from '@study/icons';
-import { Sidebar } from '@study/ui';
+import { IconButton, Sidebar } from '@study/ui';
 import { Link, useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import { useContext } from 'react';
 
@@ -9,7 +9,6 @@ import {
   startDraftKey,
   dismissStartDraft,
   startDraft,
-  startFiles,
   creationFlow
 } from '#client/features/note-workspace/index.ts';
 import { SubjectIdentity } from '#client/features/subjects/index.ts';
@@ -21,12 +20,10 @@ type Props = Pick<SidebarModel, 'project' | 'subjects'>;
 
 /** Unsent work stays above saved notes, scoped like the rest of the sidebar. */
 export function SidebarNoteDrafts({ project, subjects }: Props) {
-  const drafts = { data: useAtomValue(startDrafts) };
-  const scopes = drafts.data.filter((scope) => !project || scope === String(project));
+  const drafts = useAtomValue(startDrafts);
+  const scope = project ? drafts.find((draft) => draft === String(project)) : drafts[0];
 
-  if (!scopes.length) return null;
-
-  return scopes.map((scope) => <DraftRow key={scope} scope={scope} subjects={subjects} />);
+  return scope ? <DraftRow key={scope} scope={scope} subjects={subjects} /> : null;
 }
 
 function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subjects'] }) {
@@ -37,18 +34,17 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
   const search = useSearch({ from: '__root__' });
   const project = scope === 'unassigned' ? undefined : scope;
   const draft = { data: useAtomValue(startDraft(startDraftKey(project))) };
-  const files = { data: useAtomValue(startFiles(startDraftKey(project))) };
   const flow = { data: useAtomValue(creationFlow) };
   const owner = subjects.find((subject) => String(subject.id) === project);
   const active = /^\/notes\/?$/.test(location.pathname) && search.project === project;
-  const label = draftLabel(draft.data, files.data, t('NewNote'));
+  const label = draft.data.trim().split('\n')[0] || t('NewNote');
   const blocked = [flow.data.pending, flow.data.uncertain, flow.data.id].some(Boolean);
 
   return (
     <Sidebar.NoteEntry>
       <Sidebar.Item
         label={label}
-        context={owner?.name ?? t('Notes')}
+        context={owner?.name}
         icon={
           owner ? (
             <SubjectIdentity name={owner.name} icon={owner.icon} />
@@ -62,9 +58,10 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
         render={<Link to="/notes" search={project ? { project } : {}} />}
       />
       <Sidebar.NoteRowActions>
-        <Sidebar.SettleAction
-          aria-label={t('SidebarDismissDraft')}
-          title={t('SidebarDismissDraft')}
+        <IconButton
+          size="icon-xs"
+          variant="ghost-muted"
+          label={t('SidebarDismissDraft')}
           disabled={blocked}
           onClick={() => {
             dismissStartDraft(cache, project);
@@ -73,12 +70,8 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
           }}
         >
           <CloseIcon aria-hidden="true" />
-        </Sidebar.SettleAction>
+        </IconButton>
       </Sidebar.NoteRowActions>
     </Sidebar.NoteEntry>
   );
-}
-
-function draftLabel(text: string, files: File[], fallback: string) {
-  return text.trim().split('\n')[0] || files[0]?.name || fallback;
 }

@@ -1,14 +1,14 @@
-import type { PageId, MaterialId, SourceId, NoteId, ProjectId, Project } from '@study/contracts';
+import type {
+  PageId,
+  MaterialId,
+  SourceId,
+  NoteId,
+  ProjectId,
+  Project,
+  SourceOrigin
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import {
-  OpenIcon,
-  PageIcon,
-  SourcesIcon,
-  NoteIcon,
-  AddIcon,
-  GeneralSettingsIcon,
-  GenerateIcon
-} from '@study/icons';
+import { PageIcon, SourcesIcon, NoteIcon, AddIcon, OptionsIcon, GenerateIcon } from '@study/icons';
 import { RetryButton, Button, ErrorState, List, Loading, SubjectWorkspace } from '@study/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -20,6 +20,7 @@ import {
   CursorWindowActions
 } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { sourceLocation } from '#client/lib/navigation/source-location.ts';
 
 import { usePageBrowse } from '../pages';
 import { SubjectIdentity } from '../subjects';
@@ -68,7 +69,7 @@ function SubjectContents({ project }: { project: Project }) {
         </SubjectWorkspace.Identity>
         <SubjectWorkspace.Actions>
           <Button variant="outline" aria-pressed={managing} onClick={() => setManaging(!managing)}>
-            <GeneralSettingsIcon aria-hidden="true" />
+            <OptionsIcon aria-hidden="true" />
             {t(managing ? 'SubjectWorkspaceContents' : 'SubjectWorkspaceManage')}
           </Button>
           <Button render={<Link to="/notes" search={search} />}>
@@ -151,7 +152,7 @@ type SubjectRow = {
   location:
     | { kind: 'note'; id: NoteId }
     | { kind: 'page'; id: PageId }
-    | { kind: 'source'; id: SourceId }
+    | { kind: 'source'; id: SourceId; origin: SourceOrigin }
     | { kind: 'material'; id: MaterialId };
 };
 
@@ -162,11 +163,15 @@ function subjectItemLink(location: SubjectRow['location'], project: ProjectId) {
     case 'note':
       return <Link to="/notes/$noteId" params={{ noteId: location.id }} search={search} />;
     case 'page':
-      return <Link to="/pages/$pageId" params={{ pageId: String(location.id) }} search={search} />;
-    case 'source':
       return (
-        <Link to="/sources/$sourceId" params={{ sourceId: String(location.id) }} search={search} />
+        <Link
+          to="/practice/study-notes/$pageId"
+          params={{ pageId: String(location.id) }}
+          search={search}
+        />
       );
+    case 'source':
+      return <Link {...sourceLocation(location.id, location.origin, search.project)} />;
     case 'material':
       return (
         <Link
@@ -197,11 +202,8 @@ function SubjectRows({
       <List.Icon>{icon}</List.Icon>
       <List.Main>
         <List.Title>{row.title}</List.Title>
-        <List.Description>{date(row.updatedAt, { dateStyle: 'medium' })}</List.Description>
       </List.Main>
-      <List.Meta>
-        <OpenIcon size={16} aria-hidden="true" />
-      </List.Meta>
+      <List.Meta>{date(row.updatedAt, { month: 'short', day: 'numeric' })}</List.Meta>
     </List.Row>
   ));
 }
@@ -275,7 +277,7 @@ function SubjectSources({ project }: { project: ProjectId }) {
 
   return (
     <ContentSection
-      title={t('MediaList')}
+      title={t('UploadedMaterials')}
       state={state}
       navigation={window}
       next={state.data?.next}
@@ -287,7 +289,7 @@ function SubjectSources({ project }: { project: ProjectId }) {
         rows={items.map((item): SubjectRow => ({
           title: item.name,
           updatedAt: item.createdAt,
-          location: { kind: 'source', id: item.id }
+          location: { kind: 'source', id: item.id, origin: item.origin }
         }))}
       />
     </ContentSection>
@@ -310,7 +312,7 @@ function SubjectMaterials({ project }: { project: ProjectId }) {
 
   return (
     <ContentSection
-      title={t('SubjectWorkspaceMaterial')}
+      title={t('Practice')}
       state={state}
       navigation={window}
       next={state.data?.nextCursor}

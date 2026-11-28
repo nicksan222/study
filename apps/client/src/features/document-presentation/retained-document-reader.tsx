@@ -1,42 +1,15 @@
 import type { ContentSnapshotId, documentSchema } from '@study/contracts';
-import { rpc } from '@study/contracts/react';
-import { Button, ErrorState, Loading, StructuredEditor } from '@study/ui';
-import { useEffect, useMemo, useRef } from 'react';
+import { Button, ErrorState, StructuredEditor } from '@study/ui';
+import { useMemo } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { documentToEditor } from './document-editor-content';
-import { DocumentReader } from './document-reader';
 import { useDocumentEditorImages } from './editor-images.queries';
 import { useStructuredEditorLabels } from './structured-editor-labels';
 
 type Document = typeof documentSchema.Type;
-/** Canonical image references resolve retained original revisions through Sources. */
-
-export function RetainedDocumentReader({
-  document,
-  snapshotId
-}: {
-  document: Document;
-  snapshotId: ContentSnapshotId;
-}) {
-  return (
-    <DocumentReader
-      document={document}
-      renderImage={(block) =>
-        block.content.type === 'image' ? (
-          <RetainedImage
-            key={`${snapshotId}:${block.id}`}
-            snapshotId={snapshotId}
-            blockId={block.id}
-            image={block.content}
-          />
-        ) : null
-      }
-    />
-  );
-}
 
 export function RetainedDocumentPreview({
   document,
@@ -75,69 +48,4 @@ export function RetainedDocumentPreview({
       />
     </>
   );
-}
-
-function RetainedImage({
-  snapshotId,
-  blockId,
-  image
-}: {
-  snapshotId: ContentSnapshotId;
-  blockId: string;
-  image: Extract<Document['blocks'][number]['content'], { type: 'image' }>;
-}) {
-  const { t } = useI18n();
-  const state = rpc.sources.exportRevision.useQuery({
-    sourceId: image.sourceId,
-    revision: BigInt(image.revision)
-  });
-
-  if (state.isPending || state.isFetching) return <Loading label={t('LoadingStudy')} />;
-
-  if (state.isError)
-    return (
-      <ErrorState
-        title={t('ReaderImageUnavailable')}
-        action={<Button onClick={() => void state.refetch()}>{t('ReaderRetryImage')}</Button>}
-      />
-    );
-
-  if (!state.data) return <Loading label={t('LoadingStudy')} />;
-
-  return (
-    <ResolvedImage
-      key={`${snapshotId}:${blockId}`}
-      bytes={state.data.bytes}
-      mime={state.data.mime}
-      image={image}
-    />
-  );
-}
-
-/** The resolved image owns its object URL through render changes and retry placeholders. */
-function ResolvedImage({
-  bytes,
-  mime,
-  image
-}: {
-  bytes: Uint8Array;
-  mime: string;
-  image: Extract<Document['blocks'][number]['content'], { type: 'image' }>;
-}) {
-  const ref = useRef<HTMLImageElement>(null);
-
-  useEffect(() => {
-    const next = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: mime }));
-
-    const node = ref.current;
-
-    if (node) node.src = next;
-
-    return () => {
-      node?.removeAttribute('src');
-      URL.revokeObjectURL(next);
-    };
-  }, [bytes, mime]);
-
-  return <img ref={ref} alt={image.alt} width={image.width} height={image.height} />;
 }

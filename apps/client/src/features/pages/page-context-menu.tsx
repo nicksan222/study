@@ -55,7 +55,11 @@ export function PageContextMenu({
         <ContextMenuPopup>
           <ContextMenuItem
             render={
-              <Link to="/pages/$pageId" params={{ pageId: String(page.id) }} search={search} />
+              <Link
+                to="/practice/study-notes/$pageId"
+                params={{ pageId: String(page.id) }}
+                search={search}
+              />
             }
           >
             <OpenIcon aria-hidden="true" />
@@ -73,7 +77,7 @@ export function PageContextMenu({
             disabled={!page.headVersionId}
             render={
               <Link
-                to="/pages/$pageId"
+                to="/practice/study-notes/$pageId"
                 params={{ pageId: String(page.id) }}
                 search={{ ...search, pageVersion: page.headVersionId?.toString() }}
               />

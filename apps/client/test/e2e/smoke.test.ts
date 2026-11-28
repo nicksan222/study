@@ -9,78 +9,52 @@ test.browser.stable(
     const content = Array.from(
       { length: 24 },
       (_, i) =>
-        `Paragraph ${i + 1}: a durable notebook entry with enough text to exercise scrolling and editing.`
+        'Paragraph ' +
+        (i + 1) +
+        ': a durable notebook entry with enough text to exercise scrolling and editing.'
     ).join('\n\n');
 
     await page.goto('/notes');
-    await page.getByRole('textbox', { name: copy.NoteCompose }).fill(content);
-    await expectScreenshot('starter-draft', {
-      target: 'viewport',
-      ready: () =>
-        expect(page.getByRole('textbox', { name: copy.NoteCompose })).toHaveValue(content)
-    });
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
-    await expectScreenshot('saved-collapsed', {
-      target: 'viewport',
-      ready: () =>
-        expect(page.getByRole('button', { name: copy.NoteAddCapture })).toHaveAttribute(
-          'aria-expanded',
-          'false'
-        )
-    });
-    await page.getByRole('button', { name: copy.NoteEditNote }).focus();
-    await page.keyboard.press('Enter');
-    const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
+    const starter = page.getByRole('textbox', { name: copy.NoteCompose });
+    const editor = page.getByRole('textbox', { name: copy.NotePageEditor });
+    const saved = page
+      .getByRole('status')
+      .filter({ hasText: new RegExp('^' + copy.NoteAutosaved + '$') });
 
-    await dialog.getByRole('button', { name: copy.NoteMarkdownSource, exact: true }).click();
-    const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
+    await starter.fill(content);
+    await expect(page).toHaveURL(/\/notes\/\d+$/);
+    await expect(editor).toHaveText(content, { useInnerText: true });
+    const noteUrl = page.url();
 
-    // Native caret scrolling depends on the popup's final geometry at fractional app zoom.
-    await expect(dialog).toHaveCSS('scale', '1');
-    await editor.fill(`${content}\n\nAn edited note`);
-    await editor.press('ControlOrMeta+End');
+    await page.reload();
+    await expectScreenshot('first-autosave', {
+      target: 'viewport',
+      ready: () => expect(editor).toHaveText(content, { useInnerText: true })
+    });
+
+    const amended = content + '\n\nAn edited note';
+
+    await editor.fill(amended);
+    await expect(editor).toHaveText(amended, { useInnerText: true });
+    await expect(saved).toBeVisible();
+    const ending = editor.getByText('An edited note', { exact: true });
+
+    await ending.scrollIntoViewIfNeeded();
     await expectScreenshot('editing', {
-      target: dialog,
-      ready: async () => {
-        await expect(editor).toHaveValue(`${content}\n\nAn edited note`);
-        await expect(editor).toBeFocused();
-        await expect(editor).toHaveJSProperty(
-          'selectionStart',
-          `${content}\n\nAn edited note`.length
-        );
-        await expect(editor).toHaveJSProperty(
-          'selectionEnd',
-          `${content}\n\nAn edited note`.length
-        );
-      }
+      target: 'viewport',
+      ready: () => expect(ending).toBeInViewport()
     });
-    await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page.getByRole('region', { name: copy.NoteNotebook })).toContainText(
-      'An edited note'
-    );
     await page.reload();
-    await expect(page.getByRole('region', { name: copy.NoteNotebook })).toContainText(
-      'An edited note'
-    );
-    await page.getByRole('button', { name: copy.NoteEditNote }).focus();
-    await page.keyboard.press('Enter');
-    await dialog.getByRole('button', { name: copy.NoteMarkdownSource }).click();
-    await expect(editor).toHaveValue(`${content}\n\nAn edited note`);
+    await expect(page).toHaveURL(noteUrl);
+    await expect(editor).toHaveText(amended, { useInnerText: true });
+
     await editor.fill('A second edit after reopening');
-    await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page.getByRole('region', { name: copy.NoteNotebook })).toContainText(
-      'A second edit after reopening'
-    );
+    await expect(saved).toBeVisible();
     await page.reload();
+    await expect(page).toHaveURL(noteUrl);
     await expectScreenshot('reopened', {
       target: 'viewport',
-      ready: () =>
-        expect(page.getByRole('region', { name: copy.NoteNotebook })).toContainText(
-          'A second edit after reopening'
-        )
+      ready: () => expect(editor).toHaveText('A second edit after reopening')
     });
   }
 );

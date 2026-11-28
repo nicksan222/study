@@ -14,17 +14,11 @@
 import type { ContentInput } from '@study/contracts';
 
 export function contentInputColumns(input: ContentInput) {
-  return input.kind === 'page'
-    ? {
-        page_version_id: input.versionId,
-        source_id: null,
-        source_revision: null,
-        source_snapshot_id: null
-      }
-    : {
-        page_version_id: null,
-        source_id: input.sourceId,
-        source_revision: input.revision,
-        source_snapshot_id: input.snapshotId
-      };
+  return {
+    page_version_id: input.kind === 'page' ? input.versionId : null,
+    note_context_id: input.kind === 'note' ? input.contextId : null,
+    source_id: input.kind === 'source' ? input.sourceId : null,
+    source_revision: input.kind === 'source' ? input.revision : null,
+    source_snapshot_id: input.kind === 'source' ? input.snapshotId : null
+  };
 }

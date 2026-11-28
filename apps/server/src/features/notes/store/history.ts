@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts';
+import { notebookBodyCaptureKey, StudyError } from '@study/contracts';
 import type { MessageId, PartId, NoteId } from '@study/contracts';
 import { NoteMode } from '@study/contracts';
 import type { noteMessageSnapshotSchema } from '@study/contracts';
-import { and, desc, eq, isNull, lte } from '@study/db';
+import { and, asc, desc, eq, isNull, lte } from '@study/db';
 import { messages, message_versions, notes, note_merges } from '@study/db';
 import type { StoreResources } from '@study/server';
 
@@ -37,22 +37,57 @@ export function makeHistory({ db }: StoreResources) {
       );
   }
 
+  function notebookBody(noteId: NoteId) {
+    const row = selectedMessages()
+      .where(and(eq(messages.note_id, noteId), eq(messages.capture_key, notebookBodyCaptureKey)))
+      .get();
+
+    if (!row) return undefined;
+
+    if (!row.version || row.version.status !== 'complete')
+      throw new StudyError('invalid_input', 'Notebook body version is unavailable');
+
+    return {
+      messageId: row.message.id,
+      versionId: row.version.id,
+      role: row.message.role,
+      text: row.version.text
+    };
+  }
+
+  function notebookBodyFallback(noteId: NoteId) {
+    return selectedMessages()
+      .where(
+        and(
+          eq(messages.note_id, noteId),
+          eq(messages.role, 'user'),
+          activeMessageCondition(),
+          threadCondition(undefined),
+          eq(message_versions.status, 'complete')
+        )
+      )
+      .orderBy(asc(messages.id))
+      .all()
+      .map(({ version }) => version?.text ?? '')
+      .filter((text) => text.trim())
+      .join('\n\n');
+  }
+
   /** Captures complete selected versions; title callers may omit a pending assistant reply. */
   function noteHistory(
     noteId: NoteId,
     through?: MessageId,
     threadRoot?: PartId,
     allowEmpty = false,
-    policy: { pendingAssistant?: 'omit'; bounded?: boolean } = {}
+    policy: { pendingAssistant?: 'omit'; bounded?: boolean; authoredOnly?: boolean } = {}
   ) {
     const rows = selectedMessages()
       .where(
         and(
           eq(messages.note_id, noteId),
           activeMessageCondition(),
-          threadRoot === undefined
-            ? isNull(messages.thread_root)
-            : eq(messages.thread_root, threadRoot),
+          policy.authoredOnly ? eq(messages.role, 'user') : undefined,
+          threadCondition(threadRoot),
           through === undefined ? undefined : lte(messages.id, through)
         )
       )
@@ -137,6 +172,10 @@ export function makeHistory({ db }: StoreResources) {
 
   /** Titles use complete context while an assistant reply is still being generated. */
   function titleHistory(noteId: NoteId) {
+    const body = notebookBody(noteId);
+
+    if (body) return body.text.length <= 200_000 ? [body] : [];
+
     const merged = isMergedNote(noteId);
 
     return noteHistory(noteId, undefined, undefined, merged, {
@@ -145,7 +184,7 @@ export function makeHistory({ db }: StoreResources) {
     });
   }
 
-  return { noteHistory, noteRoot, titleHistory };
+  return { noteHistory, noteRoot, notebookBody, notebookBodyFallback, titleHistory };
 }
 
 function contextFull(
@@ -160,4 +199,10 @@ function contextFull(
   if ((bounded || mode === NoteMode.Assistant) && count > 0) return true;
 
   throw new StudyError('not_enough', 'Active note messages exceed the context limit');
+}
+
+function threadCondition(threadRoot: PartId | undefined) {
+  return threadRoot === undefined
+    ? isNull(messages.thread_root)
+    : eq(messages.thread_root, threadRoot);
 }

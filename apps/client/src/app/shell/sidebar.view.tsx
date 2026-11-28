@@ -3,6 +3,7 @@ import {
   PageIcon,
   QuizIcon,
   NoteIcon,
+  SourcesIcon,
   LibraryIcon,
   ProjectIcon,
   HelpIcon,
@@ -29,15 +30,14 @@ import {
 import { Link } from '@tanstack/react-router';
 import type { ReactNode, Ref } from 'react';
 
-import { NewBlankPage } from '#client/features/pages/index.ts';
 import {
   PracticeGenerationAction,
   ArchivedPracticeAction
 } from '#client/features/practice/index.ts';
+import { UploadMaterialAction } from '#client/features/source-library/index.ts';
 import { SubjectIdentity } from '#client/features/subjects/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#client/lib/navigation/search-results.ts';
-import { sidebarContent } from '#client/lib/navigation/sidebar-config.ts';
 import { Page as SettingsPage } from '#client/pages/settings/page.tsx';
 
 import { RichSidebarNotes } from './rich-sidebar';
@@ -252,6 +252,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
     replay
   } = model;
   const { t, date } = useI18n();
+  const materials = model.section === 'uploads';
 
   return (
     <SidebarUI.Picker
@@ -266,7 +267,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
       open={pickerOpen}
       onOpenChange={pickerOpenChange(setPickerOpen, reloadSubjects)}
       collapsed={collapsed}
-      label={t('ChooseProject')}
+      label={t(materials && !requestedProject ? 'UploadedMaterialsAll' : 'ChooseProject')}
       fallbackIcon={<ProjectIcon aria-hidden="true" />}
       searchLabel={t('FindSubject')}
       empty={projectPickerEmpty(subjectState, subjects.length, t)}
@@ -279,6 +280,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
         loadMoreProjects={loadMoreProjects}
       />
       <SidebarPickerActions
+        materials={materials}
         subject={subject}
         requestedProject={requestedProject}
         setPickerOpen={setPickerOpen}
@@ -295,6 +297,7 @@ function SidebarSubjectPicker(model: SidebarModel) {
 /** Closes the picker before opening subject creation, management, or global navigation. */
 
 function SidebarPickerActions({
+  materials,
   subject,
   requestedProject,
   setPickerOpen,
@@ -313,12 +316,32 @@ function SidebarPickerActions({
   | 'clearSearch'
   | 'replay'
 > & {
+  materials: boolean;
   onEditSubject: () => void;
 }) {
   const { t } = useI18n();
 
   return (
     <>
+      {materials && requestedProject && (
+        <Button
+          variant="ghost-muted"
+          layout="navigation"
+          render={
+            <Link
+              to="/uploads"
+              search={{}}
+              onClick={() => {
+                setPickerOpen(false);
+                clearSearch();
+              }}
+            />
+          }
+        >
+          <SourcesIcon aria-hidden="true" />
+          {t('UploadedMaterialsAll')}
+        </Button>
+      )}
       <Button
         variant="ghost-muted"
         layout="navigation"
@@ -464,9 +487,10 @@ function SidebarToolbar({
         query={query}
         setQuery={setQuery}
         clearSearch={clearSearch}
+        materials={metadata.section === 'uploads'}
       />
       <IconButton
-        size="icon"
+        size="icon-sm"
         variant="ghost-muted"
         label={t('NewProject')}
 
@@ -546,7 +570,10 @@ function NewProjectDialog({
             void createSubject();
           }}
         >
-          <DialogHeading title={<> {t('NewProject')} </>} />
+          <DialogHeading
+            title={<> {t('NewProject')} </>}
+            description={t('NewProjectDescription')}
+          />
           <SidebarUI.FormFields>
             <label htmlFor="study-subject-name">{t('ProjectName')}</label>
             <Input
@@ -561,7 +588,7 @@ function NewProjectDialog({
             )}
           </SidebarUI.FormFields>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setNewSubjectOpen(false)}>
+            <Button variant="outline" onClick={() => setNewSubjectOpen(false)}>
               {t('Cancel')}
             </Button>
             <Button type="submit" disabled={!name.trim() || creating}>
@@ -624,7 +651,7 @@ function projectPickerEmpty(
 }
 
 function SidebarContentBody(model: SidebarViewModel) {
-  if (sidebarContent(model.metadata) !== 'workspace') return model.collection;
+  if (model.section !== 'notes') return model.collection;
 
   if (model.query.trim()) return <SidebarSearchResults {...model} />;
 
@@ -643,7 +670,8 @@ function SidebarSearchControl({
   project,
   query,
   setQuery,
-  clearSearch
+  clearSearch,
+  materials
 }: Pick<
   SidebarModel,
   | 'collapsed'
@@ -654,37 +682,32 @@ function SidebarSearchControl({
   | 'query'
   | 'setQuery'
   | 'clearSearch'
->) {
+> & { materials: boolean }) {
   const { t } = useI18n();
 
-  return (
-    <>
-      {' '}
-      {collapsed ? (
-        <IconButton
-          size="icon"
-          variant="ghost-muted"
-          label={t('Search')}
+  if (collapsed)
+    return (
+      <IconButton size="icon" variant="ghost-muted" label={t('Search')} onClick={openSearch}>
+        <SearchIcon aria-hidden="true" />
+      </IconButton>
+    );
 
-          onClick={openSearch}
-        >
-          <SearchIcon aria-hidden="true" />
-        </IconButton>
-      ) : (
-        <SidebarUI.Search
-          ref={searchRef}
-          aria-label={t(!global && project ? 'SearchThisSubject' : 'Search')}
-          placeholder={t('Search')}
-          value={query}
-          onValueChange={setQuery}
-          clearLabel={t('SearchClose')}
-          onClear={clearSearch}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') clearSearch();
-          }}
-        />
-      )}
-    </>
+  const subjectLabel = !global && project ? 'SearchThisSubject' : 'Search';
+
+  return (
+    <SidebarUI.Search
+      ref={searchRef}
+      aria-label={t(materials ? 'UploadedMaterialsSearch' : subjectLabel)}
+      maxLength={materials ? 255 : undefined}
+      placeholder={t(materials ? 'UploadedMaterialsSearch' : 'Search')}
+      value={query}
+      onValueChange={setQuery}
+      clearLabel={t('SearchClose')}
+      onClear={clearSearch}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') clearSearch();
+      }}
+    />
   );
 }
 
@@ -730,18 +753,18 @@ function SidebarCreationControl({
 
   return (
     <>
+      {metadata.section === 'uploads' && project && (
+        <UploadMaterialAction key={String(project)} project={project} />
+      )}
       {metadata.section === 'practice' && (
         <>
           <ArchivedPracticeAction key={String(project)} projectId={project} disabled={disabled} />
           <PracticeGenerationAction projectId={project} disabled={disabled} />
         </>
       )}
-      {metadata.section === 'pages' && (
-        <NewBlankPage key={String(project)} project={project} compact disabled={disabled} />
-      )}
       {metadata.title === 'Notes' && (
         <IconButton
-          size="icon"
+          size="icon-sm"
           variant="ghost-muted"
           label={t('NewNote')}
 

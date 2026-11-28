@@ -1,0 +1,53 @@
+.source-attachment-preview {
+  display: grid;
+  gap: 0.875rem;
+  min-width: 0;
+  margin-block-start: 1rem;
+}
+
+.source-attachment-paper {
+  min-width: 0;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.source-attachment-notice {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .source-attachment-paper {
+    padding: 1rem;
+  }
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='image'] {
+  display: flex;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='image'] img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 70dvh;
+  aspect-ratio: auto;
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='audio'] {
+  max-inline-size: 42rem;
+}
+
+.source-reader[data-materials-reader] .ui-attachment-preview[data-kind='video'] video {
+  max-block-size: 68dvh;
+  aspect-ratio: auto;
+}

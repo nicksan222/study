@@ -19,7 +19,7 @@ export function searchResultLocation(hit: Hit, project?: string) {
       } as const;
     case 'page':
       return {
-        to: '/pages/$pageId',
+        to: '/practice/study-notes/$pageId',
         params: { pageId: String(target.pageId) },
         search
       } as const;

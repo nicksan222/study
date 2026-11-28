@@ -68,6 +68,7 @@ test.server.stable(
         );
 
         assert.ok(state.documentId !== null);
+        assert.equal(state.publishedRequestId, state.requestId);
         yield* client['sources.correctBlock']({
           id,
           documentId: state.documentId,
@@ -75,11 +76,13 @@ test.server.stable(
           before: 'Hello',
           after: 'Corrected'
         });
-        yield* pollUntil(
+        const corrected = yield* pollUntil(
           client['sources.sourceProcessing']({ id }),
           (value) => value.documentId !== null && value.documentId !== state.documentId,
           { attempts: 100, interval: '50 millis', message: 'Source correction was not consumed' }
         );
+
+        assert.equal(corrected.publishedRequestId, corrected.requestId);
         const document = yield* Effect.promise(() =>
           app.nativeRuntime.runPromise(
             Effect.flatMap(Sources, (sources) => sources.sourceDocument(id))

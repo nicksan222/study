@@ -56,6 +56,7 @@ test.server.stable(
 
           expect(result.status).toBe('completed');
           expect(result.items.map((item) => item.status)).toEqual(['imported', 'imported']);
+          expect(yield* client['integrations.imports']({ limit: 1 })).toEqual([result]);
           const notes = yield* client['notes.notes']({ limit: 100 });
 
           expect(notes.items.map((note) => note.title).sort()).toEqual(['Cells', 'DNA']);

@@ -37,12 +37,7 @@ import {
 import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { Button } from './button';
-import {
-  captureEditorSelection,
-  readNativeTextSelection,
-  reconcileEnterSelection,
-  restoreEditorNodeSelection
-} from './editor-selection';
+import { captureEditorSelection, restoreEditorNodeSelection } from './editor-selection';
 import type { RichNoteSelection } from './editor-selection';
 import { insertEditorText } from './editor-text';
 import type { EditorTextOptions } from './editor-text';
@@ -205,6 +200,7 @@ export type { RichNoteSelection } from './editor-selection';
 
 export type RichNoteEditorHandle = {
   insertPlainText: (text: string, options?: EditorTextOptions) => void;
+  focusEnd?: () => void;
   selection: () => RichNoteSelection;
   restoreSelection: (selection: RichNoteSelection, options?: { focus: boolean }) => void;
 };
@@ -229,25 +225,25 @@ export function RichNoteEditor({
   placeholder: string;
   labels: RichNoteLabels;
   toolbarEnd?: ReactNode;
-  variant?: 'notebook';
+  variant?: 'notebook' | 'writing';
   ref?: Ref<RichNoteEditorHandle>;
   disabled?: boolean;
   spellcheck?: boolean;
   fontSize?: number;
 }) {
   const latest = useRef(value);
+  const documentStyle = variant !== undefined;
   const editor = useEditor({
     extensions: [
-      ...(variant === 'notebook' ? notebookReadingExtensions : extensions),
+      ...(documentStyle ? notebookReadingExtensions : extensions),
       Markdown.configure({ markedOptions: { breaks: true } })
     ],
     content: value,
     contentType: 'markdown',
-    textDirection: variant === 'notebook' ? 'auto' : undefined,
+    textDirection: documentStyle ? 'auto' : undefined,
     editable: !disabled,
     shouldRerenderOnTransaction: false,
     editorProps: {
-      handleDOMEvents: { keydown: reconcileEnterSelection },
       attributes: {
         role: 'textbox',
         'aria-label': label,
@@ -267,30 +263,12 @@ export function RichNoteEditor({
     ref,
     () => ({
       insertPlainText: (text, options) => insertEditorText(editor, text, options),
-      selection: () => {
-        const captured = captureEditorSelection(editor);
-
-        if (captured.kind === 'node') return captured;
-
-        const selection = readNativeTextSelection(editor.view);
-
-        return selection ? { kind: 'text', ...selection } : captured;
+      focusEnd: () => {
+        editor.commands.focus('end');
       },
-      restoreSelection: (selection, { focus } = { focus: true }) => {
-        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection, focus);
-
-        const { anchor, head } = selection;
-        const { doc, tr } = editor.state;
-        const limit = (position: number) => Math.max(0, Math.min(position, doc.content.size));
-
-        editor.view.dispatch(
-          tr.setSelection(
-            TextSelection.between(doc.resolve(limit(anchor)), doc.resolve(limit(head)))
-          )
-        );
-
-        if (focus) editor.view.focus();
-      }
+      selection: () => captureRichNoteSelection(editor),
+      restoreSelection: (selection, { focus } = { focus: true }) =>
+        restoreRichNoteSelection(editor, selection, focus)
     }),
     [editor]
   );
@@ -308,10 +286,48 @@ export function RichNoteEditor({
       labels={labels}
       disabled={disabled}
       toolbarEnd={toolbarEnd}
+      mode={variant === 'writing' ? 'minimal' : undefined}
       spellcheck={spellcheck}
       fontSize={fontSize}
     />
   );
+}
+
+function captureRichNoteSelection(editor: Editor): RichNoteSelection {
+  const captured = captureEditorSelection(editor);
+
+  if (captured.kind === 'node') return captured;
+
+  const selection = window.getSelection();
+  const root = editor.view.dom;
+
+  if (
+    selection?.anchorNode &&
+    selection.focusNode &&
+    root.contains(selection.anchorNode) &&
+    root.contains(selection.focusNode)
+  )
+    return {
+      kind: 'text',
+      anchor: editor.view.posAtDOM(selection.anchorNode, selection.anchorOffset),
+      head: editor.view.posAtDOM(selection.focusNode, selection.focusOffset)
+    };
+
+  return captured;
+}
+
+function restoreRichNoteSelection(editor: Editor, selection: RichNoteSelection, focus: boolean) {
+  if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection, focus);
+
+  const { anchor, head } = selection;
+  const { doc, tr } = editor.state;
+  const limit = (position: number) => Math.max(0, Math.min(position, doc.content.size));
+
+  editor.view.dispatch(
+    tr.setSelection(TextSelection.between(doc.resolve(limit(anchor)), doc.resolve(limit(head))))
+  );
+
+  if (focus) editor.view.focus();
 }
 
 export function RichNoteEditorSurface({
@@ -320,7 +336,7 @@ export function RichNoteEditorSurface({
   disabled,
   toolbarEnd,
   structured = false,
-  readOnly = false,
+  mode,
   controls,
   notice,
   children,
@@ -332,13 +348,45 @@ export function RichNoteEditorSurface({
   disabled: boolean;
   toolbarEnd?: ReactNode;
   structured?: boolean;
-  readOnly?: boolean;
+  mode?: 'minimal' | 'read-only';
   controls?: ReactNode;
   notice?: ReactNode;
   children?: ReactNode;
   spellcheck?: boolean;
   fontSize?: number;
 }) {
+  useRichNotePreferences(editor, disabled, spellcheck, fontSize);
+  const readOnly = mode === 'read-only';
+  const minimal = mode === 'minimal';
+
+  return (
+    <div className="rich-note-editor" data-disabled={(disabled && !readOnly) || undefined}>
+      {!readOnly && (
+        <div className="rich-note-ribbon" data-minimal={minimal || undefined}>
+          {!minimal && (
+            <RichNoteFormatting
+              editor={editor}
+              labels={labels}
+              disabled={disabled}
+              structured={structured}
+              controls={controls}
+            />
+          )}
+          {toolbarEnd && <div className="rich-note-toolbar-end">{toolbarEnd}</div>}
+        </div>
+      )}
+      {notice}
+      {children ?? <EditorContent editor={editor} className="rich-note-content" />}
+    </div>
+  );
+}
+
+function useRichNotePreferences(
+  editor: Editor,
+  disabled: boolean,
+  spellcheck: boolean,
+  fontSize: number
+) {
   useEffect(() => {
     editor.setEditable(!disabled, false);
     const attributes = editor.options.editorProps.attributes;
@@ -354,25 +402,6 @@ export function RichNoteEditorSurface({
       }
     });
   }, [disabled, editor, spellcheck, fontSize]);
-
-  return (
-    <div className="rich-note-editor" data-disabled={(disabled && !readOnly) || undefined}>
-      {!readOnly && (
-        <div className="rich-note-ribbon">
-          <RichNoteFormatting
-            editor={editor}
-            labels={labels}
-            disabled={disabled}
-            structured={structured}
-            controls={controls}
-          />
-          {toolbarEnd && <div className="rich-note-toolbar-end">{toolbarEnd}</div>}
-        </div>
-      )}
-      {notice}
-      {children ?? <EditorContent editor={editor} className="rich-note-content" />}
-    </div>
-  );
 }
 
 const ReadingContext = createContext<{

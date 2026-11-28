@@ -3,28 +3,9 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import type { ReactNode } from 'react';
 
-import type * as __StudyMockType1 from '#client/app/shell/sidebar.view.tsx';
-import type * as __StudyMockType0 from '#client/test/sidebar-model.ts';
+import { sidebarModel } from '#client/test/sidebar-model.ts';
 
-let sidebarModel: typeof __StudyMockType0.sidebarModel;
-
-let SidebarView: typeof __StudyMockType1.SidebarView;
-
-test.unit.beforeEach(async ({ mock }) => {
-  mock('#client/app/shell/rich-sidebar.queries.ts', () => ({
-    useSidebarProgress: () => ({
-      settings: { data: { settledPageThreshold: 1 } },
-      progress: { data: { items: [] } }
-    }),
-    useNoteSettlement: () => ({ mutate: mock.fn(), isPending: false })
-  }));
-  const __studyMockModule0 = await import('#client/test/sidebar-model.ts');
-
-  sidebarModel = __studyMockModule0.sidebarModel;
-  const __studyMockModule1 = await import('./sidebar.view');
-
-  SidebarView = __studyMockModule1.SidebarView;
-});
+import { SidebarView } from './sidebar.view';
 
 function renderSidebar(
   {
@@ -33,7 +14,9 @@ function renderSidebar(
   }: Pick<test.unit.Context, 'rpcTestTransport' | 'renderInRouter'>,
   children: ReactNode
 ) {
-  const fixture = rpcTestTransport(async () => defaultWorkspacePreferences);
+  const fixture = rpcTestTransport(async (tag) =>
+    tag === 'notes.noteSummaries' ? { items: [] } : defaultWorkspacePreferences
+  );
 
   return renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
 }
@@ -132,28 +115,6 @@ test.unit.stable(
     expect(saving).toBeDisabled();
     expect(within(dialog).getAllByRole('status')).toHaveLength(1);
     expect(within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
-  }
-);
-
-test.unit.stable(
-  'offers page creation instead of note creation in Pages',
-  async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
-    renderSidebar(
-      { rpcTestTransport, renderInRouter },
-      <SidebarView
-        {...sidebarModel()}
-        metadata={{ title: 'SourcePage', section: 'pages', scope: 'project' }}
-        section="pages"
-        collection={null}
-      />
-    );
-
-    expect(
-      await screen.findByRole('button', { name: catalogs.english.NoteCreatePage })
-    ).toBeEnabled();
-    expect(
-      screen.queryByRole('button', { name: catalogs.english.NewNote })
-    ).not.toBeInTheDocument();
   }
 );
 

@@ -9,7 +9,7 @@ import { textResponseEvents } from './responses.ts';
 
 interface Release {
   readonly model: string;
-  readonly text: string;
+  readonly text: string | (() => Promise<string>);
 }
 
 const readModel = Schema.decodeUnknownSync(Schema.Struct({ model: Schema.String }));
@@ -43,8 +43,10 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
 
       if (!response) throw new Error(`Unexpected model ${model}`);
 
+      const text = typeof response.text === 'function' ? await response.text() : response.text;
+
       return new Response(
-        textResponseEvents(response.text)
+        textResponseEvents(text)
           .map((event) => `data: ${JSON.stringify(event)}\n\n`)
           .join(''),
         { headers: { 'content-type': 'text/event-stream' } }

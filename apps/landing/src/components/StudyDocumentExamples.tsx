@@ -1,14 +1,13 @@
-import { createLocalization, structuredEditorLabels } from '@study/localization';
+import { createLocalization, noteEditorLabels, structuredEditorLabels } from '@study/localization';
 import { landingCopy } from '@study/localization';
 import { Button } from '@study/ui';
 import { ChatMessage, ChatEntryLabel, ChatQuestionAnswer, ChatMessageText } from '@study/ui';
 import { CitationSources, EvidenceReference } from '@study/ui';
-import { NotebookComposer } from '@study/ui';
-import { RichNoteContent } from '@study/ui';
+import { RichNoteContent, RichNoteEditor, WritingSurface } from '@study/ui';
 import { StructuredEditor } from '@study/ui';
 import type { StructuredEditorValue } from '@study/ui';
 import { WorkspaceDeskSurface as Desk } from '@study/ui';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 
 export interface DocumentExampleProps {
   lang: 'en' | 'it';
@@ -16,53 +15,26 @@ export interface DocumentExampleProps {
   phase?: 'start' | 'result';
 }
 
-export function NoteExample({ lang, ready, phase }: DocumentExampleProps) {
+export function NoteExample({ lang, ready }: DocumentExampleProps) {
   const c = landingCopy[lang].examples;
   const { t } = createLocalization(lang === 'it' ? 'italian' : 'english');
-  const id = useId();
-  const [text, setText] = useState<string>(phase === 'result' ? '' : c.noteDraft);
-  const [entries, setEntries] = useState<{ id: string; text: string }[]>(
-    phase === 'result' ? [{ id: 'sample-note', text: c.noteDraft }] : []
-  );
-  const save = () => {
-    if (!ready || !text.trim()) return;
-
-    setEntries((previous) => [...previous, { id: crypto.randomUUID(), text }]);
-    setText('');
-  };
+  const [text, setText] = useState<string>(c.noteDraft);
 
   return (
-    <>
-      {entries.map((entry) => (
-        <ChatMessage key={entry.id}>
-          <ChatEntryLabel>{t('NoteEntryNote')}</ChatEntryLabel>
-          <ChatMessageText text={entry.text} />
-        </ChatMessage>
-      ))}
-      <NotebookComposer
-        role="group"
-        inputId={id}
-        label={t('NoteCompose')}
-        hint={t('NoteNotebookHint')}
-        placeholder={t('NoteComposeHint')}
-        submitLabel={t('NoteSaveNote')}
-        value={text}
-        onChange={setText}
-        onSubmit={save}
-        onKeyDown={(event) => {
-          if (
-            (event.metaKey || event.ctrlKey) &&
-            event.key === 'Enter' &&
-            !event.nativeEvent.isComposing
-          ) {
-            event.preventDefault();
-            save();
-          }
-        }}
-        disabled={!ready || !text.trim()}
-      />
-      <p role="status">{entries.length ? c.saved : ''}</p>
-    </>
+    <WritingSurface heading={<h3>{c.noteTitle}</h3>} status={c.noteDemoHint}>
+      {ready ? (
+        <RichNoteEditor
+          value={text}
+          onChange={setText}
+          label={t('NotePageEditor')}
+          placeholder={t('NotePagePlaceholder')}
+          labels={noteEditorLabels(t)}
+          variant="writing"
+        />
+      ) : (
+        <RichNoteContent value={text} />
+      )}
+    </WritingSurface>
   );
 }
 

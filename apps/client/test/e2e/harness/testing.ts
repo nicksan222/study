@@ -12,6 +12,7 @@ import { controlMicrophone } from './microphone.ts';
 import { captureProfile } from './profile.ts';
 import { screenshotAssertions, updateAllowed } from './screenshots.ts';
 import type { ExpectScreenshot } from './screenshots.ts';
+import { openSourcePeer } from './source-fetch.ts';
 import { openWebStack } from './stack.ts';
 
 type VisualBounds = Partial<Pick<VisualViewport, 'height' | 'width' | 'offsetLeft' | 'offsetTop'>>;
@@ -24,8 +25,10 @@ export type Journey = {
 };
 
 type Fixtures = {
+  expect: typeof expect;
   study: Awaited<ReturnType<typeof createStudyMaterials>>;
   aiEnabled: boolean;
+  modelUpdateNotices: boolean;
   microphoneEnabled: boolean;
   microphone: Awaited<ReturnType<typeof createMicrophone>>;
   chatGpt: Pick<NonNullable<Parameters<typeof openWebStack>[0]>, 'chatGptReleases'>;
@@ -40,13 +43,17 @@ type Fixtures = {
   journey: Journey;
   desktopPage: Page;
   captureWorkflow: string;
+  sourcePeer: ReturnType<typeof openSourcePeer>;
+  firstRun: boolean;
   useDefaultNoteAppearance: boolean;
 };
 
 /** Playwright owns test/worker lifetimes, browser isolation, traces and failure artifacts. */
 const testHarness = testBrowser.extend<Fixtures>({
+  expect: async ({ browserName: _browserName }, provide) => provide(expect),
   study: async ({ app, ai }, provide) => provide(await createStudyMaterials(app, ai)),
   aiEnabled: [false, { option: true }],
+  modelUpdateNotices: [false, { option: true }],
   microphoneEnabled: [false, { option: true }],
   microphone: async ({ page, webStack }, provide) => {
     await provide(await webStack.bindMicrophone(page));
@@ -66,9 +73,23 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
+  sourcePeer: async ({ browserName: _browserName }, provide) => {
+    await using peer = openSourcePeer();
+
+    await provide(peer);
+  },
+  firstRun: [false, { option: true }],
   useDefaultNoteAppearance: [false, { option: true }],
   webStack: async (
-    { ai, aiEnabled, chatGpt, microphoneEnabled, useDefaultNoteAppearance },
+    {
+      ai,
+      aiEnabled,
+      chatGpt,
+      firstRun,
+      microphoneEnabled,
+      modelUpdateNotices,
+      useDefaultNoteAppearance
+    },
     provide
   ) => {
     assertCapturePlatform();
@@ -76,6 +97,8 @@ const testHarness = testBrowser.extend<Fixtures>({
 
     await using stack = await openWebStack({
       ai: aiEnabled ? ai.runtime : undefined,
+      firstRun,
+      modelUpdateNotices,
       voice: voice?.runtime,
       useDefaultNoteAppearance,
       ...chatGpt
@@ -158,21 +181,8 @@ const testHarness = testBrowser.extend<Fixtures>({
   }
 });
 
-const withTools = testHarness.extend<{
-  expect: typeof expect;
-  policy: typeof testPolicy;
-  createAiMock: typeof createAiMock;
-  createTestResources: typeof createTestResources;
-}>({
-  expect: async ({ browserName: _browserName }, provide) => provide(expect),
-  policy: async ({ browserName: _browserName }, provide) => provide(testPolicy),
-  createAiMock: async ({ browserName: _browserName }, provide) => provide(createAiMock),
-  createTestResources: async ({ browserName: _browserName }, provide) =>
-    provide(createTestResources)
-});
-
 /** Focused browser harness cases use the same environment and classification APIs. */
-export const test = { browser: createBrowserTestApi(withTools) };
+export const test = { browser: createBrowserTestApi(testHarness) };
 
 type VoiceMock = ReturnType<typeof createVoiceMock>;
 

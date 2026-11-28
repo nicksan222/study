@@ -114,9 +114,13 @@ function ShellHeader({
   title,
   onToggle,
   toggleRef,
-  header
+  header,
+  parentTitle,
+  materials
 }: {
   header?: 'workspace';
+  materials: boolean;
+  parentTitle?: string;
   notes: boolean;
   visible: boolean;
   title: string;
@@ -130,7 +134,7 @@ function ShellHeader({
       ref={toggleRef}
       aria-controls="study-sidebar-navigation"
       placement={header === 'workspace' || notes ? 'reveal' : 'default'}
-      label={t('ToggleSidebar')}
+      label={t(materials ? 'UploadedMaterialsBack' : 'ToggleSidebar')}
       expanded={false}
       onClick={onToggle}
     />
@@ -140,7 +144,7 @@ function ShellHeader({
 
   if (!notes)
     return (
-      <SidebarUI.Topbar parent={t('AppName')} title={title}>
+      <SidebarUI.Topbar parent={parentTitle ?? t('AppName')} title={title}>
         {toggle}
       </SidebarUI.Topbar>
     );
@@ -153,10 +157,10 @@ function ShellHeader({
   );
 }
 
-function usePageLayout(notes: boolean, pages: boolean, workspace: boolean) {
+function usePageLayout(notes: boolean, workspace: boolean) {
   const search = useSearch({ from: '__root__' });
   const params = useParams({ strict: false });
-  const editingPage = pages && params.pageId !== undefined && !search.pageVersion;
+  const editingPage = params.pageId !== undefined && !search.pageVersion;
 
   return notes || editingPage || workspace ? 'bleed' : 'padded';
 }
@@ -166,7 +170,9 @@ function useNavigation(pathname: string, notebook: boolean, practice: boolean) {
   const search = useSearch({ from: '__root__' });
   const path = pathname.replace(/\/$/, '');
   const library =
-    ['/practice', '/flashcards'].includes(path) || (path === '/projects' && !search.project);
+    (path === '/uploads' && Boolean(search.project)) ||
+    ['/practice', '/flashcards'].includes(path) ||
+    (path === '/projects' && !search.project);
   const desktop = useShellNavigation(notebook && !phone, practice && !phone);
   const drawer = usePhoneNavigation(`${path}:${search.project ?? ''}`, library);
 
@@ -186,8 +192,7 @@ export function Shell() {
   );
 }
 
-function ShellContent() {
-  const { t } = useI18n();
+function useShellRoute() {
   const matches = useMatches();
   const match = matches.at(-1);
   const {
@@ -197,14 +202,33 @@ function ShellContent() {
     sidebar,
     header
   } = match?.staticData ?? {};
-  const metadata = { title, section, scope, sidebar };
+  const fromUploads = useSearch({
+    from: '__root__',
+    select: (search) => search.fromUploads === '1'
+  });
+  const materialReader = title === 'AnswerSources' && fromUploads;
+  const metadata = materialReader
+    ? {
+        title: 'UploadedMaterials' as const,
+        section: 'uploads' as const,
+        scope: 'project' as const
+      }
+    : { title, section, scope, sidebar };
+
+  return { metadata, header, pathname: match?.pathname ?? '' };
+}
+
+function ShellContent() {
+  const { t } = useI18n();
+  const { metadata, header, pathname } = useShellRoute();
+  const { title, section } = metadata;
   const notes = title === 'Notes';
   const notebook = ['Notes', 'Assistant'].includes(title);
-  const layout = usePageLayout(notes, section === 'pages', header === 'workspace');
-  const navigation = useNavigation(match?.pathname ?? '', notebook, section === 'practice');
+  const layout = usePageLayout(notes, header === 'workspace' || section === 'uploads');
+  const navigation = useNavigation(pathname, notebook, section === 'practice');
   const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.visible);
   const context = useSidebarContext(metadata);
-  const { project, shortcutsDisabled } = useContextMenuScope(scope, context);
+  const { project, projectName, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);
 
   return (
     <>
@@ -215,7 +239,7 @@ function ShellContent() {
           data-phone-navigation={navigation.phone}
           data-phone-library={navigation.phone && navigation.library}
           collapsed={navigation.collapsed}
-          defaultWidth={288}
+          defaultWidth={280}
           minWidth={224}
           minContentWidth={360}
           storageKey="study-sidebar-width"
@@ -230,9 +254,11 @@ function ShellContent() {
             onToggle={navigation.toggle}
             toggleRef={drawerToggle}
           />
-          <SidebarUI.Main inert={navigation.phone && navigation.open}>
+          <SidebarUI.Main data-section={section} inert={navigation.phone && navigation.open}>
             <ShellHeader
               header={header}
+              materials={section === 'uploads'}
+              parentTitle={section === 'uploads' ? projectName : undefined}
               notes={notebook}
               visible={navigation.visible}
               title={t(title)}
@@ -254,15 +280,15 @@ function useContextMenuScope(
   context: ReturnType<typeof useSidebarContext>
 ) {
   const subjects = rpc.projects.list.useQuery({ limit: 100 });
-  const project =
+  const subject =
     scope === 'global'
       ? undefined
-      : subjects.data?.items.find((subject) => String(subject.id) === context.requestedProject)?.id;
+      : subjects.data?.items.find((subject) => String(subject.id) === context.requestedProject);
   const shortcutsDisabled =
     !context.ready ||
     (scope !== 'global' &&
       Boolean(context.requestedProject) &&
-      (!subjects.isSuccess || project === undefined));
+      (!subjects.isSuccess || subject === undefined));
 
-  return { project, shortcutsDisabled };
+  return { project: subject?.id, projectName: subject?.name, shortcutsDisabled };
 }

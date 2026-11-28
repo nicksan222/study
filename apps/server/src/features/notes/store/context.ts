@@ -31,16 +31,21 @@ export const NoteContextStore = defineStore({
     const { note, requiredContext, retainedContext, decodeContext, assertContextAvailable } =
       makeContextReads(resources);
 
-    const { noteHistory, noteRoot } = makeHistory(resources);
+    const { noteHistory, noteRoot, notebookBody } = makeHistory(resources);
 
-    function captureHistory(input: typeof noteContextIntentSchema.Type) {
-      let history = noteHistory(
-        input.noteId,
-        input.throughMessageId,
-        input.threadRoot,
-        true,
-        input.throughMessageId === undefined ? {} : { pendingAssistant: 'omit' }
-      );
+    function captureHistory(
+      input: typeof noteContextIntentSchema.Type & { authoredOnly?: boolean }
+    ) {
+      if (input.authoredOnly) {
+        const body = notebookBody(input.noteId);
+
+        if (body) return [body];
+      }
+
+      let history = noteHistory(input.noteId, input.throughMessageId, input.threadRoot, true, {
+        authoredOnly: input.authoredOnly,
+        pendingAssistant: input.throughMessageId !== undefined ? 'omit' : undefined
+      });
 
       if (input.threadRoot !== undefined) {
         const part = db.orm
@@ -91,13 +96,17 @@ export const NoteContextStore = defineStore({
           input: Schema.Struct({
             ...noteContextIntentSchema.fields,
             requestId: Schema.String,
+            authoredOnly: Schema.optional(Schema.Boolean),
             inputs: Schema.Array(resolvedSelectionSchema)
           }),
           output: runSelectionContextSchema,
           run: (input) => {
             const row = note(input.noteId);
 
-            let history = captureHistory(input);
+            const captured = captureHistory(input);
+            let history = input.authoredOnly
+              ? captured.filter((item) => item.text.trim())
+              : captured;
 
             const total = db.orm
               .select()

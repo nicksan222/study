@@ -20,86 +20,28 @@ import type { Inline } from '@study/contracts';
 import { posixPaths } from '@study/server';
 import { load } from 'cheerio';
 import { XMLValidator } from 'fast-xml-parser';
-import { fromBufferPromise } from 'yauzl';
-import type { Entry, ZipFile } from 'yauzl';
+import type { ZipFile } from 'yauzl';
 
 import { checkAbort, document } from './common.ts';
+import { openZip, nextZipEntry, readZipXml } from './zip.ts';
 
 const posix = posixPaths;
 
 const MAX_ENTRIES = 5000,
   MAX_EXPANDED = 32 * 1024 * 1024;
 
-async function nextEntry(zip: ZipFile): Promise<Entry | null> {
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      zip.off('entry', onEntry);
-      zip.off('end', onEnd);
-      zip.off('error', onError);
-    };
-    const onEntry = (entry: Entry) => {
-      cleanup();
-      resolve(entry);
-    };
-    const onEnd = () => {
-      cleanup();
-      resolve(null);
-    };
-    const onError = (error: Error) => {
-      cleanup();
-      reject(error);
-    };
-
-    zip.once('entry', onEntry);
-    zip.once('end', onEnd);
-    zip.once('error', onError);
-    zip.readEntry();
-  });
-}
-
-async function readXmlPart(zip: ZipFile, entry: Entry, signal?: AbortSignal): Promise<string> {
-  const stream = await zip.openReadStreamPromise(entry);
-  const chunks: Buffer[] = [];
-  let size = 0;
-  const abort = () => stream.destroy(new StudyError('cancelled', 'Reading was cancelled'));
-
-  signal?.addEventListener('abort', abort, { once: true });
-
-  try {
-    checkAbort(signal);
-
-    for await (const chunk of stream) {
-      size += chunk.length;
-
-      if (size > entry.uncompressedSize || size > MAX_EXPANDED)
-        throw new StudyError('invalid_input', 'Office XML exceeds the size limit');
-
-      chunks.push(chunk);
-    }
-  } finally {
-    signal?.removeEventListener('abort', abort);
-    stream.destroy();
-  }
-
-  return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
-}
-
 async function xmlParts(bytes: Uint8Array, signal?: AbortSignal): Promise<Map<string, string>> {
   let zip: ZipFile | undefined;
 
   try {
-    zip = await fromBufferPromise(Buffer.from(bytes), {
-      lazyEntries: true,
-      validateEntrySizes: true,
-      strictFileNames: true
-    });
+    zip = await openZip(bytes);
     const parts = new Map<string, string>();
     let count = 0,
       total = 0;
 
     for (;;) {
       checkAbort(signal);
-      const entry = await nextEntry(zip);
+      const entry = await nextZipEntry(zip);
 
       if (!entry) break;
 
@@ -116,7 +58,7 @@ async function xmlParts(bytes: Uint8Array, signal?: AbortSignal): Promise<Map<st
       if (total > MAX_EXPANDED)
         throw new StudyError('invalid_input', 'Office XML exceeds the size limit');
 
-      parts.set(entry.fileName, await readXmlPart(zip, entry, signal));
+      parts.set(entry.fileName, await readZipXml(zip, entry, MAX_EXPANDED, signal));
     }
 
     return parts;
@@ -210,11 +152,23 @@ function readDocx(parts: Map<string, string>): Block[] {
       .join('')
       .trim();
   const readTable = (table: Element): void => {
+    let rows: ReturnType<typeof officeRow>[] = [];
+    const flushTable = () => {
+      if (rows.length)
+        blocks.push(
+          createBlock({ type: 'table', rows }, { type: 'paragraph', index: blocks.length + 1 })
+        );
+
+      rows = [];
+    };
+
     visitChildren(table, 'w:tr', (row) => {
+      const repeatHeader = $(row).children('w\\:trPr').children('w\\:tblHeader');
+      const header =
+        !!repeatHeader.length && !['0', 'false', 'off'].includes(repeatHeader.attr('w:val') ?? '');
       let cells: string[] = [];
-      const flush = () => {
-        if (cells.length)
-          blocks.push(tableRow(cells, { type: 'paragraph', index: blocks.length + 1 }));
+      const flushRow = () => {
+        if (cells.length) rows.push(officeRow(cells, header));
 
         cells = [];
       };
@@ -236,7 +190,8 @@ function readDocx(parts: Map<string, string>): Block[] {
                 if (paragraph) text += (text ? ' ' : '') + paragraph;
               } else if (child.tagName === 'w:tbl') {
                 saveCell();
-                flush();
+                flushRow();
+                flushTable();
                 readTable(child);
               } else walkCell(child);
             });
@@ -245,9 +200,14 @@ function readDocx(parts: Map<string, string>): Block[] {
         walkCell(cell);
         saveCell();
       });
-      flush();
+      flushRow();
     });
+    flushTable();
   };
+  const hasTitle = body
+    .find('w\\:pStyle')
+    .toArray()
+    .some((style) => $(style).attr('w:val')?.toLowerCase() === 'title');
   const walkBody = (parent: Element): void => {
     $(parent)
       .children()
@@ -256,14 +216,12 @@ function readDocx(parts: Map<string, string>): Block[] {
           const style = $(element).find('w\\:pStyle').attr('w:val') ?? '';
 
           const inlines = paragraphInlines(element);
-          const heading = /^heading([1-9])?$/i.exec(style);
+          const level = wordHeadingLevel(style, hasTitle);
 
           if (inlines.length)
             blocks.push(
               createBlock(
-                heading
-                  ? { type: 'heading', level: Math.min(6, Number(heading[1]) || 1), inlines }
-                  : { type: 'paragraph', inlines },
+                level ? { type: 'heading', level, inlines } : { type: 'paragraph', inlines },
                 { type: 'paragraph', index: blocks.length + 1 }
               )
             );
@@ -451,19 +409,23 @@ export async function decodeOffice(
   return doc;
 }
 
+function wordHeadingLevel(style: string, hasTitle: boolean) {
+  if (style.toLowerCase() === 'title') return 1;
+
+  const outline = /^heading([1-9])?$/i.exec(style);
+
+  if (outline) return Math.min(6, (Number(outline[1]) || 1) + Number(hasTitle));
+}
+
+function officeRow(cells: string[], header = false) {
+  return {
+    cells: cells.map((text) => ({
+      header,
+      paragraphs: [[{ type: 'text' as const, text, marks: [] }]]
+    }))
+  };
+}
+
 function tableRow(cells: string[], anchor: Anchor): Block {
-  return createBlock(
-    {
-      type: 'table',
-      rows: [
-        {
-          cells: cells.map((text) => ({
-            header: false,
-            paragraphs: [[{ type: 'text', text, marks: [] }]]
-          }))
-        }
-      ]
-    },
-    anchor
-  );
+  return createBlock({ type: 'table', rows: [officeRow(cells)] }, anchor);
 }

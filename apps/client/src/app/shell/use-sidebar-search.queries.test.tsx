@@ -34,7 +34,7 @@ test.unit.stable(
   async ({ renderHook, act, vi, expect }) => {
     const view = renderHook(
       ({ query }) =>
-        useSidebarSearch({ query, project, global: false, canSearch: true, content: 'workspace' }),
+        useSidebarSearch({ query, project, global: false, canSearch: true, section: 'notes' }),
       { initialProps: { query: 'old' }, wrapper }
     );
 
@@ -69,7 +69,7 @@ test.unit.stable(
           project,
           global: false,
           canSearch: true,
-          content: 'workspace'
+          section: 'notes'
         }),
       { wrapper }
     );
@@ -86,16 +86,16 @@ test.unit.stable(
   'leaves document filtering local and removes subject restrictions from global search',
   async ({ renderHook, act, vi, expect }) => {
     const view = renderHook(
-      ({ content }) =>
-        useSidebarSearch({ query: 'notes', project, global: true, canSearch: true, content }),
-      { initialProps: { content: 'pages' as 'pages' | 'workspace' }, wrapper }
+      ({ section }) =>
+        useSidebarSearch({ query: 'notes', project, global: true, canSearch: true, section }),
+      { initialProps: { section: 'practice' as 'practice' | 'notes' }, wrapper }
     );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(250);
     });
     expect(api.search).not.toHaveBeenCalled();
-    view.rerender({ content: 'workspace' });
+    view.rerender({ section: 'notes' });
     expect(api.search).toHaveBeenCalledExactlyOnceWith({
       query: 'notes',
       project: undefined,

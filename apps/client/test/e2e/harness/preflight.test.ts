@@ -142,7 +142,8 @@ test.unit.stable(
   async ({ expect, spawnTestProcess }) => {
     async function catalog(
       { spawnTestProcess, expect }: Pick<test.unit.Context, 'spawnTestProcess' | 'expect'>,
-      shard?: string
+      shard?: string,
+      file?: string
     ) {
       const child = spawnTestProcess(
         [
@@ -154,7 +155,8 @@ test.unit.stable(
           'playwright.config.ts',
           '--list',
           '--reporter=json',
-          ...(shard ? [`--shard=${shard}`] : [])
+          ...(shard ? [`--shard=${shard}`] : []),
+          ...(file ? [file] : [])
         ],
         {
           cwd: Bun.fileURLToPath(new URL('../../../', import.meta.url)),
@@ -195,9 +197,18 @@ test.unit.stable(
     expect(ids(shards.flat())).toEqual(ids(all));
     expect(new Set(ids(shards.flat())).size).toBe(all.length);
 
-    expect(
-      shards.filter((shard) => shard.some((spec) => spec.file.endsWith('settings.test.ts'))).length
-    ).toBeGreaterThan(1);
+    // A file can fit inside a single full-catalog shard as the number of journeys changes.
+    // Shard settings alone to exercise the parallel cases in that file.
+    const settings = all.filter((spec) => spec.file.endsWith('settings.test.ts'));
+    const firstSettingsShard = await catalog(
+      { spawnTestProcess, expect },
+      '1/3',
+      'settings.test.ts'
+    );
+
+    expect(firstSettingsShard.length).toBeGreaterThan(0);
+    expect(firstSettingsShard.length).toBeLessThan(settings.length);
+    expect(ids(settings)).toEqual(expect.arrayContaining(ids(firstSettingsShard)));
 
     // The two consecutive fixtures must stay on one worker to exercise fixture cleanup.
     expect(

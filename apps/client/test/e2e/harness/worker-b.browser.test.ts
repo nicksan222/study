@@ -5,7 +5,8 @@ const copy = catalogs.english;
 
 test.browser.stable(
   'another test file has fresh browser storage and SQLite rows',
-  async ({ page, expect }) => {
+  async ({ page, rpc, expect }) => {
+    expect((await rpc.runPromise(rpc.client['notes.notes']({ limit: 10 }))).items).toHaveLength(0);
     await page.goto('/notes');
     await expect(page.getByRole('textbox', { name: copy.NoteCompose })).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('sentinel'))).toBeNull();

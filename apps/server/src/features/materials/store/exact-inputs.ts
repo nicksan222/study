@@ -27,16 +27,18 @@ const citationCodec = Schema.fromJsonString(Schema.toCodecJson(learningCitationS
 type Owner = { kind: 'version'; id: MaterialVersionId } | { kind: 'request'; id: string };
 
 function materialInputValue(row: typeof s.material_evidence_inputs.$inferSelect): ContentInput {
-  return Schema.decodeUnknownSync(contentInputSchema)(
-    row.page_version_id !== null
-      ? { kind: 'page', versionId: row.page_version_id }
-      : {
-          kind: 'source',
-          sourceId: row.source_id,
-          revision: row.source_revision,
-          snapshotId: row.source_snapshot_id
-        }
-  );
+  const decode = Schema.decodeUnknownSync(contentInputSchema);
+
+  if (row.note_context_id !== null) return decode({ kind: 'note', contextId: row.note_context_id });
+
+  if (row.page_version_id !== null) return decode({ kind: 'page', versionId: row.page_version_id });
+
+  return decode({
+    kind: 'source',
+    sourceId: row.source_id,
+    revision: row.source_revision,
+    snapshotId: row.source_snapshot_id
+  });
 }
 
 export function makeExactInputs({ db }: StoreResources) {

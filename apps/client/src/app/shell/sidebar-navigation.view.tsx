@@ -1,5 +1,5 @@
 import type { ProjectId } from '@study/contracts';
-import { NoteIcon, PageIcon, QuizIcon, AssistantIcon } from '@study/icons';
+import { NoteIcon, QuizIcon, AssistantIcon, SourcesIcon } from '@study/icons';
 import { Sidebar } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
@@ -11,8 +11,9 @@ import type { useSidebarCounts } from './sidebar-counts.queries';
 
 const sections = [
   ['/notes', 'notes', NoteIcon, 'Notes'],
-  ['/pages', 'pages', PageIcon, 'SourcePage'],
-  ['/practice', 'practice', QuizIcon, 'Practice']
+  ['/uploads', 'uploads', SourcesIcon, 'UploadedMaterials'],
+  ['/practice', 'practice', QuizIcon, 'Practice'],
+  ['/assistant', 'assistant', AssistantIcon, 'Assistant']
 ] as const;
 
 /** Preserves subject scope in section links and passes resolved workspace ownership into settings. */
@@ -42,8 +43,11 @@ export function SidebarNavigation({
           <Sidebar.NavigationItem
             key={to}
             label={t(label)}
-            count={counts?.[currentSection].count}
-            unresolved={currentSection === 'notes' && counts?.notes.unresolved}
+            count={
+              currentSection === 'notes' || currentSection === 'practice'
+                ? counts?.[currentSection].count
+                : undefined
+            }
             render={
               <Link
                 to={to}
@@ -56,19 +60,6 @@ export function SidebarNavigation({
             <Icon aria-hidden="true" />
           </Sidebar.NavigationItem>
         ))}
-        <Sidebar.NavigationItem
-          label={t('Assistant')}
-          render={
-            <Link
-              to="/assistant"
-              search={project ? { project } : {}}
-              aria-current={!settings && section === 'assistant' ? 'page' : undefined}
-              onClick={onNavigate}
-            />
-          }
-        >
-          <AssistantIcon aria-hidden="true" />
-        </Sidebar.NavigationItem>
       </Sidebar.Navigation>
       <Sidebar.Footer aria-label={t('Settings')}>
         <SettingsMenu active={settings} onOpen={onNavigate} workspaceProject={workspaceProject} />

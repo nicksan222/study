@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import type * as __MockType0 from './pages-page';
 
-let PagesPage: typeof __MockType0.PagesPage;
+let PracticeStudyNotes: typeof __MockType0.PracticeStudyNotes;
 
 let api: ReturnType<typeof createMockState>['api'];
 
@@ -24,22 +24,17 @@ test.unit.beforeEach(async ({ mock }) => {
   }));
   mock('@tanstack/react-router', () => ({
     useSearch: () => ({}),
-    Link: ({ children }: { children: ReactNode }) => <a href="/pages/1">{children}</a>
+    Link: ({ children }: { children: ReactNode }) => (
+      <a href="/practice/study-notes/1">{children}</a>
+    )
   }));
-  mock('#client/features/pages/creation-actions', () => ({ NewBlankPage: () => null }));
-  mock('#client/features/pages/from-notes', () => ({ PagesFromNotes: () => null }));
   mock('#client/features/pages/page-context-menu', () => ({
     PageContextMenu: ({ children }: { children: ReactNode }) => children
   }));
-  mock('#client/features/pages/merge', () => ({
-    PageMerges: () => null,
-    MergePagesDialog: ({ pages }: { pages: { title: string }[] }) => (
-      <section aria-label="Merge dialog">{pages.map((doc) => doc.title).join(', ')}</section>
-    )
-  }));
+  mock('#client/features/pages/merge', () => ({ PageMerges: () => null }));
   const __mockModule0 = await import('./pages-page');
 
-  PagesPage = __mockModule0.PagesPage;
+  PracticeStudyNotes = __mockModule0.PracticeStudyNotes;
 });
 
 test.unit.afterEach(({ cleanup, vi }) => {
@@ -77,7 +72,7 @@ test.unit.stable(
 
     render(
       <harness.wrapper>
-        <PagesPage />
+        <PracticeStudyNotes />
       </harness.wrapper>
     );
     await screen.findByText('First');
@@ -104,7 +99,7 @@ test.unit.stable(
 
     render(
       <harness.wrapper>
-        <PagesPage />
+        <PracticeStudyNotes />
       </harness.wrapper>
     );
     await user.click(screen.getByRole('button', { name: 'PagesArchived' }));

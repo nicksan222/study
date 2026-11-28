@@ -8,7 +8,7 @@ import {
   versionIdSchema,
   partIdSchema
 } from '../ids.ts';
-import { contentInputSchema, contentInputKey, contentRangeSchema } from '../inputs.ts';
+import { documentInputSchema, contentInputKey, contentRangeSchema } from '../inputs.ts';
 import {
   blockIdSchema,
   anchorSchema,
@@ -26,7 +26,7 @@ export const noteMessageSnapshotSchema = Schema.Struct({
 });
 
 /** A selection pins an authored version or an exact completed source extraction. */
-export const selectionReferenceSchema = contentInputSchema;
+export const selectionReferenceSchema = documentInputSchema;
 
 export const selectionRangeSchema = contentRangeSchema;
 

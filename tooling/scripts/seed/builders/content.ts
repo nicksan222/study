@@ -92,7 +92,7 @@ export function textFile(file: URL): SourceFixture {
   return textSource(basename(Bun.fileURLToPath(file)), new TextDecoder().decode(fixture(file)));
 }
 
-/** Any file format is supported when the fixture supplies its canonical extracted content. */
-export function assetFile(file: URL, extracted: Document): SourceFixture {
+/** Retains the original bytes, with extracted content when the sample has it. */
+export function assetFile(file: URL, extracted: Document | null): SourceFixture {
   return { name: basename(Bun.fileURLToPath(file)), bytes: fixture(file), document: extracted };
 }

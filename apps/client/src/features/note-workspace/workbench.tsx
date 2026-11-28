@@ -1,21 +1,20 @@
-import type { NoteId, PageId, SourceId } from '@study/contracts';
+import type { NoteId, PageId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Loading, WorkspaceSurface, WorkspaceDeskSurface as Desk } from '@study/ui';
+import { HistoryIcon } from '@study/icons';
+import { Button, WorkspaceCard, WorkspaceDeskSurface as Desk } from '@study/ui';
 import { useState } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { NoteAssistantPanel } from '../assistant';
-import { SourcePanel } from '../source-library';
-import { DictationSubmissionScope, useDictationSubmission } from '../voice';
-import { Composer } from './composer';
 import { NoteContextActions } from './context-actions';
 import { History } from './history';
 import { NoteSummary } from './note-editor';
 import { NotePagePanel } from './note-page-panel';
-import { useLinkedPages, useNotePageCreation } from './note-page.queries';
+import { useLinkedPages } from './note-page.queries';
 import { useThreadPage } from './note-reads';
+import { NotebookBody } from './notebook-body';
 import { NotebookOutline } from './notebook-outline';
 import { PagePanel } from './page-panel';
 import { NoteReadError } from './status';
@@ -27,8 +26,6 @@ function TabLabel({ target }: { target: WorkbenchTarget }) {
   const { t } = useI18n();
 
   if (target.kind === 'assistant') return t('NoteAssistant');
-
-  if (target.kind === 'source') return target.title;
 
   if (target.kind === 'page') return <PageTab target={target} />;
 
@@ -47,40 +44,25 @@ function PageTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'page' }
   return material.data?.title ?? target.title;
 }
 
-/** Keep the current capture mounted until its microphone owner finishes. */
-function useComposerPlacement(preferDock: boolean) {
-  const { scope, blocked } = useDictationSubmission();
-  const [docked, setDocked] = useState(preferDock);
-
-  if (!blocked && docked !== preferDock) setDocked(preferDock);
-
-  return { docked, scope };
-}
-
 /** Keeps quick note and document work side by side, with one full-screen editor on narrow displays. */
-export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => void }) {
+export function NoteWorkbench({
+  id,
+  title,
+  onDelete
+}: {
+  id: NoteId;
+  title: string;
+  onDelete: () => void;
+}) {
   const { t } = useI18n();
   const model = useWorkbench(id);
-  const { noteWidth, showNoteComposer } = model.appearance;
-  const { docked, scope } = useComposerPlacement(showNoteComposer);
+  const { noteWidth } = model.appearance;
+  const [history, setHistory] = useState(false);
   const pages = useLinkedPages(id);
   const thread = useThreadPage(id);
-  const creation = useNotePageCreation(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
   const openPage = (material: { id: PageId; title: string }) =>
     model.open({ kind: 'page', pageId: material.id, title: material.title });
-  const openSource = (source: { id: SourceId; name: string }) =>
-    model.open({ kind: 'source', sourceId: source.id, title: source.name });
-  const create = () => {
-    void creation.create(t('NoteNewPage')).then((material) => {
-      if (material) openPage(material);
-    });
-  };
-  const capture = (
-    <DictationSubmissionScope value={scope}>
-      <Composer id={id} onPage={create} docked={docked} />
-    </DictationSubmissionScope>
-  );
 
   return (
     <Desk.Root
@@ -95,68 +77,71 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
           <Desk.NotebookLayout>
             <Desk.Board>
               <Desk.BoardBody>
-                <BoardFeedback
-                  pending={creation.pending}
-                  creationError={creation.error}
-                  create={create}
-                  listError={pages.error}
-                  reload={() => void pages.refetch()}
-                />
-                <History
-                  id={id}
-                  state={thread}
-                  capture={!docked && capture}
-                  pages={pages.data?.items}
-                  onOpenPage={openPage}
-                  onOpenSource={openSource}
-                  activeAuthoredPage={
-                    model.visible && active?.kind === 'page' ? String(active.pageId) : undefined
-                  }
-                  onPage={create}
-                  activePage={model.visible ? model.active : undefined}
-                  onOpen={(message) => model.open({ kind: 'message', message })}
-                />
-                <CursorWindowActions
-                  hasPrevious={pages.pagination.hasPrevious}
-                  previous={pages.pagination.previous}
-                  hasMore={pages.data?.nextCursor != null}
-                  more={() => pages.pagination.more(pages.data?.nextCursor)}
-                  pending={pages.isFetching}
-                />
+                {history ? (
+                  <>
+                    <Button size="sm" variant="ghost-muted" onClick={() => setHistory(false)}>
+                      {t('NoteBackToEditor')}
+                    </Button>
+                    <BoardFeedback listError={pages.error} reload={() => void pages.refetch()} />
+                    <History
+                      id={id}
+                      state={thread}
+                      pages={pages.data?.items}
+                      onOpenPage={openPage}
+                      activeAuthoredPage={
+                        model.visible && active?.kind === 'page' ? String(active.pageId) : undefined
+                      }
+                      activePage={model.visible ? model.active : undefined}
+                      onOpen={(message) => model.open({ kind: 'message', message })}
+                    />
+                    <CursorWindowActions
+                      hasPrevious={pages.pagination.hasPrevious}
+                      previous={pages.pagination.previous}
+                      hasMore={pages.data?.nextCursor != null}
+                      more={() => pages.pagination.more(pages.data?.nextCursor)}
+                      pending={pages.isFetching}
+                    />
+                  </>
+                ) : (
+                  <NotebookBody id={id} title={title} />
+                )}
               </Desk.BoardBody>
             </Desk.Board>
             <WorkspaceContext
               id={id}
               outline={
-                <NotebookOutline
-                  id={id}
-                  thread={thread}
-                  pages={pages}
-                  onNavigate={model.hideCard}
-                />
+                history ? (
+                  <NotebookOutline
+                    id={id}
+                    thread={thread}
+                    pages={pages}
+                    onNavigate={model.hideCard}
+                  />
+                ) : undefined
               }
-              onOpenPage={openPage}
-              onOpenSource={openSource}
               hidden={!model.cardVisible}
               onDismiss={model.hideCard}
               actions={
-                <NoteContextActions
-                  id={id}
-                  onDelete={onDelete}
-                  onCreate={create}
-                  pending={creation.pending}
-                />
+                <>
+                  <WorkspaceCard.Item
+                    onClick={() => {
+                      setHistory(true);
+                      model.hideCard();
+                    }}
+                  >
+                    <HistoryIcon aria-hidden="true" />
+                    <span>{t('NoteHistory')}</span>
+                  </WorkspaceCard.Item>
+                  <NoteContextActions id={id} onDelete={onDelete} />
+                </>
               }
             />
           </Desk.NotebookLayout>
         </Desk.ScrollArea>
         <Desk.NavigationHost />
-        <Desk.FloatingComposer>
-          {docked && <WorkspaceSurface.Dock>{capture}</WorkspaceSurface.Dock>}
-        </Desk.FloatingComposer>
       </Desk.Notebook>
 
-      <EditorPanel id={id} model={model} active={active} create={create} openPage={openPage} />
+      <EditorPanel id={id} model={model} active={active} />
     </Desk.Root>
   );
 }
@@ -164,15 +149,11 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
 function EditorPanel({
   id,
   model,
-  active,
-  create,
-  openPage
+  active
 }: {
   id: NoteId;
   model: ReturnType<typeof useWorkbench>;
   active: WorkbenchTarget | undefined;
-  create: () => void;
-  openPage: (material: { id: PageId; title: string }) => void;
 }) {
   const { t } = useI18n();
 
@@ -186,8 +167,6 @@ function EditorPanel({
         label: <TabLabel target={target} />,
         closeLabel: t('NoteClosePage')
       }))}
-      onCreate={create}
-      createLabel={t('NoteNewPage')}
       onSelect={model.select}
       onClose={model.close}
       onHide={model.hide}
@@ -201,14 +180,6 @@ function EditorPanel({
         <NoteAssistantPanel key={String(id)} noteId={id} />
       ) : active.kind === 'page' ? (
         <NotePagePanel key={workbenchIdentity(active)} pageId={active.pageId} />
-      ) : active.kind === 'source' ? (
-        <SourcePanel
-          key={workbenchIdentity(active)}
-          noteId={id}
-          sourceId={active.sourceId}
-          onDeleted={() => model.close(workbenchIdentity(active))}
-          onOpenPage={openPage}
-        />
       ) : (
         <PagePanel key={workbenchIdentity(active)} id={id} target={active} />
       )}
@@ -216,26 +187,6 @@ function EditorPanel({
   );
 }
 
-function BoardFeedback({
-  pending,
-  creationError,
-  create,
-  listError,
-  reload
-}: {
-  pending: boolean;
-  creationError: unknown;
-  create: () => void;
-  listError: unknown;
-  reload: () => void;
-}) {
-  const { t } = useI18n();
-
-  return (
-    <>
-      {pending && <Loading label={t('NoteAutosaving')} />}
-      {creationError !== undefined && <NoteReadError error={creationError} retry={create} />}
-      {listError && <NoteReadError error={listError} retry={reload} />}
-    </>
-  );
+function BoardFeedback({ listError, reload }: { listError: unknown; reload: () => void }) {
+  return listError ? <NoteReadError error={listError} retry={reload} /> : null;
 }

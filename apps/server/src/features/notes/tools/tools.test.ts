@@ -37,6 +37,10 @@ test.server.stable(
           );
 
           expect(updated).toStrictEqual({ ...before.general, appearance: 1 });
+          yield* settingsTools.update_workspace_settings.execute(
+            { sidebarCompactNavigation: true },
+            environment
+          );
           yield* settingsTools.update_custom_instructions.execute(
             {
               pages: 'Include worked examples.'
@@ -46,6 +50,10 @@ test.server.stable(
           const after = yield* settingsTools.read_settings.execute({}, environment);
 
           expect(after.general).toStrictEqual(updated);
+          expect(after.workspace).toStrictEqual({
+            ...before.workspace,
+            sidebarCompactNavigation: true
+          });
           expect(after.instructions).toStrictEqual({
             ...defaultAgentRules,
             pages: 'Include worked examples.'

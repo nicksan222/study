@@ -1,4 +1,4 @@
-import { AssistantHistoryIcon, AddIcon } from '@study/icons';
+import { AssistantIcon, AddIcon } from '@study/icons';
 import { Button, ErrorState, Loading, WorkspaceCard } from '@study/ui';
 import type { Ref } from 'react';
 
@@ -8,27 +8,18 @@ import type { useAssistant } from './use-assistant';
 
 export function AssistantHistory({
   model,
-  visible,
-  onDismiss,
   panelRef
 }: {
   model: Pick<
     ReturnType<typeof useAssistant>,
     'chats' | 'createChat' | 'newChat' | 'note' | 'selectChat'
   >;
-  visible: boolean;
-  onDismiss: () => void;
   panelRef?: Ref<HTMLElement>;
 }) {
   const { t } = useI18n();
 
   return (
-    <WorkspaceCard.Root
-      ref={panelRef}
-      hidden={!visible}
-      onDismiss={onDismiss}
-      aria-label={t('AssistantHistory')}
-    >
+    <WorkspaceCard.Root ref={panelRef} aria-label={t('AssistantHistory')}>
       <WorkspaceCard.Group>
         <WorkspaceCard.Primary disabled={model.createChat.isPending} onClick={model.newChat}>
           <AddIcon size={16} />
@@ -51,7 +42,7 @@ export function AssistantHistory({
                 aria-current={model.note.data?.id === chat.id ? 'page' : undefined}
                 onClick={() => model.selectChat(chat.id)}
               >
-                <AssistantHistoryIcon size={16} />
+                <AssistantIcon size={16} />
                 <span>{chat.title || t('Assistant')}</span>
               </WorkspaceCard.Item>
             ))}
