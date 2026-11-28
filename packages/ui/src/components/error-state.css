@@ -68,7 +68,19 @@
 
 .ui-error-state:is([data-layout='page'], [data-layout='screen']) h2 {
   font-size: 1.25rem;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.75rem;
+}
+
+.ui-error-state:is([data-layout='page'], [data-layout='screen']) .ui-error-state-description {
+  max-width: 28.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+}
+
+.ui-error-state:is([data-layout='page'], [data-layout='screen']) .ui-error-state-action {
+  margin-top: 1.25rem;
 }
 
 .ui-error-state:is([data-layout='page'], [data-layout='screen']) .ui-error-state-action {

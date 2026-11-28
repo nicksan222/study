@@ -4,9 +4,6 @@
 .study-content:has(:is(.ui-subject-empty, .ui-subject-workspace)) {
   min-height: 0;
 }
-.study-content:has(.ui-subject-workspace) > header {
-  flex-shrink: 0;
-}
 .groam-shell-page-body:has(.ui-subject-empty) {
   min-height: calc(100dvh - 3.25rem);
   padding: 0;
@@ -17,10 +14,10 @@
   min-width: 0;
   flex: 1;
   place-items: center;
-  padding: 2rem;
+  padding: 2.5rem 1.5rem;
 }
 .ui-subject-empty-content {
-  max-width: 25rem;
+  max-width: 28.75rem;
   margin-bottom: 4rem;
   text-align: center;
 }
@@ -31,17 +28,17 @@
 }
 .ui-subject-empty-title {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  line-height: 1.3;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.75rem;
+  text-wrap: balance;
 }
 .ui-subject-empty-description {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   color: var(--muted-foreground);
   font-size: 0.875rem;
-  line-height: 1.7;
-  text-wrap: balance;
+  line-height: 1.375rem;
+  text-wrap: pretty;
 }
 .ui-subject-workspace {
   width: 100%;

@@ -124,8 +124,13 @@
 .study-sidebar-form-fields {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 0 24px 24px;
+  gap: 6px;
+  padding: 0 24px 20px;
+}
+.study-sidebar-form-fields > label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
 }
 .study-shell[data-sidebar-collapsed='true'] .study-sidebar-header {
   height: auto;
@@ -276,6 +281,7 @@
 .study-workspace-header {
   display: flex;
   height: var(--workspace-topbar-height);
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
   padding-inline: 24px 12px;
