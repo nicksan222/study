@@ -353,3 +353,47 @@ test.unit.stable(
     }
   }
 );
+
+test.unit.stable(
+  'streaming fetch preserves a bodyless successful response and its headers',
+  async ({ expect }) => {
+    const response = await streamingFetch('https://example.test', undefined, {
+      timeoutMs: 1000,
+      maxBytes: 1024,
+      fetch: async () =>
+        new Response(null, { status: 200, headers: { location: '/upload-session' } })
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBe('/upload-session');
+    expect(response.body).toBeNull();
+  }
+);
+
+test.unit.stable(
+  'streaming fetch PUT has a wire content length when given bytes',
+  async ({ expect }) => {
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      async fetch(request) {
+        return Response.json({
+          length: request.headers.get('content-length'),
+          contents: await request.text()
+        });
+      }
+    });
+
+    try {
+      const response = await streamingFetch(
+        server.url,
+        { method: 'PUT', body: new TextEncoder().encode('backup') },
+        { timeoutMs: 1000, maxBytes: 1024 }
+      );
+
+      expect(await response.json()).toEqual({ length: '6', contents: 'backup' });
+    } finally {
+      await server.stop(true);
+    }
+  }
+);

@@ -2,11 +2,17 @@ import { SuccessIcon } from '@study/icons';
 
 import { semanticPart } from './semantic-part';
 
+import './data-management.css';
+
 export const DataManagement = {
   Description: semanticPart(
     'p',
     'mb-5 text-[0.8125rem] leading-[1.6] text-(--contrast-muted-foreground)'
   ),
+  Groups: semanticPart('div', 'data-backup-groups'),
+  ProviderForm: semanticPart('form', 'data-backup-form'),
+  ProviderFields: semanticPart('div', 'data-backup-fields'),
+  ProviderHint: semanticPart('span', 'data-backup-hint'),
   File: semanticPart('input', 'sr-only'),
   Actions: semanticPart('div', 'flex flex-nowrap items-center justify-end gap-1.5'),
   StatusIcon,

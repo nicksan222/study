@@ -253,3 +253,9 @@ export const recordReactiveReconciliationFailure = () =>
   Effect.logWarning('rpc.reconciliation.failure').pipe(
     Effect.provideService(References.CurrentLogAnnotations, {})
   );
+
+/** The backup was renamed into place, but the filesystem could not sync its directory. */
+export const recordBackupDirectorySyncFailure = () =>
+  Effect.logWarning('backup.directory.sync.failure').pipe(
+    Effect.provideService(References.CurrentLogAnnotations, {})
+  );

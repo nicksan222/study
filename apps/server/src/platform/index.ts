@@ -82,6 +82,8 @@ export { classifyError, normalizeError } from './errors/classify-error.ts';
 export { invalid } from './errors/domain-error.ts';
 export { posixPaths } from './filesystem/index.ts';
 export { fetchPage, validateLink } from './http/index.ts';
+export { backupOAuth } from './http/file-backup-providers.ts';
+export { storageStrategies } from './http/storage-backup.ts';
 export {
   observeOperation,
   recordAiTokens,

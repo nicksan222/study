@@ -19,6 +19,12 @@ import { defineRpc } from '@study/server';
 import { System } from '#server/features/system/service/index';
 
 export const SystemRpcLive = defineRpc(SystemRpc, { system: System }, ({ system }) => ({
+  'system.automaticBackup': () => system.automaticBackup(),
+  'system.configureAutomaticBackup': system.configureAutomaticBackup,
+  'system.runAutomaticBackup': () => system.runAutomaticBackup(),
+  'system.beginBackupSignIn': system.beginBackupSignIn,
+  'system.finishBackupSignIn': system.finishBackupSignIn,
+  'system.cancelBackupSignIn': system.cancelBackupSignIn,
   'system.createBackup': () => system.createBackup(),
   'system.listBackups': () => system.backups(),
   'system.readBackup': system.readBackup,

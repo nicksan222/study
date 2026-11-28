@@ -687,13 +687,79 @@ export const english = Object.freeze({
   NoteAbandonAttemptHelp:
     'An earlier question or generated result may already exist. Starting again creates a separate request.',
   PageRetryProposal: 'Recover the submitted proposal action',
-  DataLocalBackups: 'Backups on this device',
+  DataBackupGoogle: 'Google Drive',
+  DataBackupDropbox: 'Dropbox',
+  DataBackupS3: 'S3-compatible storage',
+  DataBackupWebDav: 'WebDAV',
+  DataBackupAzure: 'Azure Blob Storage',
+  DataBackupBucket: 'Bucket name',
+  DataBackupBucketHelp:
+    'Use an existing bucket and credentials with permission to write backup objects.',
+  DataBackupRegion: 'Signing region',
+  DataBackupEndpoint: 'HTTPS endpoint',
+  DataBackupS3EndpointHelp:
+    'Leave blank for AWS. For compatible services, enter the account or service endpoint without the bucket name.',
+  DataBackupPrefix: 'Object prefix (optional)',
+  DataBackupAccessKey: 'Access key ID',
+  DataBackupSecretKey: 'Secret access key',
+  DataBackupFolderUrl: 'HTTPS folder URL',
+  DataBackupWebDavHelp:
+    'Enter the full URL of an existing WebDAV folder, such as a Nextcloud folder.',
+  DataBackupUsername: 'Username',
+  DataBackupAppPassword: 'App password',
+  DataBackupContainerUrl: 'HTTPS container URL',
+  DataBackupAzureHelp:
+    'Enter an existing Azure Blob container URL. Paste the SAS token separately.',
+  DataBackupSas: 'SAS token',
+  DataBackupGoogleHelp:
+    'Use the ID and secret from a Google Desktop OAuth client with the Drive API enabled.',
+  DataBackupClientSecret: 'Desktop client secret',
+  DataBackupDropboxKey: 'Dropbox app key',
+  DataBackupDropboxHelp:
+    'Register a scoped App Folder with files.content.write and the redirect http://localhost:42819/study-backup.',
+  DataBackupInvalidConfig: 'Check the destination fields and try again.',
+  DataBackupConnect: 'Connect account',
+  DataBackupReconnect: 'Reconnect account',
+  DataAutoBackupTitle: 'Automatic backups',
+  DataAutoBackupHelp:
+    'Study backs up once a day while it’s open and rotates through {count} backup files.',
+  DataAutoBackupChange: 'Change destination',
+  DataAutoBackupEnable: 'Enable backups',
+  DataAutoBackupTurnOff: 'Turn off backups',
+  DataAutoBackupLastRun: 'Last backup {date}',
+  DataAutoBackupDestination: 'Backup destination',
+  DataAutoBackupOff: 'Off',
+  DataAutoBackupLocal: 'This device',
+  DataAutoBackupFolder: 'Synced folder',
+  DataAutoBackupOneDrive: 'OneDrive Personal',
+  DataAutoBackupPath: 'Folder path',
+  DataAutoBackupPathHelp:
+    'Enter the full path to an existing folder on this computer. Your sync app handles uploading the copies.',
+  DataAutoBackupClientId: 'Application (client) ID',
+  DataAutoBackupClientIdHelp:
+    'Use a Microsoft Entra app registration for personal accounts with the Mobile and desktop redirect http://localhost/study-backup and the delegated Files.ReadWrite.AppFolder permission.',
+  DataAutoBackupActive: 'Active destination · {destination}',
+  DataAutoBackupConnect: 'Connect OneDrive',
+  DataAutoBackupReconnect: 'Reconnect OneDrive',
+  DataAutoBackupWaiting: 'Waiting for the first backup.',
+  DataAutoBackupRun: 'Back up now',
+  DataAutoBackupSaveFailed:
+    'Could not save the destination. Check the folder or connection settings.',
+  DataAutoBackupRunFailed: 'The backup failed. Check the destination and try again.',
+  DataAutoBackupSignInFailed:
+    'Could not connect the provider. Check the app registration and try again.',
+  DataBackupDropboxPortInUse:
+    'Dropbox sign-in needs port {port}. Close the app using that port and try again.',
+  DataAutoBackupSignInPending: 'Finish signing in to your backup provider in the browser.',
+  DataAutoBackupAuthExpired:
+    'The backup destination rejected access. Reconnect or update the credentials.',
+  DataLocalBackups: 'Manual backup',
   DataBackupCapacity: '{count} of {limit} backup slots used',
   DataImportHelp:
-    'Choose a .studybackup file. Study checks its integrity and compatibility before importing.',
+    'Import a .studybackup from this device or your cloud provider to review a restore.',
   DataChooseFile: 'Choose file',
-  DataSavedBackups: 'Saved backups',
-  DataEmptyTitle: 'No backups yet',
+  DataSavedBackups: 'Backup files',
+  DataEmptyTitle: 'No manual or imported backups yet',
   DataRestoreIdleHelp: 'No restore is waiting for the next restart.',
   DataBackupCreated: 'Backup created.',
   DataBackupImported: 'Backup imported.',
@@ -714,14 +780,11 @@ export const english = Object.freeze({
   DataRestoreConfirmationWord: 'restore',
   DataRestoreConfirmationInstruction: 'Type {word} to replace all study material with this backup.',
   DataSettingsTitle: 'Data & backups',
-  DataSettingsDescription:
-    'Keep a local backup of your study material. Download a copy to store it somewhere safe.',
   DataCreate: 'Create backup',
   DataImport: 'Import backup file',
   DataDownload: 'Download',
   DataDelete: 'Delete backup',
   DataPreview: 'Review restore',
-  DataEmpty: 'Create or import your first backup.',
   DataReadError: 'Could not read backup data. Refresh to reconcile before continuing.',
   DataFileError:
     'Choose a valid Study backup: maximum 64 MiB of database data plus 16 KiB of envelope. The server validates integrity and schema compatibility.',
