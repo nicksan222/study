@@ -319,19 +319,16 @@ function QuestionFooter({
           {t(last ? 'PracticeLastQuestion' : 'PracticeAnswerSaved')}
         </Practice.MutedText>
       </Practice.FooterContext>
-      {next ? (
-        <NextButton
-          ref={action}
-          type="button"
-          onClick={next}
-          disabled={!valid || pending}
-          label={t(pending ? 'PracticeSaving' : 'PracticeNextQuestion')}
-        ></NextButton>
-      ) : (
-        <Button ref={action} type="submit" disabled={!valid || pending}>
-          {t(pending ? 'PracticeSaving' : 'SubmitAnswer')}
-        </Button>
-      )}
+      <Button
+        ref={action}
+        type={next ? 'button' : 'submit'}
+        variant={next ? 'outline' : 'default'}
+        onClick={next}
+        disabled={!valid || pending}
+      >
+        {t(pending ? 'PracticeSaving' : next ? 'PracticeNextQuestion' : 'SubmitAnswer')}
+        {next && <NextIcon aria-hidden="true" />}
+      </Button>
     </Practice.StageFooter>
   );
 }
