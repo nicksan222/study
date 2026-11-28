@@ -715,7 +715,7 @@ for (const [score, verdict] of [
       expect(await screen.findByText(en[verdict], { exact: true })).toBeInTheDocument();
       expect(screen.getByText('Saved feedback')).toBeInTheDocument();
       expect(screen.getByText('Two has exactly two divisors.')).toBeInTheDocument();
-      expect(screen.getByRole('radio', { name: /Correct answer/ })).toBeDisabled();
+      expect(screen.getByRole('radio', { name: /Right answer/ })).toBeDisabled();
       expect(screen.queryByRole('button', { name: en.PracticeFinishQuiz })).not.toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: en.PracticeNextQuestion }));
       await waitFor(() =>

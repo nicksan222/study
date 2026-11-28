@@ -380,17 +380,6 @@
   }
 }
 
-.note-subject-identity {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-.note-subject-identity > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .note-workspace-context {
   max-height: calc(100dvh - 5rem);
   border-radius: 0.875rem;

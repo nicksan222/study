@@ -69,7 +69,7 @@ function ScheduledReview({
         <SelectedIcon aria-hidden="true" />
         <h2>{t('PracticeNothingDue')}</h2>
         <p>{t('PracticeNothingDueHint')}</p>
-        <Button variant="outline" onClick={replay}>
+        <Button onClick={replay}>
           <RetryIcon aria-hidden="true" />
           {t('PracticeReplayFlashcards')}
         </Button>

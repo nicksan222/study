@@ -1,10 +1,8 @@
 import type { projectSchema } from '@study/contracts';
-import { Sidebar, WorkspaceSurface } from '@study/ui';
+import { Sidebar } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-
-import { SubjectIdentity } from '../subjects';
 
 /** Shows note identity and controls while keeping subject scope in navigation. */
 export function WorkspaceHeader({
@@ -23,16 +21,7 @@ export function WorkspaceHeader({
   return (
     <Sidebar.Topbar
       variant="notebook"
-      parent={
-        owner ? (
-          <WorkspaceSurface.SubjectIdentity>
-            <SubjectIdentity name={owner.name} icon={owner.icon} />
-            <span>{owner.name}</span>
-          </WorkspaceSurface.SubjectIdentity>
-        ) : (
-          t('AppName')
-        )
-      }
+      parent={owner ? owner.name : t('AppName')}
       titleAction={titleAction}
       title={title || t('NoteUntitled')}
     >
