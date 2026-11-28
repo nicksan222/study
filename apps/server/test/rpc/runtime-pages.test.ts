@@ -81,25 +81,6 @@ test.server.stable(
 
           assert.ok('kind' in rejectedMetadata);
           assert.ok(rejectedMetadata.kind === 'invalid_input');
-          const note = yield* rpc['notes.createNote']({ title: 'HTTP source links' });
-          const source = yield* rpc['sources.createSource']({
-            name: 'source.txt',
-            bytes: new TextEncoder().encode('Exact source bytes'),
-            projectId: null
-          });
-
-          yield* rpc['sources.attachSource']({ noteId: note.id, sourceId: source.id });
-          yield* rpc['sources.attachSource']({ noteId: note.id, sourceId: source.id });
-          assert.strictEqual(
-            (yield* rpc['sources.noteSources']({ noteId: note.id, limit: 100 })).length,
-            1
-          );
-          yield* rpc['sources.detachSource']({ noteId: note.id, sourceId: source.id });
-          assert.strictEqual(
-            (yield* rpc['sources.noteSources']({ noteId: note.id, limit: 100 })).length,
-            0
-          );
-
           const saved = yield* rpc['pages.save']({
             pageId: document.id,
             expectedVersionId: document.version.id,

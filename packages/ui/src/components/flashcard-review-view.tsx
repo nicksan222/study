@@ -98,7 +98,7 @@ export function FlashcardReviewView({
           <SelectedIcon aria-hidden="true" />
           <h2>{t('PracticeReviewComplete')}</h2>
           <p>{t('PracticeReviewSaved')}</p>
-          <Button variant="outline" onClick={restart}>
+          <Button onClick={restart}>
             <RetryIcon aria-hidden="true" />
             {t('PracticeReviewAgain')}
           </Button>

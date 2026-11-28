@@ -10,7 +10,6 @@ import {
   materialSettingsSchema,
   quizSettingsSchema,
   reviewSettingsSchema,
-  sidebarSettingsSchema,
   workspacePreferencesSchema
 } from '@study/contracts';
 import { preferences, sql } from '@study/db';
@@ -22,7 +21,7 @@ import { writePreference } from './write-preference.ts';
 
 const values = Schema.Record(Schema.String, Schema.MutableJson);
 
-function makeHelpers({ db }: StoreResources) {
+export function makeSettingsStore({ db }: StoreResources) {
   function replace(scope: string, entries: Record<string, typeof Schema.MutableJson.Type>) {
     db.orm
       .delete(preferences)
@@ -45,12 +44,6 @@ function makeHelpers({ db }: StoreResources) {
       writePreference(db, scope, key, JSON.stringify(setting));
     }
   }
-
-  return { replace, upsert };
-}
-
-export function makeSettingsStore({ db, clock, timestampClock }: StoreResources) {
-  const { replace, upsert } = makeHelpers({ db, clock, timestampClock });
 
   return {
     queries: {
@@ -103,12 +96,6 @@ export function makeSettingsStore({ db, clock, timestampClock }: StoreResources)
         input: workspacePreferencesSchema,
         output: Schema.Void,
         run: (input) => replace('workspace', { ...input })
-      }),
-      saveSidebarSettings: storeMutation({
-        changes: ['settings'],
-        input: sidebarSettingsSchema,
-        output: Schema.Void,
-        run: (input) => replace('sidebar', { ...input })
       }),
       saveConcurrencySettings: storeMutation({
         changes: ['settings'],

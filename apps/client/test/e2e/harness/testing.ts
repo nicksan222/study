@@ -7,7 +7,6 @@ import { createTestResources } from '@study/testing/resources';
 import type { Locator, Page } from 'playwright';
 
 import { assertCapturePlatform } from './environment.ts';
-import { transferFile } from './file-transfer.ts';
 import { workflowName } from './identity.ts';
 import { controlMicrophone } from './microphone.ts';
 import { captureProfile } from './profile.ts';
@@ -20,13 +19,13 @@ type VisualBounds = Partial<Pick<VisualViewport, 'height' | 'width' | 'offsetLef
 
 export type Journey = {
   page: Page;
-  transferFile: typeof transferFile;
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Awaited<ReturnType<typeof openWebStack>>['loseCreationResponse'];
   setVisualViewport: (bounds: VisualBounds | null, event?: 'resize' | 'scroll') => Promise<void>;
 };
 
 type Fixtures = {
+  expect: typeof expect;
   study: Awaited<ReturnType<typeof createStudyMaterials>>;
   aiEnabled: boolean;
   modelUpdateNotices: boolean;
@@ -50,6 +49,7 @@ type Fixtures = {
 
 /** Playwright owns test/worker lifetimes, browser isolation, traces and failure artifacts. */
 const testHarness = testBrowser.extend<Fixtures>({
+  expect: async ({ browserName: _browserName }, provide) => provide(expect),
   study: async ({ app, ai }, provide) => provide(await createStudyMaterials(app, ai)),
   aiEnabled: [false, { option: true }],
   modelUpdateNotices: [false, { option: true }],
@@ -132,7 +132,6 @@ const testHarness = testBrowser.extend<Fixtures>({
     });
     await provide({
       page,
-      transferFile,
       loseCreationResponse: webStack.loseCreationResponse,
       setVisualViewport: (bounds, event = 'resize') =>
         page.evaluate(
@@ -171,21 +170,8 @@ const testHarness = testBrowser.extend<Fixtures>({
   }
 });
 
-const withTools = testHarness.extend<{
-  expect: typeof expect;
-  policy: typeof testPolicy;
-  createAiMock: typeof createAiMock;
-  createTestResources: typeof createTestResources;
-}>({
-  expect: async ({ browserName: _browserName }, provide) => provide(expect),
-  policy: async ({ browserName: _browserName }, provide) => provide(testPolicy),
-  createAiMock: async ({ browserName: _browserName }, provide) => provide(createAiMock),
-  createTestResources: async ({ browserName: _browserName }, provide) =>
-    provide(createTestResources)
-});
-
 /** Focused browser harness cases use the same environment and classification APIs. */
-export const test = { browser: createBrowserTestApi(withTools) };
+export const test = { browser: createBrowserTestApi(testHarness) };
 
 type VoiceMock = ReturnType<typeof createVoiceMock>;
 

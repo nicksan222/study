@@ -356,18 +356,16 @@ export {
   messageConversionSchema
 } from './notes/conversion.ts';
 export { noteDeletionSchema } from './notes/deletion.ts';
-export type {
-  ChatMessage,
-  MessagePart,
-  MessageVersion,
-  NewMessage,
-  Recording,
-  VersionOrigin,
-  VersionStatus
-} from './notes/messages.ts';
-export { newMessageSchema } from './notes/messages.ts';
-export type { Note, TitleSource } from './notes/notes.ts';
-export { copyNoteContentSchema, recordingCopySchema } from './notes/notes.ts';
+export type { ChatMessage, MessageVersion, Recording } from './notes/messages.ts';
+export type { Note } from './notes/notes.ts';
+export {
+  copyNoteContentSchema,
+  notebookBodyCaptureKey,
+  noteBodyInputSchema,
+  noteBodySchema,
+  recordingCopySchema,
+  saveNoteBodyInputSchema
+} from './notes/notes.ts';
 export {
   assistantAskInputSchema,
   countNotesInputSchema,
@@ -386,7 +384,6 @@ export {
   postMessageInputSchema,
   renameNoteInputSchema,
   setActiveVersionInputSchema,
-  setNoteSettledInputSchema,
   threadInputSchema,
   threadPageSchema,
   transformSuggestionInputSchema,
@@ -445,7 +442,6 @@ export {
 export {
   applyProposalSchema,
   authoredPageInputLimit,
-  blockDifferenceSchema,
   compareSchema,
   comparisonSchema,
   createGeneratedOutcomeSchema,
@@ -603,7 +599,6 @@ export {
   maxAgentRuleLength,
   quizSettingsSchema,
   reviewSettingsSchema,
-  sidebarSettingsSchema,
   tierSetupSchema,
   workspacePreferencesSchema
 } from './settings/schemas.ts';
@@ -616,7 +611,6 @@ export type {
   MaterialSettings,
   QuizSettings,
   ReviewSettings,
-  SidebarSettings,
   SpecializedPracticeKind,
   TierSetup,
   WorkspacePreferences
@@ -627,7 +621,6 @@ export {
   defaultAppearancePreferences,
   defaultConcurrencySettings,
   defaultQuizSettings,
-  defaultSidebarSettings,
   defaultWorkspacePreferences,
   Language,
   chatGptModelIds,
@@ -727,8 +720,6 @@ export {
   sourceOriginSchema,
   viewerExtension
 } from './sources/sniff.ts';
-export type { NewSource } from './sources/types.ts';
-export { newSourceSchema } from './sources/types.ts';
 export type { BackupId, BackupManifest, RestorePreview } from './system/backups.ts';
 export {
   acceptRestoreSchema,

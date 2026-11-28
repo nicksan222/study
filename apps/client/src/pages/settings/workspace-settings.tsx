@@ -9,9 +9,10 @@ import { validSettingsNumber, isPersistedNumberDraft } from '#client/lib/setting
 import { useConversionStrategies } from '#client/lib/study-client/conversion.queries.ts';
 import { useWorkspacePreferenceControls } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
-const PreferenceContext = createContext<ReturnType<typeof useWorkspacePreferenceControls> | null>(
-  null
-);
+const PreferenceContext = createContext<{
+  data: WorkspacePreferences;
+  mutation: ReturnType<typeof useWorkspacePreferenceControls>['mutation'];
+} | null>(null);
 
 function useControls() {
   const model = useContext(PreferenceContext);
@@ -32,8 +33,7 @@ function PreferenceSection({
   children: ReactNode;
 }) {
   const { t } = useI18n();
-  const model = useWorkspacePreferenceControls();
-  const { query, mutation } = model;
+  const { query, mutation } = useWorkspacePreferenceControls();
 
   return (
     <Settings.Section title={t(title)} busy={mutation.isPending}>
@@ -57,7 +57,7 @@ function PreferenceSection({
       )}
       {query.isPending && <Loading label={t('LoadingSettings')} layout="panel" />}
       {query.data && (
-        <PreferenceContext value={model}>
+        <PreferenceContext value={{ data: query.data, mutation }}>
           <Settings.Group>{children}</Settings.Group>
         </PreferenceContext>
       )}
@@ -67,10 +67,8 @@ function PreferenceSection({
 
 type BooleanField =
   | 'spellcheck'
-  | 'submitOnEnter'
   | 'autoTitleNotes'
   | 'autoAnswerQuestions'
-  | 'sidebarShowPageCounts'
   | 'sidebarCompactNavigation'
   | 'expandPages';
 
@@ -85,13 +83,13 @@ function PreferenceToggle({
   description: StaticMessageKey;
 }) {
   const { t } = useI18n();
-  const { query, mutation } = useControls();
+  const { data, mutation } = useControls();
 
   return (
     <Settings.ToggleRow
       title={t(title)}
       description={t(description)}
-      checked={query.data![field]}
+      checked={data[field]}
       disabled={mutation.isPending}
       onCheckedChange={(value) => mutation.mutate({ [field]: value })}
     />
@@ -115,13 +113,13 @@ function PreferenceNumber({
   max: number;
 }) {
   const { t } = useI18n();
-  const { query, mutation } = useControls();
+  const { data, mutation } = useControls();
   const [draft, setDraft] = useState<string>();
 
-  if (!mutation.isPending && !mutation.error && isPersistedNumberDraft(draft, query.data?.[field]))
+  if (!mutation.isPending && !mutation.error && isPersistedNumberDraft(draft, data[field]))
     setDraft(undefined);
 
-  const value = draft ?? String(query.data![field]);
+  const value = draft ?? String(data[field]);
   const valid = validSettingsNumber(value, min, max);
 
   return (
@@ -161,13 +159,13 @@ function PreferenceSelect<K extends SelectField>({
   options: readonly { value: WorkspacePreferences[K]; label: StaticMessageKey }[];
 }) {
   const { t } = useI18n();
-  const { query, mutation } = useControls();
+  const { data, mutation } = useControls();
 
   return (
     <Settings.SelectRow
       title={t(title)}
       description={t(description)}
-      value={query.data![field]}
+      value={data[field]}
       disabled={mutation.isPending}
       options={options.map((item) => ({ value: item.value, label: t(item.label) }))}
       onValueChange={(value) => {
@@ -202,11 +200,6 @@ export function WritingSettings() {
         description="WorkspaceSpellcheckHelp"
       />
       <PreferenceToggle
-        field="submitOnEnter"
-        title="WorkspaceEnterCapture"
-        description="WorkspaceEnterCaptureHelp"
-      />
-      <PreferenceToggle
         field="expandPages"
         title="WorkspaceExpandPages"
         description="WorkspaceExpandPagesHelp"
@@ -235,11 +228,6 @@ export function SidebarDisplaySettings() {
           { value: 'relative', label: 'WorkspaceRelativeTime' },
           { value: 'absolute', label: 'WorkspaceAbsoluteTime' }
         ]}
-      />
-      <PreferenceToggle
-        field="sidebarShowPageCounts"
-        title="WorkspacePageCounts"
-        description="WorkspacePageCountsHelp"
       />
       <PreferenceToggle
         field="sidebarCompactNavigation"
@@ -316,9 +304,9 @@ export function AiWritingSettings() {
 /** Allows replacement of removed methods and recovery of failed capability queries. */
 function ConversionStrategySetting() {
   const { t } = useI18n();
-  const { query, mutation } = useControls();
+  const { data, mutation } = useControls();
   const strategies = useConversionStrategies();
-  const selected = query.data!.textConversionStrategy;
+  const selected = data.textConversionStrategy;
 
   if (strategies.error)
     return (
@@ -329,9 +317,11 @@ function ConversionStrategySetting() {
       </Settings.Status>
     );
 
-  if (!strategies.data) return <Loading label={t('LoadingSettings')} />;
+  const options = strategies.data;
 
-  const available = strategies.data.some((strategy) => strategy.id === selected);
+  if (!options) return <Loading label={t('LoadingSettings')} />;
+
+  const available = options.some((strategy) => strategy.id === selected);
 
   return (
     <>
@@ -340,13 +330,13 @@ function ConversionStrategySetting() {
         title={t('WorkspaceConversionStrategy')}
         description={t('WorkspaceConversionStrategyHelp')}
         value={available ? selected : ''}
-        disabled={mutation.isPending || (available && strategies.data.length === 1)}
-        options={(strategies.data ?? []).map((strategy) => ({
+        disabled={mutation.isPending || (available && options.length === 1)}
+        options={options.map((strategy) => ({
           value: strategy.id,
           label: strategy.name
         }))}
         onValueChange={(value) => {
-          if (strategies.data?.some((strategy) => strategy.id === value))
+          if (options.some((strategy) => strategy.id === value))
             mutation.mutate({ textConversionStrategy: value });
         }}
       />

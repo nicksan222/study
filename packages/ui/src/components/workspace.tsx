@@ -1,4 +1,4 @@
-import { OpenIcon, MenuIcon } from '@study/icons';
+import { DescriptionIcon, OpenIcon } from '@study/icons';
 import {
   createContext,
   useContext,
@@ -82,7 +82,7 @@ function Toggle({
       aria-controls={context.id}
       onClick={() => (onOpenChange ?? context.setOpen)(!(open ?? context.open))}
     >
-      <MenuIcon aria-hidden="true" />
+      <DescriptionIcon aria-hidden="true" />
     </Button>
   );
 }
@@ -126,7 +126,7 @@ function Card({
   variant,
   onDismiss,
   ...props
-}: ComponentProps<'aside'> & { variant?: 'attachments'; onDismiss?: () => void }) {
+}: ComponentProps<'aside'> & { variant?: 'context'; onDismiss?: () => void }) {
   const context = useContext(CardContext);
 
   const element = useRef<HTMLElement>(null);
@@ -165,7 +165,7 @@ function Card({
       hidden={hidden}
       className={cn(
         'ui-workspace-card',
-        variant === 'attachments' && 'note-attachments-card',
+        variant === 'context' && 'note-workspace-context',
         className
       )}
     />
@@ -200,7 +200,6 @@ export const WorkspaceSurface = {
   Section: part('div', 'note-section'),
   Deletion: part('section', 'note-delete'),
   ContextDialogBody: part('div', 'note-context-dialog-body'),
-  SubjectIdentity: part('span', 'note-subject-identity'),
   Footer: part('div', 'note-workspace-meta'),
   ComposerHint,
   ComposerSubmit

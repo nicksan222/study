@@ -35,9 +35,10 @@ import {
 } from './context.ts';
 import { convertMessageInputSchema } from './conversion.ts';
 import { noteDeletionSchema } from './deletion.ts';
-import { noteSummariesSchema } from './schemas.ts';
+import { noteBodyInputSchema, noteBodySchema, saveNoteBodyInputSchema } from './notes.ts';
 import {
   captureKeySchema,
+  noteSummariesSchema,
   transformSuggestionFieldSchema,
   transformSuggestionLanguageSchema
 } from './schemas.ts';
@@ -92,11 +93,6 @@ export const messageVersionCitationsSchema = Schema.Struct({
 
 const noteCursorSchema = Schema.Struct({ updatedAt: Schema.BigInt, id: noteIdSchema });
 
-export const setNoteSettledInputSchema = Schema.Struct({
-  id: noteIdSchema,
-  settled: Schema.Boolean
-});
-
 export const notePageInputSchema = Schema.Struct({
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   project: Schema.optional(Schema.NullOr(projectIdSchema)),
@@ -126,6 +122,8 @@ export const createUntitledNoteInputSchema = Schema.Struct({
   initialMessage: Schema.optional(
     Schema.Struct({
       text: Schema.String,
+      /** Writes the initial text as the full notebook body. */
+      notebookBody: Schema.optional(Schema.Literal(true)),
       sourceIds: Schema.optional(Schema.Array(sourceIdSchema))
     })
   )
@@ -193,6 +191,16 @@ export const transformSuggestionInputSchema = Schema.Struct({
 export const countNotesInputSchema = Schema.Struct({ project: notePageInputSchema.fields.project });
 
 export const notesEndpoints = {
+  body: liveQuery(
+    'notes.body',
+    { payload: noteBodyInputSchema, success: noteBodySchema, error: failureSchema },
+    { dependencies: [dependency.notes], refresh: 'database' }
+  ),
+  saveBody: mutation(
+    'notes.saveBody',
+    { payload: saveNoteBodyInputSchema, success: noteBodySchema, error: failureSchema },
+    { changes: [dependency.notes] }
+  ),
   count: liveQuery(
     'notes.count',
     { payload: countNotesInputSchema, success: Schema.BigInt, error: failureSchema },
@@ -257,15 +265,6 @@ export const notesEndpoints = {
     {
       payload: questionVersionInputSchema,
       success: replyRequestSchema,
-      error: failureSchema
-    },
-    { changes: [dependency.notes] }
-  ),
-  setNoteSettled: mutation(
-    'notes.setNoteSettled',
-    {
-      payload: setNoteSettledInputSchema,
-      success: Schema.Struct({}),
       error: failureSchema
     },
     { changes: [dependency.notes] }

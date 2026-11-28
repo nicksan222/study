@@ -29,28 +29,22 @@ test.unit.stable(
   }
 );
 
-test.unit.stable(
-  'shows section totals and emphasizes only the number for open work',
-  async ({ renderInRouter, screen, expect }) => {
-    renderInRouter(
-      <SidebarNavigation
-        section="practice"
-        settings={false}
-        project={null}
-        counts={{
-          notes: { count: 12, unresolved: true },
-          practice: { count: 34 }
-        }}
-        onNavigate={() => {}}
-      />
-    );
-    const notes = await screen.findByRole('link', { name: `${catalogs.english.Notes} 12` });
-    const pages = screen.getByRole('link', { name: `${catalogs.english.Practice} 34` });
+test.unit.stable('shows section totals', async ({ renderInRouter, screen, expect }) => {
+  renderInRouter(
+    <SidebarNavigation
+      section="practice"
+      settings={false}
+      project={null}
+      counts={{
+        notes: { count: 12 },
+        practice: { count: 34 }
+      }}
+      onNavigate={() => {}}
+    />
+  );
+  const notes = await screen.findByRole('link', { name: `${catalogs.english.Notes} 12` });
+  const pages = screen.getByRole('link', { name: `${catalogs.english.Practice} 34` });
 
-    expect(notes).toHaveTextContent('12');
-    expect(notes.querySelector('[data-unresolved]')).toHaveTextContent('12');
-    expect(notes).not.toHaveAttribute('data-unresolved');
-    expect(pages).toHaveTextContent('34');
-    expect(pages.querySelector('[data-unresolved]')).toBeNull();
-  }
-);
+  expect(notes).toHaveTextContent('12');
+  expect(pages).toHaveTextContent('34');
+});

@@ -26,8 +26,6 @@ export const SourcesRpcLive = defineRpc(SourcesRpc, { sources: Sources }, ({ sou
   'sources.extraction': sources.extraction,
   'sources.conversionStrategies': () => sources.conversionStrategies(),
   'sources.noteSources': sources.noteSources,
-  'sources.attachSource': sources.attachSource,
-  'sources.detachSource': sources.detachSource,
   'sources.importCapability': sources.importCapability,
   'sources.preview': ({ id }) => sources.previewSource(id),
   'sources.sourceExport': ({ id }) => sources.sourceExport(id),

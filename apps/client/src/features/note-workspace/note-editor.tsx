@@ -1,6 +1,6 @@
 import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui';
 import type { RichNoteEditorHandle } from '@study/ui';
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { Ref, ReactNode } from 'react';
 
 import { DictationButton } from '#client/features/voice/index.ts';
@@ -18,6 +18,7 @@ export function NoteEditor({
   disabled,
   label,
   toolbarEnd,
+  restoreFocus,
   variant,
   targetKey
 }: {
@@ -27,7 +28,8 @@ export function NoteEditor({
   disabled?: boolean;
   label?: string;
   toolbarEnd?: ReactNode;
-  variant?: 'notebook';
+  variant?: 'notebook' | 'writing';
+  restoreFocus?: boolean;
   targetKey: string | number | bigint;
 }) {
   const { t } = useI18n();
@@ -36,6 +38,10 @@ export function NoteEditor({
 
   const editor = useRef<RichNoteEditorHandle>(null);
   const dictation = useEditorDictation(editor, value);
+
+  useLayoutEffect(() => {
+    if (restoreFocus) editor.current?.focusEnd?.();
+  }, [restoreFocus]);
 
   return (
     <RichNoteEditor

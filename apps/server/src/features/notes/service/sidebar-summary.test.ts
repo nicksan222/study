@@ -56,20 +56,6 @@ test.server.stable(
           const library = yield* Pages;
           const note = yield* notes.createNote({ title: 'Study' });
 
-          yield* notes.setNoteSettled({ id: note.id, settled: true });
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === true);
-          yield* notes.setNoteSettled({ id: note.id, settled: true });
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === true);
-          yield* notes.setNoteSettled({ id: note.id, settled: false });
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === false);
-          const missing = yield* Effect.flip(
-            notes.setNoteSettled({
-              id: (note.id + 1000n) as typeof note.id,
-              settled: true
-            })
-          );
-
-          assert.ok(missing.kind === 'not_found');
           const document = {
             blocks: [plainBlock('paragraph', 'Notes', { type: 'authored' })],
             meta
@@ -115,7 +101,6 @@ test.server.stable(
           expect(summary).toStrictEqual({
             id: note.id,
             generatedPageCount: 1n,
-            settledOverride: false,
             running: false,
             activity: 'idle'
           });

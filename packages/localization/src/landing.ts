@@ -1,4 +1,4 @@
-/** Marketing copy for the note → page → practice workflow, in both shipped languages. */
+/** Marketing copy for the Notes, Materials and Practice workflows, in both shipped languages. */
 const english = {
   quizExample: {
     format: 'Question format',
@@ -42,13 +42,11 @@ const english = {
     label: 'Interactive example · Sample biology material',
     subject: 'Cell biology',
     notes: 'Notes',
-    pages: 'Pages',
+    materials: 'Materials',
     practice: 'Practice',
     noteTitle: 'How cells move things',
-    notePrompt: 'Add an idea to this example note',
     noteDraft: 'The cell membrane controls what enters and leaves the cell.',
-    saveNote: 'Save example note',
-    saved: 'Saved in this example. Reload to reset.',
+    noteDemoHint: 'Changes stay in this example until you reload.',
     source: 'Lecture notes · Cell membranes',
     sourceLocator: 'Sample source · Page 1 · Membrane function',
     sourceText:
@@ -98,7 +96,7 @@ const english = {
     download: 'Download Study',
     source: 'View source',
     platforms: 'Free and open source. For macOS, Windows and Linux.',
-    screenshot: 'Study showing a cell biology page, with the subject library and study tools.',
+    screenshot: 'Study showing sample cell biology study notes.',
     caption: 'Study, with sample cell biology material.',
     practiceCaption: 'Practice in Study. Sample cell biology question.',
     featuresTitle: 'From your first note to what you know.',
@@ -106,7 +104,7 @@ const english = {
       {
         title: 'Give every idea a place.',
         emphasis: '',
-        lead: 'Keep notes, PDFs, links and recordings together in each subject.',
+        lead: 'Write notes and upload original files to Materials in the same subject.',
         detail: '',
         link: 'Explore notes and sources',
         target: 'docs/notes/'
@@ -114,7 +112,7 @@ const english = {
       {
         title: 'Ask a question. Keep the evidence.',
         emphasis: '',
-        lead: 'Ask questions, follow citations to the source, and clarify or summarize your notes.',
+        lead: 'Ask the notebook assistant about your material and follow citations to their sources.',
         detail: '',
         link: 'Questions and answers',
         target: 'docs/answers/'
@@ -122,16 +120,16 @@ const english = {
       {
         title: 'Make sense of',
         emphasis: 'what you collect.',
-        lead: 'Turn selected notes and sources into study pages.',
+        lead: 'Generate study notes in Practice from the sources you choose.',
         detail:
-          'Combine ideas, edit the explanation, clarify a passage, summarize or translate. Your pages stay yours to revise and export.',
-        link: 'Explore study pages',
+          'Ask for a summary or an explanation, then edit the result and revisit earlier versions.',
+        link: 'Explore study notes',
         target: 'docs/pages/'
       },
       {
         title: 'Read it.',
         emphasis: 'Recall it. Know it.',
-        lead: 'Create flashcards from the pages you choose.',
+        lead: 'Create flashcards from the material you choose.',
         detail:
           'Try first, reveal the answer, then rate your recall. Return when cards are due or replay the set.',
         link: 'Explore flashcards',
@@ -141,7 +139,7 @@ const english = {
     storyCaption: 'Interactive examples with sample biology material. Changes stay in this page.',
     practiceTitle: 'Put your knowledge to work.',
     practiceLead:
-      'Create a quiz from your pages and focus on what you need. Review your answers, explanations and saved results.',
+      'Create a quiz from your study material and focus on what you need. Review your answers, explanations and saved results.',
     quizFormats: [
       'Single answer',
       'Multiple answers',
@@ -158,7 +156,7 @@ const english = {
     practiceLink: 'Explore practice',
     ownershipTitle: ['Your data.', 'On your computer.'],
     ownershipLead:
-      'Your notes, sources and pages live on your device. Export your work. Keep control of what you create.',
+      'Your notes, materials and study notes live on your device. Export your work. Keep control of what you create.',
     aiTitle: 'AI with your ChatGPT plan.',
     aiBody:
       'AI tasks use your ChatGPT plan and send the required material through that connection.',
@@ -172,31 +170,42 @@ const english = {
   docsOnThisPage: 'On this page',
   docsStepDetails: 'Instructions and details',
   docsNavigation: {
-    lead: 'Capture ideas and sources in notes, shape them into pages, then practise what you learned. Follow the workflow or jump to the guide you need.',
+    lead: 'Write notes, upload files in Materials, then generate study notes or practice from the sources you choose. Follow the workflow or jump to the guide you need.',
     sections: {
       start: 'Get started',
       capture: 'Capture material',
-      pages: 'Create pages',
+      pages: 'Study notes',
       practice: 'Practice',
       reference: 'Reference'
     },
     descriptions: {
       start: 'Install Study and take your first note through to practice.',
       capture: 'Collect notes and sources, ask questions and check the evidence.',
-      pages: 'Turn saved notes into pages and refine your study notes.',
-      practice: 'Generate exercises and flashcards from the pages you choose.',
+      pages: 'Generate study notes in Practice and revise them in the editor.',
+      practice: 'Generate exercises and flashcards from the sources you choose.',
       reference: 'Find saved work, use shortcuts and manage settings, data and background work.'
     }
   },
   heroLead:
-    'Capture a note. Make sense of it in a page. Turn what you learn into flashcards and practice. All from your own material.',
+    'Write notes and save original files in Materials. Use your sources to generate study notes, flashcards and practice.',
   explore: 'See how it works',
-  previewLabels: {
-    page: 'Page reader, showing sample notes about mitosis.',
-    source: 'Source reader, showing two passages from a sample mitosis lecture.',
-    quiz: 'Practice question about prometaphase, with four answer choices.',
-    flashcards: 'Flashcard material preview, showing a question and answer about prophase.',
-    caption: 'The app’s actual components, with sample material. Static preview.'
+  previewMetadata: {
+    page: {
+      title: 'Study notes preview',
+      description: 'Read and edit sample study notes on cell membranes.'
+    },
+    source: {
+      title: 'Source preview',
+      description: 'Read a sample source passage on how the cell membrane controls exchange.'
+    },
+    quiz: {
+      title: 'Quiz preview',
+      description: 'Try sample cell biology questions and review the result.'
+    },
+    flashcards: {
+      title: 'Flashcard preview',
+      description: 'Reveal and rate sample flashcards on cell membranes.'
+    }
   },
   workflow: {
     title: 'Good notes are only the beginning.',
@@ -204,29 +213,29 @@ const english = {
     lead: 'From the first messy thought to the question you finally get right. One connected place for the whole process.',
     steps: [
       {
-        title: 'Capture it in a note.',
-        body: 'Write as you think. Bring your files, record a lecture and ask questions without leaving your notebook.',
+        title: 'Write it in a notebook.',
+        body: 'Write in Notes, put files in Materials and ask about your work from the notebook.',
         link: 'Bring your material',
         target: 'docs/sources/'
       },
       {
-        title: 'Turn it into a page.',
-        body: 'Choose the notes and sources that matter. Combine them into a clear page, then summarize, expand, translate or refine it.',
+        title: 'Generate study notes.',
+        body: 'Choose your sources in Practice and say what you want to focus on. Review and edit the generated study notes.',
         link: 'See the transformation',
         target: '#workflow-page'
       },
       {
         title: 'Make it something you remember.',
-        body: 'Use your notes and pages to create flashcards and quizzes. Go from reading an explanation to recalling it yourself.',
+        body: 'Use notes, materials and study notes to create flashcards and quizzes. Go from reading an explanation to recalling it yourself.',
         link: 'Try the study tools',
         target: '#learn'
       }
     ],
     annotation: 'same ideas, a little clearer',
     note: 'Note · Cell biology',
-    inputs: ['My lecture notes', 'slides-mitosis.pdf', 'A question about prophase'],
-    transform: 'Combine & clarify',
-    page: 'Page',
+    inputs: ['My lecture notes', 'slides-mitosis.pdf', 'Prophase summary'],
+    transform: 'Generate study notes',
+    page: 'Study notes',
     titleSample: 'Making sense of mitosis',
     intro:
       'Mitosis separates duplicated chromosomes into two daughter nuclei. The process has four main phases.',
@@ -245,13 +254,13 @@ const english = {
     items: [
       {
         title: 'A notebook for every note',
-        body: 'Notes, attachments, recordings and questions together. Edit your writing, improve it, or revisit an earlier version.',
-        detail: 'Write · Record · Ask'
+        body: 'Write and edit directly in your notebook. Study saves your changes automatically.',
+        detail: 'Write · Edit · Ask'
       },
       {
-        title: 'Pages you can keep working on',
-        body: 'Turn selected note material into a page. Combine pages, clarify a passage, summarize, expand or translate. Export as Markdown or HTML.',
-        detail: 'Transform · Merge · Export'
+        title: 'Study notes you can revise',
+        body: 'Generate study notes from your sources in Practice. Edit the results, revisit earlier versions or archive notes you no longer use.',
+        detail: 'Generate · Edit · Archive'
       },
       {
         title: 'Answers with a way back',
@@ -265,7 +274,7 @@ const english = {
       },
       {
         title: 'Different ways to see an idea',
-        body: 'Create flashcards and quizzes for recall. Generate study material from the notes, sources and pages you choose.',
+        body: 'Create flashcards and quizzes for recall. Generate study material from the notes, materials and study notes you choose.',
         detail: 'Flashcards · Quizzes'
       },
       {
@@ -328,13 +337,11 @@ const italian: Copy = {
     label: 'Esempio interattivo · Materiale di biologia',
     subject: 'Biologia cellulare',
     notes: 'Note',
-    pages: 'Pagine',
-    practice: 'Esercizi',
+    materials: 'Materiali',
+    practice: 'Esercitazioni',
     noteTitle: 'Come le cellule trasportano le sostanze',
-    notePrompt: 'Aggiungi un’idea a questa nota di esempio',
     noteDraft: 'La membrana cellulare controlla ciò che entra ed esce dalla cellula.',
-    saveNote: 'Salva la nota di esempio',
-    saved: 'Salvato in questo esempio. Ricarica per ricominciare.',
+    noteDemoHint: 'Le modifiche restano nell’esempio fino al prossimo caricamento.',
     source: 'Appunti della lezione · Membrane cellulari',
     sourceLocator: 'Fonte di esempio · Pagina 1 · Funzione della membrana',
     sourceText:
@@ -383,8 +390,7 @@ const italian: Copy = {
     download: 'Scarica Study',
     source: 'Vedi il codice',
     platforms: 'Gratis e open source. Per macOS, Windows e Linux.',
-    screenshot:
-      'Study con una pagina di biologia cellulare, la raccolta della materia e gli strumenti di studio.',
+    screenshot: 'Study con appunti di studio di esempio sulla biologia cellulare.',
     caption: 'Study, con materiale di esempio di biologia cellulare.',
     practiceCaption: 'Esercitazione in Study. Domanda di esempio di biologia cellulare.',
     featuresTitle: 'Dai primi appunti a ciò che sai.',
@@ -392,7 +398,7 @@ const italian: Copy = {
       {
         title: 'Un posto per ogni idea.',
         emphasis: '',
-        lead: 'Riunisci appunti, PDF, link e registrazioni per materia.',
+        lead: 'Scrivi note e carica i file originali in Materiali nella stessa materia.',
         detail: '',
         link: 'Scopri note e fonti',
         target: 'docs/notes/'
@@ -400,7 +406,7 @@ const italian: Copy = {
       {
         title: 'Fai una domanda. Ritrova le fonti.',
         emphasis: '',
-        lead: 'Fai domande, segui le citazioni fino alla fonte e chiarisci o riassumi gli appunti.',
+        lead: 'Fai domande sul tuo materiale all’assistente delle note e segui le citazioni fino alle fonti.',
         detail: '',
         link: 'Domande e risposte',
         target: 'docs/answers/'
@@ -408,16 +414,16 @@ const italian: Copy = {
       {
         title: 'Dai forma a',
         emphasis: 'ciò che raccogli.',
-        lead: 'Trasforma note e fonti selezionate in pagine di studio.',
+        lead: 'Genera appunti di studio in Esercitazioni dalle fonti che scegli.',
         detail:
-          'Collega le idee, modifica la spiegazione, chiarisci un passaggio, riassumi o traduci. Le pagine restano tue da rivedere ed esportare.',
-        link: 'Scopri le pagine',
+          'Chiedi un riassunto o una spiegazione, poi modifica il risultato e rileggi le versioni precedenti.',
+        link: 'Scopri gli appunti di studio',
         target: 'docs/pages/'
       },
       {
         title: 'Leggi.',
         emphasis: 'Ricorda. Impara.',
-        lead: 'Crea flashcard dalle pagine che scegli.',
+        lead: 'Crea flashcard dal materiale che scegli.',
         detail:
           'Prova a ricordare, rivela la risposta e valuta come è andata. Riprendi le carte da ripassare o ricomincia il set.',
         link: 'Scopri le flashcard',
@@ -428,7 +434,7 @@ const italian: Copy = {
       'Esempi interattivi con materiale di biologia. Le modifiche restano in questa pagina.',
     practiceTitle: 'Metti alla prova ciò che sai.',
     practiceLead:
-      'Crea un quiz dalle tue pagine e concentrati su ciò che ti serve. Rivedi risposte, spiegazioni e risultati salvati.',
+      'Crea un quiz dal tuo materiale di studio e concentrati su ciò che ti serve. Rivedi risposte, spiegazioni e risultati salvati.',
     quizFormats: [
       'Una risposta',
       'Più risposte',
@@ -445,7 +451,7 @@ const italian: Copy = {
     practiceLink: 'Scopri le esercitazioni',
     ownershipTitle: ['I tuoi dati.', 'Sul tuo computer.'],
     ownershipLead:
-      'Appunti, fonti e pagine risiedono sul tuo dispositivo. Esporta il lavoro. Mantieni il controllo di ciò che crei.',
+      'Note, materiali e appunti di studio risiedono sul tuo dispositivo. Esporta il lavoro. Mantieni il controllo di ciò che crei.',
     aiTitle: 'AI con il tuo piano ChatGPT.',
     aiBody:
       'Le attività AI usano il tuo piano ChatGPT e inviano il materiale necessario tramite quella connessione.',
@@ -459,32 +465,43 @@ const italian: Copy = {
   docsOnThisPage: 'In questa pagina',
   docsStepDetails: 'Istruzioni e dettagli',
   docsNavigation: {
-    lead: 'Raccogli appunti e fonti nelle note, trasformali in pagine e poi esercitati su ciò che hai imparato. Segui il percorso o apri la guida che ti serve.',
+    lead: 'Scrivi note, carica i file in Materiali e genera appunti di studio o esercitazioni dalle fonti che scegli. Segui il percorso o apri la guida che ti serve.',
     sections: {
       start: 'Per iniziare',
       capture: 'Raccogliere il materiale',
-      pages: 'Creare pagine',
+      pages: 'Appunti di studio',
       practice: 'Esercitarsi',
       reference: 'Consultazione'
     },
     descriptions: {
       start: 'Installa Study e porta la prima nota fino alle esercitazioni.',
       capture: 'Raccogli appunti e fonti, fai domande e controlla i passaggi citati.',
-      pages: 'Trasforma le note salvate in pagine e rivedi gli appunti di studio.',
-      practice: 'Genera esercizi e flashcard dalle pagine che scegli.',
+      pages: 'Genera appunti di studio in Esercitazioni e rivedili nell’editor.',
+      practice: 'Genera esercizi e flashcard dalle fonti che scegli.',
       reference:
         'Ritrova il lavoro, usa le scorciatoie e gestisci impostazioni, dati e attività in corso.'
     }
   },
   heroLead:
-    'Raccogli una nota. Trasformala in una pagina chiara. Crea flashcard ed esercizi da ciò che impari. Tutto a partire dal tuo materiale.',
+    'Scrivi note e salva i file originali in Materiali. Usa le tue fonti per generare appunti di studio, flashcard ed esercitazioni.',
   explore: 'Scopri come funziona',
-  previewLabels: {
-    page: 'Lettore di pagine, con appunti di esempio sulla mitosi.',
-    source: 'Lettore delle fonti, con due passaggi di una lezione di esempio sulla mitosi.',
-    quiz: 'Domanda di esercitazione sulla prometafase, con quattro possibili risposte.',
-    flashcards: 'Anteprima delle flashcard, con domanda e risposta sulla profase.',
-    caption: 'I componenti dell’app, con materiale di esempio. Anteprima statica.'
+  previewMetadata: {
+    page: {
+      title: 'Anteprima degli appunti di studio',
+      description: 'Leggi e modifica un esempio di appunti sulle membrane cellulari.'
+    },
+    source: {
+      title: 'Anteprima della fonte',
+      description: 'Leggi un passaggio di esempio sugli scambi attraverso la membrana cellulare.'
+    },
+    quiz: {
+      title: 'Anteprima del quiz',
+      description: 'Prova domande di biologia cellulare e rivedi il risultato.'
+    },
+    flashcards: {
+      title: 'Anteprima delle flashcard',
+      description: 'Mostra e valuta le risposte delle flashcard sulle membrane cellulari.'
+    }
   },
   workflow: {
     title: 'Gli appunti sono solo l’inizio.',
@@ -492,29 +509,29 @@ const italian: Copy = {
     lead: 'Dal primo pensiero in disordine alla domanda a cui sai finalmente rispondere. Un unico posto per tutto il percorso.',
     steps: [
       {
-        title: 'Raccogli tutto in una nota.',
-        body: 'Scrivi mentre pensi. Aggiungi file, registra una lezione e fai domande senza lasciare il tuo quaderno.',
+        title: 'Prendi nota nel quaderno.',
+        body: 'Scrivi in Note, carica i file in Materiali e fai domande sul tuo lavoro dal quaderno.',
         link: 'Porta il tuo materiale',
         target: 'docs/sources/'
       },
       {
-        title: 'Trasformalo in una pagina.',
-        body: 'Scegli gli appunti e le fonti che contano. Riuniscili in una pagina chiara, poi riassumi, approfondisci, traduci o migliora il testo.',
+        title: 'Genera appunti di studio.',
+        body: 'Scegli le fonti in Esercitazioni e indica cosa vuoi approfondire. Rivedi e modifica gli appunti di studio generati.',
         link: 'Guarda la trasformazione',
         target: '#workflow-page'
       },
       {
         title: 'Fallo diventare qualcosa che ricordi.',
-        body: 'Crea flashcard e quiz dalle tue note e dalle tue pagine. Passa dal leggere una spiegazione al ricordarla da solo.',
+        body: 'Crea flashcard e quiz da note, materiali e appunti di studio. Passa dal leggere una spiegazione al ricordarla da solo.',
         link: 'Prova gli strumenti',
         target: '#learn'
       }
     ],
     annotation: 'le stesse idee, un po’ più chiare',
     note: 'Nota · Biologia cellulare',
-    inputs: ['I miei appunti della lezione', 'slides-mitosis.pdf', 'Una domanda sulla profase'],
-    transform: 'Unisci e chiarisci',
-    page: 'Pagina',
+    inputs: ['I miei appunti della lezione', 'slides-mitosis.pdf', 'Riassunto della profase'],
+    transform: 'Genera appunti',
+    page: 'Appunti di studio',
     titleSample: 'Capire la mitosi',
     intro:
       'La mitosi separa i cromosomi duplicati in due nuclei figli. Il processo comprende quattro fasi principali.',
@@ -533,13 +550,13 @@ const italian: Copy = {
     items: [
       {
         title: 'Un quaderno per ogni nota',
-        body: 'Appunti, allegati, registrazioni e domande insieme. Modifica ciò che scrivi, miglioralo o torna a una versione precedente.',
-        detail: 'Scrivi · Registra · Chiedi'
+        body: 'Scrivi e modifica le note direttamente nel quaderno. Study salva automaticamente le modifiche.',
+        detail: 'Scrivi · Modifica · Chiedi'
       },
       {
-        title: 'Pagine che crescono con te',
-        body: 'Trasforma il materiale scelto da una nota in una pagina. Unisci pagine, chiarisci un passaggio, riassumi, approfondisci o traduci. Esporta in Markdown o HTML.',
-        detail: 'Trasforma · Unisci · Esporta'
+        title: 'Appunti di studio da rivedere',
+        body: 'Genera appunti di studio dalle tue fonti in Esercitazioni. Modifica i risultati, rileggi le versioni precedenti o archivia gli appunti che non usi più.',
+        detail: 'Genera · Modifica · Archivia'
       },
       {
         title: 'Risposte che ritrovano le fonti',
@@ -553,7 +570,7 @@ const italian: Copy = {
       },
       {
         title: 'Più modi per vedere un’idea',
-        body: 'Crea flashcard e quiz per ricordare. Genera materiale di studio dalle note, fonti e pagine che scegli.',
+        body: 'Crea flashcard e quiz per ricordare. Genera materiale di studio dalle note, dai materiali e dagli appunti di studio che scegli.',
         detail: 'Flashcard · Quiz'
       },
       {

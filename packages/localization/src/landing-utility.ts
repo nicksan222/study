@@ -8,7 +8,7 @@ const en = {
   material: [
     {
       title: 'Cell membranes & transport',
-      kind: 'Page',
+      kind: 'Study notes',
       body: 'The plasma membrane is selectively permeable. Diffusion follows a concentration gradient; active transport requires energy.'
     },
     {
@@ -18,7 +18,7 @@ const en = {
     },
     {
       title: 'Cellular respiration',
-      kind: 'Page',
+      kind: 'Study notes',
       body: 'Mitochondria produce most ATP during aerobic respiration. ATP supplies energy for cellular work.'
     }
   ],
@@ -34,17 +34,17 @@ const it: typeof en = {
   material: [
     {
       title: 'Membrane cellulari e trasporto',
-      kind: 'Pagina',
+      kind: 'Appunti di studio',
       body: 'La membrana plasmatica è selettivamente permeabile. La diffusione segue il gradiente di concentrazione; il trasporto attivo richiede energia.'
     },
     {
       title: 'Perché la pompa richiede ATP?',
-      kind: 'Appunto',
+      kind: 'Nota',
       body: 'La pompa sodio-potassio usa ATP per spostare sodio e potassio contro i rispettivi gradienti di concentrazione.'
     },
     {
       title: 'Respirazione cellulare',
-      kind: 'Pagina',
+      kind: 'Appunti di studio',
       body: 'I mitocondri producono gran parte dell’ATP durante la respirazione aerobica. L’ATP fornisce energia al lavoro cellulare.'
     }
   ],

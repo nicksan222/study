@@ -31,10 +31,8 @@ test.unit.beforeEach(({ vi }) => vi.resetAllMocks());
 
 function mount({
   rpcTestTransport,
-  render,
-  fireEvent,
-  screen
-}: Pick<test.unit.Context, 'rpcTestTransport' | 'render' | 'fireEvent' | 'screen'>) {
+  render
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>) {
   const fixture = rpcTestTransport(async (_tag, input) => {
     const renamed = await api.rename(input);
 
@@ -49,21 +47,21 @@ function mount({
   });
 
   render(<NoteTitleEdit id={id} title="Biology" />, { wrapper: fixture.wrapper });
-  fireEvent.click(screen.getByRole('button', { name: 'NoteRename' }));
 }
 
 test.unit.stable(
   'saves a trimmed title for the exact note and refreshes navigation',
   async ({ screen, expect, fireEvent, waitFor, rpcTestTransport, render }) => {
     api.rename.mockResolvedValue({ id, title: 'Cell division' });
-    mount({ rpcTestTransport, render, fireEvent, screen });
+    mount({ rpcTestTransport, render });
     const input = screen.getByRole('textbox', { name: 'NoteName' });
 
     expect(input).toHaveValue('Biology');
     fireEvent.change(input, { target: { value: '  Cell division  ' } });
-    fireEvent.submit(input.closest('form')!);
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(api.rename).toHaveBeenCalledExactlyOnceWith({ id, title: 'Cell division' });
+    fireEvent.blur(input);
+    await waitFor(() =>
+      expect(api.rename).toHaveBeenCalledExactlyOnceWith({ id, title: 'Cell division' })
+    );
   }
 );
 
@@ -71,25 +69,17 @@ test.unit.stable(
   'keeps a failed rename available to retry and rejects an empty title',
   async ({ screen, fireEvent, expect, rpcTestTransport, render }) => {
     api.rename.mockRejectedValue(new StudyError('transient', 'Offline'));
-    mount({ rpcTestTransport, render, fireEvent, screen });
+    mount({ rpcTestTransport, render });
     const input = screen.getByRole('textbox', { name: 'NoteName' });
 
     fireEvent.change(input, { target: { value: '   ' } });
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    fireEvent.blur(input);
+    expect(input).toHaveValue('Biology');
+    expect(api.rename).not.toHaveBeenCalled();
     fireEvent.change(input, { target: { value: 'My title' } });
-    fireEvent.submit(input.closest('form')!);
+    fireEvent.blur(input);
     await screen.findByText('NoteRequestError');
     expect(input).toHaveValue('My title');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-  }
-);
-
-test.unit.stable(
-  'cancels without saving',
-  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
-    mount({ rpcTestTransport, render, fireEvent, screen });
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(api.rename).not.toHaveBeenCalled();
+    expect(input).not.toHaveAttribute('readonly');
   }
 );

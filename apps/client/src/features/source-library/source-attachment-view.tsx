@@ -27,8 +27,6 @@ import { SourcePdfPreview } from './source-pdf-preview';
 
 type View = 'preview' | 'text' | 'details';
 
-type ReaderMode = 'materials' | 'note' | 'citation';
-
 type PreviewKind = NonNullable<ReturnType<typeof attachmentReaderKind>> | 'data' | 'markdown';
 
 type OriginalKind = Exclude<PreviewKind, 'data'>;
@@ -39,7 +37,7 @@ const encodeDigest = Schema.encodeSync(Schema.Uint8ArrayFromHex);
 
 type AttachmentProps = {
   source: Source;
-  mode: ReaderMode;
+
   extraction?: Extraction | null;
   job?: ExtractionJob;
   children: ReactNode;
@@ -51,17 +49,21 @@ export function isFileOnlyMaterial(source?: Source | null, extraction?: Extracti
   );
 }
 
-export function SourceAttachmentView({ pinned, ...props }: AttachmentProps & { pinned: boolean }) {
-  const { source, mode, children, extraction, job } = props;
+export function SourceAttachmentView({
+  pinned,
+  inMaterials,
+  ...props
+}: AttachmentProps & { pinned: boolean; inMaterials: boolean }) {
+  const { source, children, extraction, job } = props;
 
   if (pinned) return children;
 
-  if (mode === 'citation')
+  if (!inMaterials)
     return source.kind === 'pdf' ? <SourcePdfPreview sourceId={source.id} /> : children;
 
-  const preview = previewKind(source, mode);
+  const preview = previewKind(source);
 
-  if (mode === 'materials' && isFileOnlyMaterial(source, extraction))
+  if (isFileOnlyMaterial(source, extraction))
     return <AttachmentDetails source={source} job={job} />;
 
   return <AttachmentTabs key={String(source.id)} {...props} preview={preview} />;
@@ -69,16 +71,15 @@ export function SourceAttachmentView({ pinned, ...props }: AttachmentProps & { p
 
 function AttachmentTabs({
   source,
-  mode,
   extraction,
   job,
   children,
   preview
 }: AttachmentProps & { preview?: PreviewKind }) {
   const [selected, setSelected] = useState<View>();
-  const readExtractionFirst =
-    mode === 'materials' && prefersExtraction(source, preview, extraction);
-  const view = selected ?? (readExtractionFirst ? 'text' : defaultAttachmentView(preview, mode));
+  const view =
+    selected ??
+    (prefersExtraction(source, preview, extraction) ? 'text' : defaultAttachmentView(preview));
 
   return (
     <>
@@ -102,11 +103,10 @@ function AttachmentTabs({
   );
 }
 
-function previewKind(source: Source, mode: ReaderMode): PreviewKind | undefined {
-  if (mode === 'materials' && source.kind === 'text' && source.mime === 'text/markdown')
-    return 'markdown';
+function previewKind(source: Source): PreviewKind | undefined {
+  if (source.kind === 'text' && source.mime === 'text/markdown') return 'markdown';
 
-  if (mode === 'materials' && isDelimitedSource(source)) return 'data';
+  if (isDelimitedSource(source)) return 'data';
 
   return attachmentReaderKind(source.kind);
 }
@@ -119,12 +119,12 @@ function prefersExtraction(source: Source, preview?: PreviewKind, extraction?: E
   );
 }
 
-function defaultAttachmentView(preview: PreviewKind | undefined, mode: ReaderMode): View {
-  if (!preview) return mode === 'materials' ? 'details' : 'text';
+function defaultAttachmentView(preview: PreviewKind | undefined): View {
+  if (!preview) return 'details';
 
   if (preview === 'text') return 'text';
 
-  return preview === 'pdf' || mode === 'materials' ? 'preview' : 'text';
+  return 'preview';
 }
 
 function AttachmentViewSelector({

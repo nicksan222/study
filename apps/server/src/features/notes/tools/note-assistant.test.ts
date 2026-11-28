@@ -1,5 +1,5 @@
 import { createBlock } from '@study/contracts';
-import { ServerContext, Database, useStore } from '@study/server';
+import { ServerContext, Database, useStore, transaction } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies note tool isolation and versioned edits against real SQLite.              │
@@ -84,7 +84,9 @@ test.server.stable(
             projectId: null
           });
 
-          yield* sources.attachSource({ noteId: b.id, sourceId: source.id });
+          yield* transaction((tx) =>
+            Sources.attachInTransaction(tx, { noteId: b.id, sourceId: source.id })
+          );
           const tools = noteAssistantTools(a.id);
           const initial = yield* tools.read_note_context.execute({}, environment);
 
@@ -167,9 +169,17 @@ test.server.stable(
           expect((yield* docs.page({ id: otherPage.id })).version?.document).toEqual(
             otherPage.version!.document
           );
-          yield* sources.attachSource({ noteId: a.id, sourceId: source.id });
+          yield* transaction((tx) =>
+            Sources.attachInTransaction(tx, { noteId: a.id, sourceId: source.id })
+          );
           expect(yield* tools.read_note_source.execute({ id: source.id }, environment)).toBeNull();
-          yield* sources.detachSource({ noteId: a.id, sourceId: source.id });
+          yield* transaction((tx) =>
+            Sources.archiveNoteInTransaction(tx, {
+              noteId: a.id,
+              sourceId: source.id,
+              archivedAt: 1n
+            })
+          );
           expect(
             (yield* Effect.flip(tools.read_note_source.execute({ id: source.id }, environment)))
               .kind

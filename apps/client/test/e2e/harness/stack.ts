@@ -70,8 +70,7 @@ export async function openWebStack(
       if (!options.useDefaultNoteAppearance) {
         yield* client['settings.saveAppearancePreferences']({
           ...defaultAppearancePreferences,
-          noteWidth: 'comfortable',
-          showNoteComposer: false
+          noteWidth: 'comfortable'
         });
       }
     })

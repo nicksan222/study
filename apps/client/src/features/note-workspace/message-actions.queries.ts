@@ -8,7 +8,6 @@ import { useContext, useRef } from 'react';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { composerDraft } from './composer.queries';
 import { useMessageConversion } from './conversion.queries';
 import type { EditPosition } from './edit-position';
 import {
@@ -215,7 +214,7 @@ export function useMessageActions({
         targetVersionId: String(attempt.versionId),
         targetText: draft.targetText
       }),
-      preferences: cache.get(composerDraft(message.noteId))?.preferences ?? { language: locale }
+      preferences: { language: locale }
     };
   }
 

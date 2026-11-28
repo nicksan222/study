@@ -204,7 +204,7 @@ function useShellRoute() {
   } = match?.staticData ?? {};
   const fromUploads = useSearch({
     from: '__root__',
-    select: (search) => search.fromUploads && search.project
+    select: (search) => search.fromUploads === '1'
   });
   const materialReader = title === 'AnswerSources' && fromUploads;
   const metadata = materialReader
@@ -239,7 +239,7 @@ function ShellContent() {
           data-phone-navigation={navigation.phone}
           data-phone-library={navigation.phone && navigation.library}
           collapsed={navigation.collapsed}
-          defaultWidth={288}
+          defaultWidth={280}
           minWidth={224}
           minContentWidth={360}
           storageKey="study-sidebar-width"

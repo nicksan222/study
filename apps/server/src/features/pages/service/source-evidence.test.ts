@@ -16,7 +16,7 @@ import { PagesRpc } from '@study/contracts';
 import { createBlock, correctBlockText } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { ServerContext, Database, decodeEvent } from '@study/server';
+import { ServerContext, Database, decodeEvent, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -132,7 +132,9 @@ test.server.stable(
             );
             const note = yield* rpc['notes.createNote']({ title: 'Historic source' });
 
-            yield* sources.attachSource({ noteId: note.id, sourceId: source.id });
+            yield* transaction((tx) =>
+              Sources.attachInTransaction(tx, { noteId: note.id, sourceId: source.id })
+            );
             const range = { blockId: block.id, start: 1, end: 3 };
 
             yield* rpc['notes.updateNoteSelection']({

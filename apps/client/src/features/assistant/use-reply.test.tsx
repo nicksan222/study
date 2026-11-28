@@ -104,7 +104,7 @@ test.unit.stable(
     });
     await mountAssistant();
     expect(await screen.findByText(/Connect a provider under Settings/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
   }
 );

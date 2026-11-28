@@ -1,7 +1,7 @@
 ---
 title: Flashcards
-headline: Turn your pages into flashcards.
-description: Generate cards from selected pages, reveal the answers and rate your recall.
+headline: Turn your study material into flashcards.
+description: Generate cards from selected sources, reveal the answers and rate your recall.
 section: practice
 order: 2
 stage:
@@ -10,20 +10,20 @@ stage:
 
 import DocStep from '../../../components/DocStep.astro';
 
-Flashcards give the ideas in your [pages](../pages/) another form: a prompt to recall, then an answer to check.
+Flashcards help you recall ideas from your notes, materials and [study notes](../pages/).
 
 <DocStep number={1} example="flashcards">
 <header slot="intro">
 
 ## Create a set
 
-Choose your pages and create cards for the material you want to remember.
+Choose the material you want to remember.
 
 </header>
 
-Open **Practice**, choose **Generate practice**, and select flashcards. Choose up to 20 source pages and add an optional focus. Generation runs through your ChatGPT connection and saves the resulting set.
+Open **Practice**, choose **Generate practice**, and select **Flashcards**. Under **Sources**, choose up to 20 inputs and add an optional focus. Generation runs through your ChatGPT connection and saves the resulting set.
 
-You can create several sets with different source selections or instructions. The set is based on the page versions chosen at generation time.
+You can create several sets with different source selections or instructions. The set uses the source content selected at generation time.
 
 </DocStep>
 
@@ -47,11 +47,11 @@ When reviewing within a subject, Study loads the cards due for that set. When no
 
 ## Keep the material useful
 
-Review the source pages when a card needs more context.
+Revisit the source material when a card needs more context.
 
 </header>
 
-Check the linked source pages if a card is unclear. Revise the page and generate a new set when you want your changes reflected in the cards. Archive sets you no longer use; the archive lets you preview and restore them.
+Revise the source material and generate a new set when you want your changes reflected in the cards. Archive sets you no longer use; the archive lets you preview and restore them.
 
 For applying the same ideas in questions, try [practice exercises](../practice/).
 

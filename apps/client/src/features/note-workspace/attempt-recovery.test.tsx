@@ -8,21 +8,13 @@ import type { ReactNode } from 'react';
 
 let useAiReadiness: typeof __MockType0.useAiReadiness;
 
-let Composer: typeof __MockType1.Composer;
-
-let composerDraft: typeof __MockType2.composerDraft;
-
 import type * as __MockType0 from '#client/lib/ai-readiness.ts';
 
-import type * as __MockType1 from './composer';
-import type * as __MockType2 from './composer.queries';
 import type * as NoteQueries from './note-workspace.queries';
 import type * as __MockType3 from './note-workspace.queries';
 import type * as __MockType5 from './unavailable-attempt';
 
 let ask: typeof __MockType3.ask;
-
-let saveNote: typeof __MockType3.saveNote;
 
 let UnavailableAttempt: typeof __MockType5.UnavailableAttempt;
 
@@ -124,23 +116,15 @@ test.unit.beforeEach(async ({ mock }) => {
   }));
   mock('#client/features/note-workspace/note-workspace.queries', async (load) => ({
     ...(await load<typeof NoteQueries>()),
-    ask: mock.fn(),
-    saveNote: mock.fn()
+    ask: mock.fn()
   }));
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
   const __mockModule0 = await import('#client/lib/ai-readiness.ts');
 
   useAiReadiness = __mockModule0.useAiReadiness;
-  const __mockModule1 = await import('./composer');
-
-  Composer = __mockModule1.Composer;
-  const __mockModule2 = await import('./composer.queries');
-
-  composerDraft = __mockModule2.composerDraft;
   const __mockModule3 = await import('./note-workspace.queries');
 
   ask = __mockModule3.ask;
-  saveNote = __mockModule3.saveNote;
 
   const __mockModule5 = await import('./unavailable-attempt');
 
@@ -198,41 +182,6 @@ test.unit.stable.for(['selection', 'thread', 'runs'] as const)(
     );
     fireEvent.click(screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
     expect(abandon).toHaveBeenCalledTimes(1);
-    expect(ask).not.toHaveBeenCalled();
-  }
-);
-
-test.unit.stable(
-  'abandons a retained unavailable Ask after review and resumes plain capture',
-  async ({ vi, fireEvent, screen, act, expect, waitFor, render, rpcTestTransport }) => {
-    vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
-    const first = mount({ render, rpcTestTransport }, <Composer id={id} />);
-
-    act(() =>
-      first.client.set(composerDraft(id), {
-        text: 'Later draft',
-        instruction: '',
-        askUnavailable: true,
-        askAttempt: {
-          noteId: id,
-          intentKey: 'retired-ask',
-          expectedSelectionRevision: 8n,
-          text: 'Original question'
-        }
-      })
-    );
-    await screen.findByRole('button', { name: 'NoteReviewUnavailableAttempt' });
-    first.unmount();
-    mount({ render, rpcTestTransport }, <Composer id={id} />, first.client);
-    expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'NoteRetryAsk' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteAbandonAttempt' }));
-    expect(screen.getByRole('textbox')).toHaveValue('Later draft');
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Later draft'));
     expect(ask).not.toHaveBeenCalled();
   }
 );

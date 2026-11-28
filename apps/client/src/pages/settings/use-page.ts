@@ -6,13 +6,13 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 
 import { applyAppearance } from '#client/lib/appearance.ts';
+import type { loadAppearance } from '#client/lib/study-client/appearance.ts';
 
-import type { AppearanceData } from './appearance.queries';
 import { useAppSettingsPatch } from './general/app-settings';
 import type { SettingsSectionId } from './page.view';
 
 export interface AppearanceModel {
-  data?: AppearanceData;
+  data?: Awaited<ReturnType<typeof loadAppearance>>;
   loading: boolean;
   error: boolean;
   pending: boolean;

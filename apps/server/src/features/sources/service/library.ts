@@ -79,13 +79,6 @@ export function* sourceLibraryOperations() {
           tx.store(CurrentExtractionStore).findCurrentExtraction({ id: v.sourceId })
         );
       }),
-    attachSource: (v: typeof sourceLinkSchema.Type) =>
-      transaction((tx) => {
-        tx.store(SourceStore).source(v.sourceId);
-        tx.store(NoteSourcesStore).attachSource(v);
-      }),
-    detachSource: (v: typeof sourceLinkSchema.Type) =>
-      transaction((tx) => tx.store(NoteSourcesStore).detachSource(v)),
     sourceSnapshot: snapshots.sourceSnapshot,
     sourceDocument: documents.sourceDocument,
     document: historical.document,

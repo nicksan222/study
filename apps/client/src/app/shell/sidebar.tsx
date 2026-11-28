@@ -5,8 +5,7 @@ import { LibraryList } from '#client/features/library/index.ts';
 import { PagesSidebar } from '#client/features/pages/index.ts';
 import { PracticeSidebarGenerations } from '#client/features/practice/index.ts';
 import { UploadedMaterialsSidebar } from '#client/features/source-library/index.ts';
-import type { SidebarContent } from '#client/lib/navigation/sidebar-config.ts';
-import { sidebarContent } from '#client/lib/navigation/sidebar-config.ts';
+import type { Section } from '#client/lib/navigation/route-contract.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { useSidebarCounts } from './sidebar-counts.queries';
@@ -17,14 +16,14 @@ import type { SidebarProps, SidebarModel } from './use-sidebar';
 type PanelProps = { model: SidebarModel; ready: boolean };
 
 /** Each section owns its data and rendering; the shell only selects its registered panel. */
-const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
-  workspace: null,
+const panels: Record<Section, ComponentType<PanelProps> | null> = {
+  notes: null,
   assistant: null,
   uploads: ({ model, ready }) =>
-    ready && model.project ? (
+    ready ? (
       <UploadedMaterialsSidebar
         key={String(model.project)}
-        project={model.project}
+        project={model.project ?? null}
         query={model.query}
         onReselect={model.onToggle}
       />
@@ -40,7 +39,7 @@ export function Sidebar({
   const model = useSidebar(props);
   const { sidebarCompactNavigation } = useWorkspacePreferences();
   const { noteId } = useParams({ strict: false });
-  const Panel = panels[sidebarContent(model.metadata)];
+  const Panel = panels[model.section];
   const ready =
     model.canSearch &&
     model.subjectState === 'ready' &&
@@ -48,8 +47,6 @@ export function Sidebar({
 
   const counts = useSidebarCounts({
     project: model.project,
-    subjects: model.subjects,
-    notes: model.notes,
     notesReady: model.noteState === 'ready',
     ready
   });

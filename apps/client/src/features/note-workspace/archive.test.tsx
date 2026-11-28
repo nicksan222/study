@@ -90,11 +90,17 @@ function setup(
 test.unit.stable(
   'previews archived content read-only and restores the note membership',
   async ({ fireEvent, screen, expect, waitFor, vi, rpcHandlersTransport, render }) => {
-    const rpc = setup({ vi, rpcHandlersTransport });
+    const archivedFile = Schema.decodeUnknownSync(archivedNoteItemSchema)({
+      target: { kind: 'source', id: 21n },
+      name: 'Old attachment.pdf',
+      archivedAt: 1n
+    });
+    const rpc = setup({ vi, rpcHandlersTransport }, [item, archivedFile]);
 
     mount({ render });
     fireEvent.click(await screen.findByRole('button', { name: 'Physics' }));
     expect(await screen.findByText('Archived physics content')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Old attachment.pdf' })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();

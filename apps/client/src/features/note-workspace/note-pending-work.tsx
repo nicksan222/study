@@ -40,7 +40,8 @@ export function NotePendingWork({ id }: { id: NoteId }) {
     isFetchingNextPage: query.isFetching,
     fetchNextPage: () => setBefore(query.data?.next ?? undefined)
   };
-  const items = [...new Map(state.data?.items.map((item) => [item.execution.id, item])).values()];
+  const visible = state.data?.items.filter((item) => item.kind !== 'attachment');
+  const items = [...new Map(visible?.map((item) => [item.execution.id, item])).values()];
   const refresh = async () => {
     try {
       await rpc.notes.noteWork.read({ noteId: id, limit: 20 });

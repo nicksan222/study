@@ -19,7 +19,12 @@ function Loading({ label, layout = 'inline', className, ...props }: LoadingProps
       data-layout={layout}
       className={cn('study-loading', className)}
     >
-      <Spinner label={label} size="md" aria-hidden="true" role="presentation" />
+      <Spinner
+        label={label}
+        size={layout === 'panel' ? 'xs' : 'md'}
+        aria-hidden="true"
+        role="presentation"
+      />
       <span>{label}</span>
     </span>
   );

@@ -1,4 +1,9 @@
-import { StudyError, noteSchema, defaultWorkspacePreferences } from '@study/contracts';
+import {
+  StudyError,
+  noteIdSchema,
+  noteSchema,
+  defaultWorkspacePreferences
+} from '@study/contracts';
 import { test } from '@study/testing';
 import { WorkspaceCard } from '@study/ui';
 import {
@@ -15,6 +20,7 @@ import { AtomRegistry } from 'effect/reactivity';
 
 import type * as __MockType0 from '#client/app/shell/sidebar-note-drafts.tsx';
 
+import type { starterTransfer as starterTransferAtom } from './body-autosave.queries';
 import type * as __MockType1 from './start';
 import type * as __MockType2 from './start-drafts.queries';
 
@@ -28,7 +34,11 @@ let startDraft: typeof __MockType2.startDraft;
 
 let startDrafts: typeof __MockType2.startDrafts;
 
+let starterTransfer: typeof starterTransferAtom;
+
 let api: ReturnType<typeof createMockState>['api'];
+
+const id = Schema.decodeUnknownSync(noteIdSchema)(10n);
 
 const clients: AtomRegistry.AtomRegistry[] = [];
 
@@ -107,8 +117,22 @@ test.unit.beforeEach(async ({ mock }) => {
   api = __mockState.api;
 
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-  mock('#client/features/note-workspace/workspace-context', () => ({
-    WorkspaceContext: () => null
+  mock('#client/features/note-workspace/note-editor', () => ({
+    NoteEditor: ({
+      label,
+      value,
+      onChange
+    }: {
+      label: string;
+      value: string;
+      onChange: (text: string) => void;
+    }) => (
+      <textarea
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      />
+    )
   }));
   const __mockModule0 = await import('#client/app/shell/sidebar-note-drafts.tsx');
 
@@ -121,6 +145,7 @@ test.unit.beforeEach(async ({ mock }) => {
   startDraftKey = __mockModule2.startDraftKey;
   startDraft = __mockModule2.startDraft;
   startDrafts = __mockModule2.startDrafts;
+  ({ starterTransfer } = await import('./body-autosave.queries'));
 });
 
 test.unit.beforeEach(({ vi }) => vi.resetAllMocks());
@@ -130,7 +155,7 @@ test.unit.afterEach(({ cleanup }) => {
 });
 
 test.unit.stable(
-  'opening, typing and switching subjects only cache drafts until first send',
+  'switching subjects before the idle save preserves independent drafts',
   async ({ screen, fireEvent, act, expect, waitFor, rpcHandlersTransport, render }) => {
     const { cache, router } = mount({ rpcHandlersTransport, render });
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
@@ -151,17 +176,13 @@ test.unit.stable(
     );
     expect(cache.get(startDrafts)).toEqual(['2', '1']);
     expect(api.create).not.toHaveBeenCalled();
-    fireEvent.click(screen.getAllByRole('button', { name: 'SidebarDismissDraft' })[1]!);
-    await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('')
-    );
-    expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('Math draft');
     expect(cache.get(startDraft(startDraftKey('2')))).toBe('History draft');
   }
 );
 
 test.unit.stable(
-  'first send creates once, consumes its draft, and preserves later typing',
+  'idle autosave creates once and hands later typing to the saved notebook',
   async ({ screen, fireEvent, waitFor, expect, act, rpcHandlersTransport, render }) => {
     let resolve!: (value: unknown) => void;
 
@@ -175,19 +196,17 @@ test.unit.stable(
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Lecture notes' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
     await waitFor(() =>
       expect(api.create).toHaveBeenCalledExactlyOnceWith(1n, {
+        notebookBody: true,
         text: 'Lecture notes'
       })
     );
-    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
     fireEvent.change(input, { target: { value: 'Newer notes' } });
     await act(async () =>
       resolve(
         Schema.decodeUnknownSync(noteSchema)({
-          id: 10n,
+          id,
           title: 'Lecture',
           titleSource: 'user',
           archivedAt: null,
@@ -199,22 +218,24 @@ test.unit.stable(
     );
     await screen.findByText('Saved note');
     expect(api.create).toHaveBeenCalledTimes(1);
-    expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
-    expect(cache.get(startDrafts)).toEqual(['1']);
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
+    expect(cache.get(startDrafts)).toEqual([]);
+    expect(cache.get(starterTransfer(id))).toMatchObject({
+      submitted: 'Lecture notes',
+      text: 'Newer notes'
+    });
   }
 );
 
 test.unit.stable(
   'lost creation receipts retain the draft and prevent duplicate creation across remount',
-  async ({ fireEvent, screen, waitFor, expect, act, rpcHandlersTransport, render }) => {
+  async ({ fireEvent, screen, expect, act, rpcHandlersTransport, render }) => {
     api.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
     const { router } = mount({ rpcHandlersTransport, render });
 
     fireEvent.change(await screen.findByRole('textbox', { name: 'NoteCompose' }), {
       target: { value: 'Keep my note' }
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
     await screen.findByText('NoteCreationUncertain');
     await act(async () => {
       await router.navigate({ to: '/pages', search: { project: '1' } });
@@ -223,25 +244,17 @@ test.unit.stable(
       await router.navigate({ to: '/notes', search: { project: '1' } });
     });
     expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toHaveValue('Keep my note');
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'SidebarDismissDraft' })).toBeDisabled();
     expect(api.create).toHaveBeenCalledTimes(1);
   }
 );
 
 test.unit.stable(
-  'keeps the phone starter focused on capture until its context is requested',
-  async ({ vi, expect, screen, userEvent, rpcHandlersTransport, render }) => {
-    const media = window.matchMedia('(max-width: 600px)');
-
-    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true });
+  'opens the starter with a writing page and without attachment actions',
+  async ({ expect, screen, rpcHandlersTransport, render }) => {
     mount({ rpcHandlersTransport, render });
-    const toggle = await screen.findByRole('button', { name: 'NoteActions' });
 
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await userEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await userEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'NoteActions' })).toBeNull();
   }
 );

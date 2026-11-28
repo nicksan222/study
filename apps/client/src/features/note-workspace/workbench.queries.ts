@@ -1,6 +1,6 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { defaultAppearancePreferences } from '@study/contracts';
-import type { NoteId, PageId, SourceId } from '@study/contracts';
+import type { NoteId, PageId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';
@@ -10,22 +10,16 @@ import { useWorkspacePreferences } from '#client/lib/study-client/workspace-pref
 import { useThreadPage } from './note-reads';
 import { pageIdentity } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
-import { usePhoneLayout } from './use-phone-layout';
 
 export type WorkbenchTarget =
   | { kind: 'assistant' }
   | PageTarget
-  | { kind: 'page'; pageId: PageId; title: string }
-  | { kind: 'source'; sourceId: SourceId; title: string };
+  | { kind: 'page'; pageId: PageId; title: string };
 
 export function workbenchIdentity(target: WorkbenchTarget) {
   if (target.kind === 'assistant') return 'assistant';
 
-  return target.kind === 'page'
-    ? `page:${target.pageId}`
-    : target.kind === 'source'
-      ? `source:${target.sourceId}`
-      : pageIdentity(target);
+  return target.kind === 'page' ? `page:${target.pageId}` : pageIdentity(target);
 }
 
 type Workbench = {
@@ -48,7 +42,6 @@ export function useWorkbench(id: NoteId) {
   const preferences = useWorkspacePreferences();
   const appearance =
     rpc.settings.appearancePreferences.useQuery({}).data ?? defaultAppearancePreferences;
-  const phone = usePhoneLayout();
   const atom = workbenchState(id);
   const model = useAtomValue(atom);
   const thread = useThreadPage(id);
@@ -88,7 +81,7 @@ export function useWorkbench(id: NoteId) {
   }
 
   const tabs = model.tabs.map((tab) => {
-    if (tab.kind === 'assistant' || tab.kind === 'page' || tab.kind === 'source') return tab;
+    if (tab.kind === 'assistant' || tab.kind === 'page') return tab;
 
     const message = messages.find(
       (item) => (item.captureKey ?? String(item.id)) === workbenchIdentity(tab)
@@ -103,12 +96,12 @@ export function useWorkbench(id: NoteId) {
     expanded: model.expanded ?? preferences.expandPages,
     tabs,
     dock: model.dock ?? appearance.noteEditorDock,
-    cardVisible: !model.visible && !(model.cardHidden ?? phone),
+    cardVisible: !model.visible && !(model.cardHidden ?? true),
     toggleCard: () =>
       update((value) => ({
         ...value,
         visible: false,
-        cardHidden: value.visible ? false : !(value.cardHidden ?? phone)
+        cardHidden: value.visible ? false : !(value.cardHidden ?? true)
       })),
     hideCard: () => update((value) => ({ ...value, cardHidden: true })),
     showEditor: (dock: 'side' | 'bottom') =>

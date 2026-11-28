@@ -4,10 +4,10 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.25rem 0.5rem;
-  padding-block: 0.125rem 0.5rem;
+  padding-block: 0.75rem 0;
   color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
-  line-height: 1.5;
+  line-height: 1.25rem;
 }
 
 [data-materials-reader] .material-extraction-summary > p {

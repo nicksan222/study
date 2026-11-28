@@ -11,9 +11,9 @@ const { lang, feature } = Astro.props;
 
 const example: DocExample = feature === 'source' ? 'sources' : feature;
 
-const s = t(lang);
+const { title, description } = t(lang).previewMetadata[feature];
 ---
-<Base lang={lang} title={s.workflow.titleSample} description={s.home.lead} path={`previews/${feature}/`} immersive>
+<Base lang={lang} title={title} description={description} path={`previews/${feature}/`} immersive>
   <meta slot="head" name="robots" content="noindex" />
   <main id="main" class="preview-frame"><DocView lang={lang} example={example} /></main>
 </Base>

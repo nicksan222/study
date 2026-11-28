@@ -1,0 +1,125 @@
+.writing-surface {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, var(--desk-content-width, 57rem));
+  min-height: var(--notebook-viewport-height, calc(100dvh - var(--workspace-topbar-height)));
+  margin-inline: auto;
+  padding: clamp(1.75rem, 6cqi, 3rem) clamp(1rem, 4cqi, 2rem) 0;
+}
+
+.writing-surface-heading {
+  min-width: 0;
+  font-size: clamp(1.875rem, 5.5cqi, 2.75rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.writing-surface-title {
+  display: grid;
+}
+
+.writing-surface-title > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.writing-surface-title > span {
+  visibility: hidden;
+}
+
+.writing-surface-title textarea {
+  align-self: stretch;
+  display: block;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  resize: none;
+  overflow: hidden;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.writing-surface-title textarea:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.writing-surface .rich-note-editor {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.writing-surface .rich-note-ribbon[data-minimal] {
+  min-height: 3.5rem;
+  margin-block-end: 1.25rem;
+  border-color: var(--ui-divider-border);
+}
+
+.writing-surface .rich-note-toolbar-end {
+  margin-inline-start: auto;
+  padding-inline: 0;
+}
+
+.writing-surface .rich-note-content,
+.writing-surface .rich-note-content .tiptap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  max-width: none;
+  cursor: text;
+}
+
+.writing-surface .rich-note-content .tiptap {
+  display: block;
+  padding-block-end: 2rem;
+}
+
+.writing-surface .rich-note-content h2 {
+  font-size: 1.765em;
+  line-height: 1.27;
+  margin-block: 1.75rem 0.5rem;
+}
+
+.writing-surface .rich-note-content h3 {
+  font-size: 1.235em;
+  line-height: 1.33;
+  margin-block: 1rem 0.375rem;
+}
+
+.writing-surface .rich-note-content blockquote {
+  border-inline-start-width: 2px;
+  padding-block: 0.125rem;
+}
+
+.writing-surface .rich-note-content :is(td, th) {
+  padding: 0.75rem;
+  font-size: 0.94em;
+}
+
+.writing-surface .rich-note-content th {
+  background: var(--card);
+}
+
+.writing-surface-status {
+  position: sticky;
+  bottom: 0;
+  align-self: end;
+  max-width: 100%;
+  padding-block-end: 1rem;
+  color: var(--contrast-muted-foreground);
+  background: var(--background);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}

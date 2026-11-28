@@ -20,15 +20,17 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 - `bun run check` includes Rust formatting, Clippy, dependencies, tests/doctests/docs, repository-wide Vite+ format/lint, frontend
   type/tests/build, generated database drift, tooling tests, server checks, and the
   landing Bun check. CI runs equivalent gates; `Test and build` is the required aggregate.
-- The Rust browser bridge and its E2E/capture runners are retired. Use package tests for
-  available behavior; do not claim full application parity during server integration.
+- Run `bun run web:e2e` in the devcontainer for the Playwright browser journeys. They use
+  the built client with isolated SQLite and Effect RPC. Use the Desktop E2E workflow for
+  native WebView coverage.
 - Use local web in the browser for roughly 99% of app work. Check localhost:5173 first;
   only start `bun dev` if Study is not already working locally. Reuse running servers.
   Forward port 5173 without opening tabs. Reserve `bun run run` and native desktop helpers
   for Tauri-specific behavior. noVNC starts only through explicit `bun run desktop-attach`;
   forward port 5900 manually when needed. Never stop another agent's server or desktop
   without coordination.
-- Existing website captures are committed assets. Capture generation is unavailable.
+- Keep the committed website captures. The Playwright visual-reference workflow in
+  `.github/CONTRIBUTING.md` covers browser journey screenshots.
 - Release uses Tauri bundling and tauri-action on native Linux/macOS/Windows runners.
   `apps/desktop/src-tauri/tauri.conf.json` owns packaging; `createUpdaterArtifacts` produces
   signed updater assets. Platform jobs retain isolated artifacts; `tooling/scripts/release` verifies
@@ -38,7 +40,8 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   publisher clears the draft only after validation. Secrets are
   `TAURI_SIGNING_PRIVATE_KEY`, optional password, and Apple signing/notarization credentials;
   `STUDY_UPDATE_PUBLIC_KEY` is public configuration. Never bake secrets into the image.
-- Preserve the mounted host Claude/Codex/GitHub credentials and Herdr setup. `.devcontainer/
-  post-create.py` configures those logins at runtime; `.agents/team` remains one project-wide
-  team. Claude skills link to `.agents/skills`; `CLAUDE.md` imports `AGENTS.md`.
+- Preserve the mounted host Claude/Codex/GitHub credentials and Herdr setup.
+  `tooling/scripts/devcontainer/post-create.py` configures those logins at runtime.
+  `.agents/team` remains one project-wide team. Claude skills link to `.agents/skills`
+  and `CLAUDE.md` imports `AGENTS.md`.
 - Update .github/CONTRIBUTING.md whenever build, run, check or release steps change.

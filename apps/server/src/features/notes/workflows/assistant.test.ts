@@ -229,10 +229,13 @@ test.server.stable(
       expect(new Set(agents)).toStrictEqual(new Set(['assistant']));
 
       for (const body of bodies) {
-        expect(JSON.parse(body).tools ?? []).toHaveLength(43);
+        const { tools } = JSON.parse(body);
 
-        for (const tool of JSON.parse(body).tools) expect(tool.parameters.type).toBe('object');
+        expect(tools).toHaveLength(42);
 
+        for (const tool of tools) expect(tool.parameters.type).toBe('object');
+
+        expect(body).not.toContain('update_sidebar_settings');
         expect(body).toContain('Use concrete examples.');
         expect(body).toContain('Available capabilities');
         expect(body).toContain('create_subject');

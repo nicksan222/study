@@ -1,7 +1,7 @@
 ---
-title: Pages
+title: Study notes
 headline: Give your material a clearer shape.
-description: Turn saved notes into readable material, revise it, and choose what feeds your practice.
+description: Generate study notes from your sources, revise them and use them in practice.
 section: pages
 order: 1
 stage:
@@ -10,20 +10,20 @@ stage:
 
 import DocStep from '../../../components/DocStep.astro';
 
-Pages connect the notes you capture with the material you practise. A page can start as a blank page or be created from one or more saved notes.
+In **Practice**, you can generate editable study notes from saved notes, materials and earlier study notes.
 
 <DocStep number={1} example="note">
 <header slot="intro">
 
 ## Create from your own material
 
-Choose notes or sources to create a page with a clear purpose.
+Choose the sources you want the study notes to cover.
 
 </header>
 
-In **Pages**, create a new page to write yourself, or choose **From notes**. Select the notes, then choose how to transform their saved notes and selected sources. Give the result a title and add any instructions.
+In **Practice**, open **Generate practice** and choose **Generate study notes**. Under **Sources**, select up to 20 inputs. You can give the result a title and add instructions before choosing **Generate**.
 
-You can ask for a clearer explanation, an organized summary or a combined account of several notes. The source selection matters: include the material you want the result to represent.
+Ask for a summary, an explanation or a synthesis of several sources.
 
 </DocStep>
 
@@ -32,40 +32,27 @@ You can ask for a clearer explanation, an organized summary or a combined accoun
 
 ## Read and revise
 
-Read, edit and keep the versions you want to return to.
+Review the result and keep track of your revisions.
 
 </header>
 
-Open a page to read its structured content. Use the page editor to make your own changes. Earlier versions remain available in the version controls; viewing an older version does not silently replace the current one. Use the explicit action to make an earlier version current when that is what you want.
+Open the result under **Saved study notes** in **Practice**. Edit the text directly. Study saves your changes automatically. Use the version controls to review earlier text and **Make current** to restore a version.
 
-Annotations attach to a particular passage. When you check evidence or return to an annotation, keep the selected version in mind: the same title can have several revisions.
+Check important claims against the sources you selected.
 
 </DocStep>
 
-<DocStep number={3} example="page">
+<DocStep number={3} example="quiz">
 <header slot="intro">
 
-## Combine pages
+## Practise from study notes
 
-Bring related pages together in one piece of study material.
+Use the study notes you reviewed to build your next practice set.
 
 </header>
 
-Select pages to merge them into one result. Give the new page a title and optional instructions. Check the resulting page before using it to study; the originals remain available if the merge fails.
+In **Practice**, choose **Generate practice**, select your study notes under **Sources**, then choose exercises or flashcards.
 
-</DocStep>
-
-<DocStep number={4} example="quiz">
-<header slot="intro">
-
-## Make practice from pages
-
-Choose your pages and use them to build a practice set.
-
-</header>
-
-Open [Practice](../practice/) and choose **Generate practice**. Select up to 20 pages, choose exercises or flashcards, and add a focus if you want one.
-
-Generation uses the selected page versions. If you later revise a page, create new practice when you want those changes reflected in the questions. Existing saved material is not a live view of every future edit.
+Generation uses the versions selected at the time. After editing the study notes, generate a new set to include your changes.
 
 </DocStep>

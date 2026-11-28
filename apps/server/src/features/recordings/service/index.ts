@@ -8,15 +8,7 @@ import { RecordingCopyStore } from '#server/features/recordings/store/copy';
 
 import { recordingOperations } from './recordings.ts';
 
-export const Recordings = defineService(
-  'study/Recordings',
-  function* () {
-    return {
-      ...(yield* recordingOperations())
-    };
-  },
-  {
-    copyNotesInTransaction: (tx: Transaction, input: typeof copyNoteContentSchema.Type) =>
-      tx.store(RecordingCopyStore).copy(input)
-  }
-);
+export const Recordings = defineService('study/Recordings', recordingOperations, {
+  copyNotesInTransaction: (tx: Transaction, input: typeof copyNoteContentSchema.Type) =>
+    tx.store(RecordingCopyStore).copy(input)
+});

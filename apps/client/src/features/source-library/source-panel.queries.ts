@@ -1,12 +1,5 @@
 import { RegistryContext, useAtom } from '@effect/atom-react';
-import type {
-  SourceId,
-  NoteId,
-  ContentSnapshotId,
-  sourceCopySchema,
-  Page,
-  Source
-} from '@study/contracts';
+import type { SourceId, ContentSnapshotId, sourceCopySchema, Page, Source } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';
@@ -94,13 +87,13 @@ type Input = typeof sourceCopySchema.Type;
 
 type CopyState = { pending: boolean; input?: Input; page?: Page; error?: unknown };
 
-const copies = Atom.family((_key: string) =>
+const copies = Atom.family((_id: SourceId) =>
   Atom.make<CopyState>({ pending: false }).pipe(Atom.keepAlive)
 );
 
 /** An immutable draft request survives reconnects until its receipt is acknowledged. */
-export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
-  const atom = copies(`${sourceId}:${noteId ?? ''}`);
+export function useSourceCopy(sourceId: SourceId) {
+  const atom = copies(sourceId);
   const registry = useContext(RegistryContext);
   const [state, setState] = useAtom(atom);
 
@@ -117,7 +110,6 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
 
     const input = current.input ?? {
       sourceId,
-      noteId,
       createKey: crypto.randomUUID(),
       title: extraction.name,
       revision: extraction.revision,

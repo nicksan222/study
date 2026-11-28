@@ -23,6 +23,7 @@ import { RpcTest } from 'effect/rpc';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
+import { PageProposalsStore, PagesStore } from '#server/features/pages/store/index';
 import { SourceStore } from '#server/features/sources/store/index';
 import { testLiveQueries } from '#testing/live-queries';
 
@@ -500,14 +501,15 @@ test.server.stable(
             instruction: 'Summarize',
             language: null
           };
-          const result = yield* transaction((tx) => Pages.publishInTransaction(tx, input));
+          const result = yield* transaction((tx) => tx.store(PagesStore).publishGenerated(input));
 
           assert.ok(result.outcome === 'saved');
           assert.ok(
-            (yield* transaction((tx) => Pages.publishInTransaction(tx, input))).replayed === true
+            (yield* transaction((tx) => tx.store(PagesStore).publishGenerated(input))).replayed ===
+              true
           );
           const conflict = yield* transaction((tx) =>
-            Pages.publishInTransaction(tx, {
+            tx.store(PagesStore).publishGenerated({
               ...input,
               requestId: 'generation-2',
               key: 'publication-2',
@@ -520,7 +522,7 @@ test.server.stable(
           assert.ok(
             (yield* Effect.flip(
               transaction((tx) =>
-                Pages.publishInTransaction(tx, { ...input, instruction: 'Different' })
+                tx.store(PagesStore).publishGenerated({ ...input, instruction: 'Different' })
               )
             )).kind === 'invalid_input'
           );
@@ -760,7 +762,7 @@ test.server.stable(
             instruction: 'Create an authored document',
             language: 'en'
           };
-          const a = yield* transaction((tx) => Pages.createGeneratedInTransaction(tx, request));
+          const a = yield* transaction((tx) => tx.store(PagesStore).createGenerated(request));
 
           assert.ok(a.version);
           assert.ok(a.version.creator === 'agent');
@@ -776,9 +778,7 @@ test.server.stable(
             key: 'later-edit',
             document: body('Later authored edit', a.version.document.blocks[0].id)
           });
-          const replay = yield* transaction((tx) =>
-            Pages.createGeneratedInTransaction(tx, request)
-          );
+          const replay = yield* transaction((tx) => tx.store(PagesStore).createGenerated(request));
 
           assert.strictEqual(replay.pageId, a.pageId);
           assert.strictEqual(replay.version.id, a.version.id);
@@ -786,7 +786,7 @@ test.server.stable(
           assert.ok(
             (yield* Effect.flip(
               transaction((tx) =>
-                Pages.createGeneratedInTransaction(tx, {
+                tx.store(PagesStore).createGenerated({
                   ...request,
                   instruction: 'Different intent'
                 })
@@ -847,14 +847,14 @@ test.server.stable(
             language: null
           };
           const proposed = yield* transaction((tx) =>
-            Pages.proposeGeneratedInTransaction(tx, proposalInput)
+            tx.store(PageProposalsStore).proposeGenerated(proposalInput)
           );
 
           assert.strictEqual(proposed.baseVersionId, base.id);
           assert.strictEqual((yield* docs.page({ id: created.id })).headVersionId, base.id);
           assert.ok((yield* docs.version({ id: proposed.proposedVersionId })).status === 'draft');
           expect(
-            yield* transaction((tx) => Pages.proposeGeneratedInTransaction(tx, proposalInput))
+            yield* transaction((tx) => tx.store(PageProposalsStore).proposeGenerated(proposalInput))
           ).toStrictEqual(proposed);
           const changed = yield* docs.save({
             pageId: created.id,
@@ -899,7 +899,7 @@ test.server.stable(
           );
           const target = yield* docs.create(creation('fresh-proposal-target'));
           const fresh = yield* transaction((tx) =>
-            Pages.proposeGeneratedInTransaction(tx, {
+            tx.store(PageProposalsStore).proposeGenerated({
               ...proposalInput,
               pageId: target.id,
               expectedVersionId: target.version!.id,
