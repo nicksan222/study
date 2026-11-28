@@ -25,7 +25,7 @@ export function QuizResultsView({
   presentation?: 'page' | 'preview';
   retry?: ReactNode;
 }) {
-  const { t, questionCount } = usePracticePresentation();
+  const { t, questionCount, reviewProgress } = usePracticePresentation();
   const [index, setIndex] = useState(0);
   const question = attempt.questions[index];
   const headingId = useId();
@@ -49,7 +49,7 @@ export function QuizResultsView({
             key={String(question.id)}
             question={question}
             index={index}
-            total={attempt.questions.length}
+            total={presentation === 'preview' ? attempt.questions.length : undefined}
           />
         )}
       </Practice.ResultContent>
@@ -60,7 +60,7 @@ export function QuizResultsView({
       <Practice.FooterContext>
         <PreviousButton
           variant={presentation === 'page' ? 'outline' : 'ghost'}
-          size={presentation === 'page' ? 'icon' : 'default'}
+          size={presentation === 'page' ? 'icon-sm' : 'default'}
           disabled={index === 0}
           onClick={() => setIndex((value) => value - 1)}
           label={
@@ -72,9 +72,12 @@ export function QuizResultsView({
           }
         ></PreviousButton>
         {presentation === 'page' && (
+          <Practice.MutedText>{reviewProgress(index + 1, attempt.questions.length)}</Practice.MutedText>
+        )}
+        {presentation === 'page' && (
           <NextButton
             variant="outline"
-            size="icon"
+            size="icon-sm"
             disabled={index >= attempt.questions.length - 1}
             onClick={() => setIndex((value) => value + 1)}
             label={<span className="sr-only">{t('PracticeNextQuestion')}</span>}
@@ -151,9 +154,10 @@ export function QuizQuestionReviewView({
 
   return (
     <Practice.Preview data-results="true">
-      {index !== undefined && total !== undefined && (
+      {index !== undefined && (
         <Practice.MutedText>
-          {questionNumber(index + 1)} · {reviewProgress(index + 1, total)}
+          {questionNumber(index + 1)}
+          {total !== undefined && ` · ${reviewProgress(index + 1, total)}`}
         </Practice.MutedText>
       )}
       <Practice.ReviewHeading>
@@ -309,7 +313,7 @@ function ResultAnswers({
               }
               status={
                 choice.isCorrect
-                  ? t('ReaderCorrectAnswer')
+                  ? t('RightAnswer')
                   : selected.includes(choice.id)
                     ? t('YourAnswer')
                     : undefined

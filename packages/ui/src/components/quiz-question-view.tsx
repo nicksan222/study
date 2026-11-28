@@ -533,7 +533,7 @@ function ChoiceAnswers({
             result &&
             'choices' in result &&
             result.choices.find((item) => item.id === choice.id)?.isCorrect
-              ? t('ReaderCorrectAnswer')
+              ? t('RightAnswer')
               : result && selected.includes(choice.id)
                 ? t('YourAnswer')
                 : undefined

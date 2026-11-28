@@ -1,4 +1,4 @@
-import { OpenIcon, MenuIcon } from '@study/icons';
+import { DescriptionIcon, OpenIcon } from '@study/icons';
 import {
   createContext,
   useContext,
@@ -82,7 +82,7 @@ function Toggle({
       aria-controls={context.id}
       onClick={() => (onOpenChange ?? context.setOpen)(!(open ?? context.open))}
     >
-      <MenuIcon aria-hidden="true" />
+      <DescriptionIcon aria-hidden="true" />
     </Button>
   );
 }

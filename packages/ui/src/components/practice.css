@@ -1237,6 +1237,9 @@
   margin-top: 1.75rem;
   padding-top: 1.5rem;
 }
+.study-practice-results[data-presentation='page'] .study-practice-explanation {
+  max-width: none;
+}
 .study-practice-preview[data-results='true'] .study-practice-explanation h3 {
   margin: 0;
   color: var(--foreground);
@@ -1357,8 +1360,13 @@
   position: absolute;
   right: 1rem;
 }
-.study-practice-choice > svg[data-feedback='true'] {
-  opacity: 0;
+.study-practice-choice > .study-practice-result-verdict {
+  flex-direction: row-reverse;
+  font-size: 0.8125rem;
+}
+.study-practice-choice > .study-practice-result-verdict svg {
+  width: 1.125rem;
+  height: 1.125rem;
 }
 .study-practice-question[data-reviewed='true']
   .study-practice-answers:disabled
@@ -1429,8 +1437,41 @@
   line-height: 2.125rem;
   letter-spacing: -0.02em;
 }
-.study-practice-stage-footer .study-practice-footer-context > button {
+.study-practice-question .study-practice-footer-context > button {
   min-height: 2.75rem;
+}
+.study-practice-active:has(> .study-practice-results[data-presentation='page'])
+  > .study-practice-progress-heading
+  > span:last-child {
+  display: none;
+}
+.study-practice-results[data-presentation='page'] .study-practice-results-heading {
+  align-items: flex-start;
+}
+.study-practice-results[data-presentation='page'] .study-practice-score > span {
+  line-height: 1.25rem;
+}
+.study-practice-results[data-presentation='page'] .study-practice-preview[data-results='true'] {
+  padding-top: 2rem;
+}
+.study-practice-results[data-presentation='page']
+  .study-practice-preview[data-results='true']
+  > .study-practice-muted {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.study-practice-results[data-presentation='page'] .study-practice-review-heading {
+  margin-block: 1.5rem 1.75rem;
+}
+.study-practice-results[data-presentation='page'] .study-practice-review-heading .study-practice-prompt {
+  font-size: 1.75rem;
+  line-height: 2.375rem;
+}
+.study-practice-results[data-presentation='page'] .study-practice-footer-context {
+  gap: 1rem;
+}
+.study-practice-results[data-presentation='page'] .study-practice-footer-context > .study-practice-muted {
+  font-size: 0.8125rem;
 }
 @container practice-stage (max-width: 32rem) {
   .study-practice-footer-context > .study-practice-muted {

@@ -58,8 +58,6 @@
 }
 .ui-onboarding-copy [data-slot='dialog-description'] {
   margin-top: 0.875rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
 }
 .ui-onboarding-progress {
   flex: 1 1 100%;
