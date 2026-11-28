@@ -34,7 +34,7 @@
     "ag-grid-community": "36.3.0",
     "ag-grid-react": "36.3.0",
     "class-variance-authority": "^0.7.1",
-    "dompurify": "3.4.11",
+    "dompurify": "3.4.17",
     "katex": "^0.16.47",
     "marked": "17.0.6",
     "tailwind-merge": "^3.7.0",

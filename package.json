@@ -117,6 +117,7 @@
     "vite-plus": "1.4.0"
   },
   "overrides": {
+    "@effect/platform-node-shared": "4.0.7",
     "effect": "4.0.7",
     "vite": "$vite",
     "vitest": "5.0.5"
